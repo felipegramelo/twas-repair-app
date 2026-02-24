@@ -35,6 +35,7 @@ export default function CreateTimesheetScreen() {
   // Modals
   const [soModalVisible, setSOModalVisible] = useState(false);
   const [employeeModalVisible, setEmployeeModalVisible] = useState(false);
+  const [employeePickerVisible, setEmployeePickerVisible] = useState(false);
   const [editingEntryIndex, setEditingEntryIndex] = useState<number | null>(null);
   
   // Entry form

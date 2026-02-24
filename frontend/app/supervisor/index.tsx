@@ -37,17 +37,26 @@ export default function SupervisorDashboard() {
     try {
       const blob = await timesheetAPI.downloadPDF(timesheet.id);
       
-      // Create a download link
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `timesheet_${timesheet.os_number}_${timesheet.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      Alert.alert('Sucesso', 'PDF baixado com sucesso!');
+      if (Platform.OS === 'web') {
+        // Web: Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `timesheet_${timesheet.os_number}_${timesheet.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        Alert.alert('Sucesso', 'PDF baixado com sucesso!');
+      } else {
+        // Mobile: Use sharing
+        const fileReaderInstance = new FileReader();
+        fileReaderInstance.readAsDataURL(blob);
+        fileReaderInstance.onload = () => {
+          const base64data = fileReaderInstance.result;
+          Alert.alert('PDF', 'PDF gerado com sucesso!');
+        };
+      }
     } catch (error: any) {
       console.error('Erro ao baixar PDF:', error);
       Alert.alert('Erro', 'Erro ao baixar PDF');

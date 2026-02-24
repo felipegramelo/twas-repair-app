@@ -5,8 +5,8 @@ Aplicativo de timesheet corporativo usando Expo para mobile, com geração de PD
 
 ## Requisitos
 - **Autenticação**: Admin e Supervisor com email corporativo (JWT)
-- **Admin**: Gerencia funcionários, ordens de serviço, supervisores. Visualiza todos os timesheets
-- **Supervisor**: Preenche timesheets da equipe, seleciona funcionários pré-cadastrados para OS específica
+- **Admin**: Gerencia funcionários, ordens de serviço, supervisores. Visualiza/exclui todos os timesheets
+- **Supervisor**: Preenche timesheets da equipe, seleciona funcionários pré-cadastrados para OS específica. Pode excluir seus timesheets
 - **PDF**: Layout exato do modelo fornecido, A4, uma página, com logo da empresa
 
 ## Modelos de Dados
@@ -29,10 +29,12 @@ Aplicativo de timesheet corporativo usando Expo para mobile, com geração de PD
 - [x] Dashboards por role (Admin e Supervisor)
 - [x] Geração de PDF com reportlab matching template
 - [x] PDF A4 em página única com todas as seções
-- [x] Download de PDF (web)
+- [x] Download de PDF (web) com anti-cache
 - [x] Edição de timesheet
-- [x] Legenda do PDF em formato tabela 6 colunas (PT/EN) - 24/02/2026
+- [x] Legenda do PDF: título "Legenda / Caption" + 6 colunas (PT/EN) - 24/02/2026
+- [x] Observações como título separado acima da caixa - 24/02/2026
 - [x] Rodapé com endereço da empresa na mesma página - 24/02/2026
+- [x] Botão de excluir timesheet (admin e supervisor) - 24/02/2026
 
 ## Backlog / Futuro
 - [ ] Refatorar server.py (extrair PDF para módulo separado)

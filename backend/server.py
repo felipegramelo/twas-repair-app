@@ -859,13 +859,14 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             elements.append(approval_table)
             elements.append(Spacer(1, 0.1*cm))
             
-            # Observations section
+            # Observations section - title inside the box
+            obs_content = ts.get("observations", "") or ""
+            obs_text = f"<b>Observações / Remarks:</b><br/>{obs_content}"
             obs_data = [
-                [Paragraph("<b>Observações / Remarks:</b>", styles['Normal'])],
-                [Paragraph(ts.get("observations", ""), styles['Normal']) if ts.get("observations") else ""]
+                [Paragraph(obs_text, ParagraphStyle('obs', parent=styles['Normal'], fontSize=9, leading=12))]
             ]
             
-            obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[0.4*cm, 2.5*cm])
+            obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[2.5*cm])
             obs_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),

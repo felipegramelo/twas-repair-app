@@ -7,13 +7,13 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { timesheetAPI } from '../../services/api';
 import { Timesheet } from '../../types';
-import * as Sharing from 'expo-sharing';
 
 export default function AdminTimesheetsScreen() {
   const router = useRouter();

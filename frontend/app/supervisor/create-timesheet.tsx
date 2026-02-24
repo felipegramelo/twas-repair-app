@@ -703,4 +703,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  employeeItemBadge: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  employeeItemBadgeText: {
+    color: '#1a237e',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  employeeItemInfo: {
+    flex: 1,
+  },
 });

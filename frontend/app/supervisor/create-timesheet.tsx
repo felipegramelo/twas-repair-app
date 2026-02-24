@@ -397,6 +397,63 @@ export default function CreateTimesheetScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Employee Picker Modal */}
+      <Modal
+        visible={employeePickerVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEmployeePickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Selecionar Funcionário</Text>
+            <ScrollView style={styles.modalList}>
+              {employees.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="people-outline" size={48} color="#ccc" />
+                  <Text style={styles.emptyText}>
+                    Nenhum funcionário cadastrado.{'\n'}
+                    Peça ao administrador para cadastrar funcionários.
+                  </Text>
+                </View>
+              ) : (
+                employees.map((emp) => (
+                  <TouchableOpacity
+                    key={emp.id}
+                    style={styles.modalItem}
+                    onPress={() => {
+                      setSelectedEmployee(emp);
+                      setEmployeePickerVisible(false);
+                    }}
+                  >
+                    <View style={styles.employeeItemBadge}>
+                      <Text style={styles.employeeItemBadgeText}>{emp.function}</Text>
+                    </View>
+                    <View style={styles.employeeItemInfo}>
+                      <Text style={styles.modalItemTitle}>{emp.name}</Text>
+                      <Text style={styles.modalItemSubtitle}>
+                        {emp.function === 'E' && 'Engenheiro / Engineer'}
+                        {emp.function === 'SE' && 'Especialista / Specialist'}
+                        {emp.function === 'T' && 'Técnico / Technician'}
+                        {emp.function === 'M' && 'Mecânico / Mechanic'}
+                        {emp.function === 'W' && 'Soldador / Welder'}
+                        {emp.function === 'TK' && 'Almoxarife / Tool Keeper'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setEmployeePickerVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

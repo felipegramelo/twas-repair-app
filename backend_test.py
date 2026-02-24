@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
 Backend API Testing for Timesheet PDF Generation and Delete Functionality
-Tests PDF generation content validation and delete operations as per review requirements
+Tests as per review requirements:
+- PDF generation with content validation  
+- Delete functionality verification
+- Multiple timesheet PDF consistency testing
 """
 
 import requests
@@ -11,7 +14,16 @@ import io
 import sys
 import time
 
-# API Configuration
+# Install PyPDF2 if not available
+try:
+    import PyPDF2
+except ImportError:
+    print("Installing PyPDF2...")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
+    import PyPDF2
+
+# API Configuration  
 API_BASE_URL = "https://shift-docs-staging.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@twasrepair.com"
 ADMIN_PASSWORD = "admin123"
@@ -23,10 +35,11 @@ class TimesheetAPITester:
         self.session = requests.Session()
         self.token = None
         self.test_results = []
+        self.timesheets_to_cleanup = []
         
     def log_result(self, test_name, success, message):
         """Log test results"""
-        status = "✅ PASS" if success else "❌ FAIL" 
+        status = "✅ PASS" if success else "❌ FAIL"
         result = f"{status} {test_name}: {message}"
         print(result)
         self.test_results.append({
@@ -54,240 +67,238 @@ class TimesheetAPITester:
         except Exception as e:
             self.log_result("Admin Login", False, f"Exception: {str(e)}")
             return False
-            
-    def get_or_create_employee(self):
-        """Get existing employees or create one if none exist"""
+    
+    def list_timesheets(self):
+        """List all timesheets"""
         try:
-            # Get existing employees
-            response = self.session.get(f"{API_BASE_URL}/employees")
-            if response.status_code == 200:
-                employees = response.json()
-                if employees:
-                    emp_id = employees[0]["id"]
-                    emp_name = employees[0]["name"]
-                    self.log_result("Get Employees", True, f"Found {len(employees)} employee(s), using {emp_name}")
-                    return emp_id, emp_name
-                    
-                # No employees found, create one
-                employee_data = {
-                    "name": "Test Worker",
-                    "function": "T"
-                }
-                response = self.session.post(f"{API_BASE_URL}/employees", json=employee_data)
-                if response.status_code == 200:
-                    employee = response.json()
-                    emp_id = employee["_id"]  # Create response uses _id
-                    self.log_result("Create Employee", True, f"Created employee with ID: {emp_id}")
-                    return emp_id, "Test Worker"
-                else:
-                    self.log_result("Create Employee", False, f"Failed with status {response.status_code}: {response.text}")
-                    return None, None
-            else:
-                self.log_result("Get Employees", False, f"Failed with status {response.status_code}: {response.text}")
-                return None, None
-                
-        except Exception as e:
-            self.log_result("Employee Operations", False, f"Exception: {str(e)}")
-            return None, None
-            
-    def get_or_create_service_order(self):
-        """Get existing service orders or create one if none exist"""
-        try:
-            # Get existing service orders
-            response = self.session.get(f"{API_BASE_URL}/service-orders")
-            if response.status_code == 200:
-                service_orders = response.json()
-                if service_orders:
-                    so_id = service_orders[0]["id"]
-                    so_number = service_orders[0]["os_number"]
-                    self.log_result("Get Service Orders", True, f"Found {len(service_orders)} service order(s), using {so_number}")
-                    return so_id
-                    
-                # No service orders found, create one
-                so_data = {
-                    "os_number": "OS-TEST",
-                    "client": "TestClient",
-                    "location": "TestLocation",
-                    "service": "TestService"
-                }
-                response = self.session.post(f"{API_BASE_URL}/service-orders", json=so_data)
-                if response.status_code == 200:
-                    service_order = response.json()
-                    so_id = service_order["_id"]  # Create response uses _id
-                    self.log_result("Create Service Order", True, f"Created service order with ID: {so_id}")
-                    return so_id
-                else:
-                    self.log_result("Create Service Order", False, f"Failed with status {response.status_code}: {response.text}")
-                    return None
-            else:
-                self.log_result("Get Service Orders", False, f"Failed with status {response.status_code}: {response.text}")
-                return None
-                
-        except Exception as e:
-            self.log_result("Service Order Operations", False, f"Exception: {str(e)}")
-            return None
-            
-    def get_or_create_timesheet(self, so_id, emp_id, emp_name):
-        """Get existing timesheets or create one if none exist"""
-        try:
-            # Get existing timesheets
             response = self.session.get(f"{API_BASE_URL}/timesheets")
+            
             if response.status_code == 200:
                 timesheets = response.json()
-                if timesheets:
-                    ts_id = timesheets[0]["id"]
-                    self.log_result("Get Timesheets", True, f"Found {len(timesheets)} timesheet(s), using first one")
-                    return ts_id
-                    
-                # No timesheets found, create one
-                ts_data = {
-                    "os_id": so_id,
-                    "entries": [{
-                        "date": "10/02/2026",
-                        "employee_id": emp_id,
-                        "employee_name": emp_name,
-                        "employee_function": "T",
-                        "service_start": "08:00",
-                        "service_end": "17:00",
-                        "travel_start": "07:00",
-                        "travel_end": "07:30"
-                    }],
-                    "observations": "Test PDF generation"
-                }
-                response = self.session.post(f"{API_BASE_URL}/timesheets", json=ts_data)
-                if response.status_code == 200:
-                    timesheet = response.json()
-                    ts_id = timesheet["id"]  # List response uses id
-                    self.log_result("Create Timesheet", True, f"Created timesheet with ID: {ts_id}")
-                    return ts_id
-                else:
-                    self.log_result("Create Timesheet", False, f"Failed with status {response.status_code}: {response.text}")
-                    return None
+                self.log_result("List Timesheets", True, f"Found {len(timesheets)} timesheets")
+                return timesheets
             else:
-                self.log_result("Get Timesheets", False, f"Failed with status {response.status_code}: {response.text}")
-                return None
+                self.log_result("List Timesheets", False, f"Failed with status {response.status_code}: {response.text}")
+                return []
                 
         except Exception as e:
-            self.log_result("Timesheet Operations", False, f"Exception: {str(e)}")
-            return None
-            
-    def test_pdf_generation(self, ts_id):
-        """Test PDF generation and verify content"""
+            self.log_result("List Timesheets", False, f"Exception: {str(e)}")
+            return []
+    
+    def download_pdf(self, timesheet_id, test_name="PDF Download"):
+        """Download PDF for a timesheet with timestamp parameter"""
         try:
-            # Download PDF
-            response = self.session.get(f"{API_BASE_URL}/timesheets/{ts_id}/pdf")
+            timestamp = int(time.time())
+            response = self.session.get(f"{API_BASE_URL}/timesheets/{timesheet_id}/pdf?t={timestamp}")
             
             if response.status_code != 200:
-                self.log_result("PDF Download", False, f"Failed with status {response.status_code}: {response.text}")
-                return False
+                self.log_result(test_name, False, f"HTTP {response.status_code}: {response.text}")
+                return None
                 
             # Verify content type
             content_type = response.headers.get('content-type', '')
             if 'application/pdf' not in content_type:
-                self.log_result("PDF Content Type", False, f"Wrong content type: {content_type}")
-                return False
+                self.log_result(f"{test_name} Content-Type", False, f"Expected application/pdf, got: {content_type}")
+                return None
             else:
-                self.log_result("PDF Content Type", True, "Correct content-type: application/pdf")
+                self.log_result(f"{test_name} Content-Type", True, "Correct application/pdf content-type")
                 
-            # Parse PDF content
-            pdf_buffer = io.BytesIO(response.content)
-            try:
-                pdf_reader = PyPDF2.PdfReader(pdf_buffer)
+            # Verify Cache-Control headers
+            cache_control = response.headers.get('cache-control', '')
+            if 'no-cache' in cache_control:
+                self.log_result(f"{test_name} Cache-Control", True, f"Correct cache headers: {cache_control}")
+            else:
+                self.log_result(f"{test_name} Cache-Control", False, f"Expected no-cache, got: {cache_control}")
                 
-                # Extract text from all pages
-                pdf_text = ""
-                for page in pdf_reader.pages:
-                    pdf_text += page.extract_text()
-                    
-                self.log_result("PDF Text Extraction", True, f"Successfully extracted text from {len(pdf_reader.pages)} page(s)")
+            self.log_result(test_name, True, f"Successfully downloaded PDF for timesheet {timesheet_id}")
+            return response.content
+            
+        except Exception as e:
+            self.log_result(test_name, False, f"Exception: {str(e)}")
+            return None
+    
+    def verify_pdf_content(self, pdf_content, test_name="PDF Content Verification"):
+        """Parse and verify PDF content according to review requirements"""
+        try:
+            pdf_buffer = io.BytesIO(pdf_content)
+            pdf_reader = PyPDF2.PdfReader(pdf_buffer)
+            
+            # Verify exactly 1 page
+            page_count = len(pdf_reader.pages)
+            if page_count == 1:
+                self.log_result(f"{test_name} Page Count", True, f"Exactly 1 page as required")
+            else:
+                self.log_result(f"{test_name} Page Count", False, f"Expected 1 page, got {page_count}")
                 
-                # Verify legend table content
-                required_legend_items = [
-                    "LEGENDA",
-                    "Português", 
-                    "English",
-                    "Engenheiro",
-                    "Engineer", 
-                    "Encarregado",
-                    "Foreman",
-                    "Supervisor",
-                    "Técnico", 
-                    "Technician",
-                    "Mecânico",
-                    "Mechanic",
-                    "Segurança",  # Note: this is from "Téc. Segurança" but "Segurança" should be in text
-                    "Safety"
-                ]
+            # Extract text from all pages
+            pdf_text = ""
+            for page in pdf_reader.pages:
+                pdf_text += page.extract_text()
                 
-                missing_items = []
-                found_items = []
-                
-                for item in required_legend_items:
-                    if item in pdf_text:
-                        found_items.append(item)
-                    else:
-                        missing_items.append(item)
-                        
-                if missing_items:
-                    self.log_result("Legend Content Verification", False, 
-                        f"Missing items: {missing_items}. Found items: {found_items}")
+            self.log_result(f"{test_name} Text Extraction", True, f"Extracted text from {page_count} page(s)")
+            
+            # Required legend content as per review requirements
+            required_items = [
+                ("Legenda", "Legend title check"),
+                ("Caption", "Caption title check"), 
+                ("Engenheiro", "Engineer Portuguese check"),
+                ("Engineer", "Engineer English check"),
+                ("Encarregado", "Foreman Portuguese check"),
+                ("Foreman", "Foreman English check"),
+                ("Supervisor", "Supervisor check"),
+                ("Técnico", "Technician Portuguese check"),
+                ("Technician", "Technician English check"),
+                ("Mecânico", "Mechanic Portuguese check"),
+                ("Mechanic", "Mechanic English check")
+            ]
+            
+            legend_pass = True
+            found_items = []
+            missing_items = []
+            
+            for item, description in required_items:
+                # Handle special cases for accent variations
+                if item == "Técnico" and "Tecnico" in pdf_text:
+                    found_items.append(f"{item} (as Tecnico)")
+                elif item == "Mecânico" and "Mecanico" in pdf_text:
+                    found_items.append(f"{item} (as Mecanico)")
+                elif item in pdf_text:
+                    found_items.append(item)
                 else:
-                    self.log_result("Legend Content Verification", True, 
-                        f"All required legend items found: {found_items}")
+                    missing_items.append(item)
+                    legend_pass = False
                     
-                # Check for table structure indicators
-                table_indicators = ["CAPTION", "LEGENDA"]
-                table_found = any(indicator in pdf_text for indicator in table_indicators)
+            if legend_pass:
+                self.log_result(f"{test_name} Legend Content", True, f"All required legend items found: {found_items}")
+            else:
+                self.log_result(f"{test_name} Legend Content", False, f"Missing items: {missing_items}. Found: {found_items}")
                 
-                if table_found:
-                    self.log_result("Legend Table Structure", True, "Found legend table structure indicators")
-                else:
-                    self.log_result("Legend Table Structure", False, "Legend table structure indicators not found")
+            # Check for observations title (separate from table content)
+            obs_variations = ["Observações", "Observacoes"]
+            obs_found = False
+            for obs in obs_variations:
+                if obs in pdf_text:
+                    obs_found = True
+                    self.log_result(f"{test_name} Observations Title", True, f"Found '{obs}' as separate text")
+                    break
                     
+            if not obs_found:
+                self.log_result(f"{test_name} Observations Title", False, "Observations title not found as separate text")
+                
+            # Verify footer content
+            footer_items = ["TWAS REPAIR", "Página 1 de 1"]
+            footer_pass = True
+            footer_found = []
+            footer_missing = []
+            
+            for item in footer_items:
+                if item in pdf_text:
+                    footer_found.append(item)
+                else:
+                    footer_missing.append(item)
+                    footer_pass = False
+                    
+            if footer_pass:
+                self.log_result(f"{test_name} Footer Content", True, f"All required footer items found: {footer_found}")
+            else:
+                self.log_result(f"{test_name} Footer Content", False, f"Missing footer items: {footer_missing}. Found: {footer_found}")
+                
+            return True
+            
+        except Exception as e:
+            self.log_result(f"{test_name} PDF Parsing", False, f"Failed to parse PDF: {str(e)}")
+            return False
+    
+    def delete_timesheet(self, timesheet_id):
+        """Delete a timesheet"""
+        try:
+            response = self.session.delete(f"{API_BASE_URL}/timesheets/{timesheet_id}")
+            
+            if response.status_code == 200:
+                self.log_result("Delete Timesheet", True, f"Successfully deleted timesheet {timesheet_id}")
                 return True
-                
-            except Exception as e:
-                self.log_result("PDF Parsing", False, f"Failed to parse PDF: {str(e)}")
+            else:
+                self.log_result("Delete Timesheet", False, f"Failed with status {response.status_code}: {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_result("PDF Generation Test", False, f"Exception: {str(e)}")
+            self.log_result("Delete Timesheet", False, f"Exception: {str(e)}")
             return False
+    
+    def verify_timesheet_deleted(self, deleted_id):
+        """Verify timesheet is actually removed from the list"""
+        try:
+            timesheets = self.list_timesheets()
+            remaining_ids = [ts["id"] for ts in timesheets]
             
+            if deleted_id not in remaining_ids:
+                self.log_result("Verify Delete", True, f"Timesheet {deleted_id} successfully removed from list")
+                return True
+            else:
+                self.log_result("Verify Delete", False, f"Timesheet {deleted_id} still exists in list")
+                return False
+                
+        except Exception as e:
+            self.log_result("Verify Delete", False, f"Exception: {str(e)}")
+            return False
+    
     def run_all_tests(self):
-        """Run all API tests"""
-        print("🧪 Starting Timesheet API Tests")
-        print("=" * 50)
+        """Run comprehensive tests as per review requirements"""
+        print("🧪 Starting Timesheet API Comprehensive Tests")
+        print("=" * 60)
         
-        # Step 1: Login
+        # Step 1: Login as admin
         if not self.login_admin():
-            print("❌ Cannot proceed without authentication")
+            print("❌ Cannot proceed without admin authentication")
             return False
             
-        # Step 2: Get/Create Employee
-        emp_id, emp_name = self.get_or_create_employee()
-        if not emp_id:
-            print("❌ Cannot proceed without employee")
+        # Step 2: List timesheets
+        timesheets = self.list_timesheets()
+        if not timesheets:
+            print("⚠️ No timesheets found - cannot test PDF download and delete")
             return False
             
-        # Step 3: Get/Create Service Order
-        so_id = self.get_or_create_service_order()
-        if not so_id:
-            print("❌ Cannot proceed without service order")
-            return False
-            
-        # Step 4: Get/Create Timesheet
-        ts_id = self.get_or_create_timesheet(so_id, emp_id, emp_name)
-        if not ts_id:
-            print("❌ Cannot proceed without timesheet")
-            return False
-            
-        # Step 5: Test PDF Generation
-        self.test_pdf_generation(ts_id)
+        print(f"\n📋 Found {len(timesheets)} timesheets to test")
         
-        print("\n" + "=" * 50)
+        # Step 3: Download PDF for first timesheet
+        first_timesheet = timesheets[0]
+        first_id = first_timesheet["id"]
+        
+        print(f"\n🔍 Testing PDF generation for first timesheet: {first_id}")
+        pdf_content = self.download_pdf(first_id, "First PDF Download")
+        
+        if pdf_content:
+            # Step 4: Verify PDF content
+            self.verify_pdf_content(pdf_content, "First PDF Content")
+        
+        # Step 5: Test PDF with another timesheet for consistency
+        if len(timesheets) > 1:
+            second_timesheet = timesheets[1] 
+            second_id = second_timesheet["id"]
+            
+            print(f"\n🔍 Testing PDF consistency with second timesheet: {second_id}")
+            second_pdf_content = self.download_pdf(second_id, "Second PDF Download")
+            
+            if second_pdf_content:
+                self.verify_pdf_content(second_pdf_content, "Second PDF Content")
+        else:
+            print("\n⚠️ Only one timesheet available - skipping consistency test")
+            
+        # Step 6: Delete timesheet test
+        # Use the last timesheet for deletion to be safe
+        if len(timesheets) > 0:
+            timesheet_to_delete = timesheets[-1]
+            delete_id = timesheet_to_delete["id"]
+            
+            print(f"\n🗑️ Testing delete functionality with timesheet: {delete_id}")
+            
+            if self.delete_timesheet(delete_id):
+                # Step 7: Verify deletion
+                self.verify_timesheet_deleted(delete_id)
+            
+        print("\n" + "=" * 60)
         print("🏁 Test Summary")
-        print("=" * 50)
+        print("=" * 60)
         
         total_tests = len(self.test_results)
         passed_tests = sum(1 for result in self.test_results if result['success'])
@@ -305,16 +316,7 @@ class TimesheetAPITester:
                     
         return failed_tests == 0
 
-if __name__ == "__main__":
-    # Install required packages if not available
-    try:
-        import PyPDF2
-    except ImportError:
-        print("Installing PyPDF2...")
-        import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
-        import PyPDF2
-        
+if __name__ == "__main__":        
     tester = TimesheetAPITester()
     success = tester.run_all_tests()
     

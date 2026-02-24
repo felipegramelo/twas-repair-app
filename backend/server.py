@@ -876,7 +876,9 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=timesheet_{ts['os_number']}.pdf"}
     )
-    ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
+
+
+# Include the router in the main app
     if not ts:
         raise HTTPException(status_code=404, detail="Timesheet not found")
     

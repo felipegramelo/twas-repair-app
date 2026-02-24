@@ -337,16 +337,7 @@ export default function CreateTimesheetScreen() {
               <Text style={styles.inputLabel}>Funcionário *</Text>
               <TouchableOpacity
                 style={styles.selectButton}
-                onPress={() => {
-                  Alert.alert(
-                    'Selecionar Funcionário',
-                    '',
-                    employees.map((emp) => ({
-                      text: `${emp.name} (${emp.function})`,
-                      onPress: () => setSelectedEmployee(emp),
-                    }))
-                  );
-                }}
+                onPress={() => setEmployeePickerVisible(true)}
               >
                 <Text style={selectedEmployee ? styles.selectButtonTextSelected : styles.selectButtonText}>
                   {selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.function})` : 'Selecionar'}

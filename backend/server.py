@@ -506,7 +506,7 @@ async def delete_service_order(so_id: str, current_user: Dict[str, Any] = Depend
 
 # ==================== TIMESHEET ENDPOINTS ====================
 
-@api_router.post("/timesheets", response_model=Timesheet)
+@api_router.post("/timesheets", response_model=dict)
 async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
     # Get service order details
     so = await db.service_orders.find_one({"_id": ObjectId(ts_data.os_id)})
@@ -526,7 +526,7 @@ async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any
     result = await db.timesheets.insert_one(ts_dict)
     ts_dict["id"] = str(result.inserted_id)  # Return id instead of _id
     
-    return Timesheet(**ts_dict)
+    return ts_dict
 
 
 @api_router.get("/timesheets", response_model=List[dict])

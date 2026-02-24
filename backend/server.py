@@ -462,21 +462,21 @@ async def create_service_order(so_data: ServiceOrderCreate, current_user: Dict[s
     return ServiceOrder(**so_dict)
 
 
-@api_router.get("/service-orders", response_model=List[ServiceOrder])
+@api_router.get("/service-orders", response_model=List[dict])
 async def get_service_orders(current_user: Dict[str, Any] = Depends(get_current_user)):
     service_orders = await db.service_orders.find().sort("os_number", 1).to_list(1000)
     for so in service_orders:
-        so["_id"] = str(so["_id"])
-    return [ServiceOrder(**so) for so in service_orders]
+        so["id"] = str(so.pop("_id"))
+    return service_orders
 
 
-@api_router.get("/service-orders/{so_id}", response_model=ServiceOrder)
+@api_router.get("/service-orders/{so_id}", response_model=dict)
 async def get_service_order(so_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
     so = await db.service_orders.find_one({"_id": ObjectId(so_id)})
     if not so:
         raise HTTPException(status_code=404, detail="Service Order not found")
-    so["_id"] = str(so["_id"])
-    return ServiceOrder(**so)
+    so["id"] = str(so.pop("_id"))
+    return so
 
 
 @api_router.put("/service-orders/{so_id}", response_model=ServiceOrder)

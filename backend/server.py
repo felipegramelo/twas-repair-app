@@ -524,7 +524,7 @@ async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any
     ts_dict["updated_at"] = datetime.utcnow()
     
     result = await db.timesheets.insert_one(ts_dict)
-    ts_dict["_id"] = str(result.inserted_id)
+    ts_dict["id"] = str(result.inserted_id)  # Return id instead of _id
     
     return Timesheet(**ts_dict)
 

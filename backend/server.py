@@ -732,7 +732,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     ]))
     
     elements.append(info_table)
-    elements.append(Spacer(1, 0.4*cm))
+    elements.append(Spacer(1, 0.2*cm))  # Reduced from 0.4
     
     # Main timesheet table - ALIGNED to content_width
     # Column widths adjusted for A4 (total = 17cm)

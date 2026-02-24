@@ -288,6 +288,112 @@ async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     )
 
 
+# ==================== USER MANAGEMENT ENDPOINTS (Admin only) ====================
+
+class SupervisorCreate(BaseModel):
+    email: EmailStr
+    name: str
+    password: str
+
+
+class SupervisorUpdate(BaseModel):
+    email: EmailStr
+    name: str
+    password: Optional[str] = None
+
+
+@api_router.get("/users/supervisors", response_model=List[UserResponse])
+async def get_supervisors(current_user: Dict[str, Any] = Depends(get_admin_user)):
+    supervisors = await db.users.find({"role": UserRole.SUPERVISOR}).sort("name", 1).to_list(1000)
+    return [UserResponse(
+        id=str(user["_id"]),
+        email=user["email"],
+        role=user["role"],
+        name=user["name"]
+    ) for user in supervisors]
+
+
+@api_router.post("/users/supervisors", response_model=UserResponse)
+async def create_supervisor(supervisor_data: SupervisorCreate, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": supervisor_data.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email já cadastrado")
+    
+    # Create supervisor
+    user_dict = supervisor_data.model_dump()
+    user_dict["password_hash"] = get_password_hash(user_dict.pop("password"))
+    user_dict["role"] = UserRole.SUPERVISOR
+    user_dict["created_at"] = datetime.utcnow()
+    
+    result = await db.users.insert_one(user_dict)
+    user_dict["_id"] = str(result.inserted_id)
+    
+    return UserResponse(
+        id=user_dict["_id"],
+        email=user_dict["email"],
+        role=user_dict["role"],
+        name=user_dict["name"]
+    )
+
+
+@api_router.put("/users/supervisors/{user_id}", response_model=UserResponse)
+async def update_supervisor(user_id: str, supervisor_data: SupervisorUpdate, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    # Check if user exists
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="Supervisor não encontrado")
+    
+    if user["role"] != UserRole.SUPERVISOR:
+        raise HTTPException(status_code=400, detail="Usuário não é um supervisor")
+    
+    # Check if email is already taken by another user
+    existing_user = await db.users.find_one({"email": supervisor_data.email, "_id": {"$ne": ObjectId(user_id)}})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email já cadastrado para outro usuário")
+    
+    # Update user
+    update_dict = {
+        "email": supervisor_data.email,
+        "name": supervisor_data.name
+    }
+    
+    if supervisor_data.password:
+        update_dict["password_hash"] = get_password_hash(supervisor_data.password)
+    
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": update_dict}
+    )
+    
+    updated_user = await db.users.find_one({"_id": ObjectId(user_id)})
+    
+    return UserResponse(
+        id=str(updated_user["_id"]),
+        email=updated_user["email"],
+        role=updated_user["role"],
+        name=updated_user["name"]
+    )
+
+
+@api_router.delete("/users/supervisors/{user_id}")
+async def delete_supervisor(user_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="Supervisor não encontrado")
+    
+    if user["role"] != UserRole.SUPERVISOR:
+        raise HTTPException(status_code=400, detail="Usuário não é um supervisor")
+    
+    # Check if supervisor has timesheets
+    timesheets_count = await db.timesheets.count_documents({"supervisor_id": user_id})
+    if timesheets_count > 0:
+        raise HTTPException(status_code=400, detail=f"Não é possível excluir. Supervisor possui {timesheets_count} timesheet(s) cadastrado(s)")
+    
+    await db.users.delete_one({"_id": ObjectId(user_id)})
+    return {"message": "Supervisor excluído com sucesso"}
+
+
 # ==================== EMPLOYEE ENDPOINTS (Admin only) ====================
 
 @api_router.post("/employees", response_model=Employee)

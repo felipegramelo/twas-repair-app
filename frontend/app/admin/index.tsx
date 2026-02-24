@@ -30,6 +30,15 @@ export default function AdminDashboard() {
         <View style={styles.cardsContainer}>
           <TouchableOpacity
             style={styles.card}
+            onPress={() => router.push('/admin/supervisors')}
+          >
+            <Ionicons name="person-circle" size={40} color="#1a237e" />
+            <Text style={styles.cardTitle}>Supervisores</Text>
+            <Text style={styles.cardDescription}>Gerenciar supervisores</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.card}
             onPress={() => router.push('/admin/employees')}
           >
             <Ionicons name="people" size={40} color="#1a237e" />

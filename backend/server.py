@@ -931,7 +931,12 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=timesheet_{ts['os_number']}.pdf"}
+        headers={
+            "Content-Disposition": f"attachment; filename=timesheet_{ts['os_number']}.pdf",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        }
     )
 
 

@@ -304,7 +304,7 @@ class SupervisorUpdate(BaseModel):
 
 @api_router.get("/users/supervisors", response_model=List[UserResponse])
 async def get_supervisors(current_user: Dict[str, Any] = Depends(get_admin_user)):
-    supervisors = await db.users.find({"role": UserRole.SUPERVISOR}).sort("name", 1).to_list(1000)
+    supervisors = await db.users.find({"role": UserRole.SUPERVISOR}, {"password_hash": 0}).sort("name", 1).to_list(1000)
     return [UserResponse(
         id=str(user["_id"]),
         email=user["email"],

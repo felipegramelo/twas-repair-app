@@ -806,58 +806,28 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         
         # Only add legend, approval, observations, and footer on last page
         if page_num == total_pages - 1:
-            # Legend - Table format with Portuguese and English columns
-            legend_header_style = ParagraphStyle('legend_header', parent=styles['Normal'], fontSize=7, fontName='Helvetica-Bold', alignment=TA_CENTER)
-            legend_cell_style = ParagraphStyle('legend_cell', parent=styles['Normal'], fontSize=7, alignment=TA_LEFT)
+            # Legend - 6 columns in a single row matching the template
+            legend_cell_style = ParagraphStyle('legend_cell', parent=styles['Normal'], fontSize=6, alignment=TA_CENTER, leading=8)
             
             legend_data = [
                 [
-                    Paragraph("<b>LEGENDA / CAPTION</b>", legend_header_style),
-                    Paragraph("<b>Português</b>", legend_header_style),
-                    Paragraph("<b>English</b>", legend_header_style),
-                ],
-                [
-                    Paragraph("<b>E</b>", ParagraphStyle('lc', parent=legend_cell_style, alignment=TA_CENTER)),
-                    Paragraph("Engenheiro", legend_cell_style),
-                    Paragraph("Engineer", legend_cell_style),
-                ],
-                [
-                    Paragraph("<b>EN</b>", ParagraphStyle('lc2', parent=legend_cell_style, alignment=TA_CENTER)),
-                    Paragraph("Encarregado", legend_cell_style),
-                    Paragraph("Foreman", legend_cell_style),
-                ],
-                [
-                    Paragraph("<b>Sup</b>", ParagraphStyle('lc3', parent=legend_cell_style, alignment=TA_CENTER)),
-                    Paragraph("Supervisor", legend_cell_style),
-                    Paragraph("Supervisor", legend_cell_style),
-                ],
-                [
-                    Paragraph("<b>T</b>", ParagraphStyle('lc4', parent=legend_cell_style, alignment=TA_CENTER)),
-                    Paragraph("Técnico", legend_cell_style),
-                    Paragraph("Technician", legend_cell_style),
-                ],
-                [
-                    Paragraph("<b>M</b>", ParagraphStyle('lc5', parent=legend_cell_style, alignment=TA_CENTER)),
-                    Paragraph("Mecânico", legend_cell_style),
-                    Paragraph("Mechanic", legend_cell_style),
-                ],
-                [
-                    Paragraph("<b>TS</b>", ParagraphStyle('lc6', parent=legend_cell_style, alignment=TA_CENTER)),
-                    Paragraph("Téc. Segurança", legend_cell_style),
-                    Paragraph("Safety Technician", legend_cell_style),
+                    Paragraph("Engenheiro (E)<br/>Engineer (E)", legend_cell_style),
+                    Paragraph("Encarregado (EN)<br/>Foreman (EN)", legend_cell_style),
+                    Paragraph("Supervisor (Sup)<br/>Supervisor (Sup)", legend_cell_style),
+                    Paragraph("Técnico (T)<br/>Technician (T)", legend_cell_style),
+                    Paragraph("Mecânico (M)<br/>Mechanic (M)", legend_cell_style),
+                    Paragraph("Téc. Seg. (TS)<br/>Safety Tech (ST)", legend_cell_style),
                 ],
             ]
             
-            legend_table = Table(legend_data, colWidths=[3*cm, 7.5*cm, 7.5*cm], rowHeights=[0.4*cm] + [0.35*cm]*6)
+            legend_table = Table(legend_data, colWidths=[3*cm]*6, rowHeights=[0.7*cm])
             legend_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0.2*cm),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0.1*cm),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0.1*cm),
                 ('TOPPADDING', (0, 0), (-1, -1), 0.05*cm),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 0.05*cm),
-                ('SPAN', (0, 0), (0, 0)),
             ]))
             
             elements.append(legend_table)

@@ -738,8 +738,8 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     # Column widths adjusted for A4 (total = 17cm)
     col_widths = [2*cm, 2*cm, 2*cm, 2*cm, 4.5*cm, 2*cm, 2.5*cm]
     
-    # Entries per page calculation (15 entries fit comfortably in A4)
-    entries_per_page = 15
+    # Entries per page calculation (12 entries fit in single A4 page)
+    entries_per_page = 12  # Reduced from 15 to fit everything in one page
     total_entries = len(ts["entries"])
     total_pages = (total_entries + entries_per_page - 1) // entries_per_page if total_entries > 0 else 1
     

@@ -879,7 +879,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
                 ]
             ]
             
-            twas_table = Table(twas_data, colWidths=[5.5*cm, 5.5*cm, 6*cm], rowHeights=[0.8*cm, 1*cm])
+            twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.6*cm, 0.7*cm])  # Reduced heights
             twas_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),

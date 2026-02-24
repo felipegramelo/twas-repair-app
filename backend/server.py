@@ -699,7 +699,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     ]))
     
     elements.append(header_table)
-    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Spacer(1, 0.2*cm))  # Reduced from 0.5
     
     # Service Order Info - 2x2 grid - ALIGNED to content_width
     info_data = [
@@ -721,13 +721,13 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         ]
     ]
     
-    info_table = Table(info_data, colWidths=[8.5*cm, 8.5*cm])
+    info_table = Table(info_data, colWidths=[9*cm, 9*cm])  # Adjusted for 18cm width
     info_table.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0.3*cm),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0.3*cm),
-        ('TOPPADDING', (0, 0), (-1, -1), 0.2*cm),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),  # Reduced
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0.2*cm),  # Reduced
+        ('TOPPADDING', (0, 0), (-1, -1), 0.1*cm),  # Reduced
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0.2*cm),
     ]))
     

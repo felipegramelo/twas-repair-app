@@ -123,8 +123,9 @@ export const timesheetAPI = {
     return response.data;
   },
   downloadPDF: async (id: string): Promise<Blob> => {
-    const response = await api.get(`/timesheets/${id}/pdf`, {
+    const response = await api.get(`/timesheets/${id}/pdf?t=${Date.now()}`, {
       responseType: 'blob',
+      headers: { 'Cache-Control': 'no-cache' },
     });
     return response.data;
   },

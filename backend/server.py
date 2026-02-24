@@ -851,7 +851,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
                 [Paragraph(ts.get("observations", ""), styles['Normal']) if ts.get("observations") else ""]
             ]
             
-            obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[0.4*cm, 0.8*cm])  # Reduced heights
+            obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[0.4*cm, 2.5*cm])  # Increased from 0.8 to 2.5cm
             obs_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),

@@ -12,14 +12,15 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { serviceOrderAPI, employeeAPI, timesheetAPI } from '../../services/api';
 import { ServiceOrder, Employee, TimesheetEntry } from '../../types';
 
-export default function CreateTimesheetScreen() {
+export default function EditTimesheetScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   

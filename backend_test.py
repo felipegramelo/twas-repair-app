@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for Timesheet PDF Generation
-Tests the PDF generation endpoint with focus on legend table formatting
+Backend API Testing for Timesheet PDF Generation and Delete Functionality
+Tests PDF generation content validation and delete operations as per review requirements
 """
 
 import requests
 import json
 from datetime import datetime
 import io
-import PyPDF2
 import sys
+import time
 
 # API Configuration
 API_BASE_URL = "https://shift-docs-staging.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@twasrepair.com"
 ADMIN_PASSWORD = "admin123"
+SUPERVISOR_EMAIL = "supervisor@twasrepair.com"
+SUPERVISOR_PASSWORD = "super123"
 
 class TimesheetAPITester:
     def __init__(self):

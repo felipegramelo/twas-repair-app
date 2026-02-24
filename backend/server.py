@@ -620,6 +620,270 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
+    # Create PDF with A4 page size
+    buffer = io.BytesIO()
+    
+    # A4 dimensions: 21cm x 29.7cm
+    page_width, page_height = A4
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        rightMargin=2*cm, 
+        leftMargin=2*cm, 
+        topMargin=2*cm, 
+        bottomMargin=2*cm
+    )
+    
+    # Available width for content (A4 width - margins)
+    content_width = page_width - 4*cm  # 17cm
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    header_style = ParagraphStyle(
+        'HeaderStyle',
+        parent=styles['Normal'],
+        fontSize=14,
+        textColor=colors.black,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold',
+        spaceAfter=6
+    )
+    
+    small_header_style = ParagraphStyle(
+        'SmallHeaderStyle',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.black,
+        alignment=TA_RIGHT,
+        fontName='Helvetica'
+    )
+    
+    # Logo and header
+    logo_path = ROOT_DIR / "../logo.bmp"
+    logo_cell = ""
+    if logo_path.exists():
+        try:
+            pil_img = PILImage.open(logo_path)
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            temp_logo = io.BytesIO()
+            pil_img.save(temp_logo, format='JPEG')
+            temp_logo.seek(0)
+            logo_cell = RLImage(temp_logo, width=4.5*cm, height=2.2*cm)
+        except Exception as e:
+            logging.error(f"Error loading logo: {e}")
+            logo_cell = ""
+    
+    # Current date and revision
+    from datetime import datetime as dt
+    current_date = dt.now().strftime("%d/%m/%Y")
+    date_rev_text = f"{current_date}<br/>Rev.: 2"
+    
+    # Header table - ALIGNED to content_width
+    header_data = [
+        [
+            logo_cell,
+            Paragraph("RELATÓRIO DE HORAS<br/>TIME SHEET", header_style),
+            Paragraph(date_rev_text, small_header_style)
+        ]
+    ]
+    
+    header_table = Table(header_data, colWidths=[5*cm, 7*cm, 5*cm])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+    ]))
+    
+    elements.append(header_table)
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Service Order Info - 2x2 grid - ALIGNED to content_width
+    info_data = [
+        [
+            Paragraph("<b>Serviços / Jobs:</b>", styles['Normal']),
+            Paragraph("<b>OS / PO (TWAS):</b>", styles['Normal'])
+        ],
+        [
+            Paragraph(ts["service"], styles['Normal']),
+            Paragraph(ts["os_number"], styles['Normal'])
+        ],
+        [
+            Paragraph("<b>Cliente / Client:</b>", styles['Normal']),
+            Paragraph("<b>Local / Location:</b>", styles['Normal'])
+        ],
+        [
+            Paragraph(ts["client"], styles['Normal']),
+            Paragraph(ts["location"], styles['Normal'])
+        ]
+    ]
+    
+    info_table = Table(info_data, colWidths=[8.5*cm, 8.5*cm])
+    info_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0.3*cm),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0.3*cm),
+        ('TOPPADDING', (0, 0), (-1, -1), 0.2*cm),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0.2*cm),
+    ]))
+    
+    elements.append(info_table)
+    elements.append(Spacer(1, 0.4*cm))
+    
+    # Main timesheet table - ALIGNED to content_width
+    # Column widths adjusted for A4 (total = 17cm)
+    col_widths = [2*cm, 2*cm, 2*cm, 2*cm, 4.5*cm, 2*cm, 2.5*cm]
+    
+    # Entries per page calculation (15 entries fit comfortably in A4)
+    entries_per_page = 15
+    total_entries = len(ts["entries"])
+    total_pages = (total_entries + entries_per_page - 1) // entries_per_page if total_entries > 0 else 1
+    
+    # Process entries in chunks (pages)
+    for page_num in range(total_pages):
+        # If not first page, add page break
+        if page_num > 0:
+            elements.append(PageBreak())
+            # Add header again on new page
+            elements.append(header_table)
+            elements.append(Spacer(1, 0.5*cm))
+            elements.append(info_table)
+            elements.append(Spacer(1, 0.4*cm))
+        
+        # Table header
+        table_data = [
+            [
+                Paragraph("<b>Data<br/>Date</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
+                Paragraph("<b>Em Serviço<br/>In Service<br/>Início<br/>Start</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+                Paragraph("<b>Em Serviço<br/>In Service<br/>Final<br/>Final</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+                Paragraph("<b>Função<br/>Function</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
+                Paragraph("<b>Nome<br/>Name</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
+                Paragraph("<b>Em Viagem<br/>In Travel<br/>Início<br/>Start</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+                Paragraph("<b>Em Viagem<br/>In Travel<br/>Final<br/>Final</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+            ]
+        ]
+        
+        # Add entries for this page
+        start_idx = page_num * entries_per_page
+        end_idx = min(start_idx + entries_per_page, total_entries)
+        
+        for i in range(start_idx, end_idx):
+            entry = ts["entries"][i]
+            table_data.append([
+                entry["date"],
+                entry["service_start"],
+                entry["service_end"],
+                entry["employee_function"],
+                entry["employee_name"],
+                entry.get("travel_start", ""),
+                entry.get("travel_end", "")
+            ])
+        
+        # Add empty rows to fill page (minimum 15 rows per page)
+        current_rows = len(table_data) - 1  # Exclude header
+        while current_rows < entries_per_page:
+            table_data.append(["", "", "", "", "", "", ""])
+            current_rows += 1
+        
+        entries_table = Table(table_data, colWidths=col_widths)
+        entries_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.15*cm),
+        ]))
+        
+        elements.append(entries_table)
+        elements.append(Spacer(1, 0.3*cm))
+        
+        # Only add legend, approval, observations, and footer on last page
+        if page_num == total_pages - 1:
+            # Legend - ALIGNED to content_width
+            legend_style = ParagraphStyle('legend', parent=styles['Normal'], fontSize=7, alignment=TA_LEFT)
+            legend_text = "<b>Legenda / Caption:</b> "
+            legend_text += "Engenheiro (E) / Engineer (E) | "
+            legend_text += "Encarregado (EN) / Foreman (EN) | "
+            legend_text += "Supervisor (Sup) / Supervisor (Sup) | "
+            legend_text += "Técnico (T) / Technician (T) | "
+            legend_text += "Mecânico (M) / Mechanic (M) | "
+            legend_text += "Téc. Seg. (TS) / Safety Tech (ST)"
+            legend = Paragraph(legend_text, legend_style)
+            elements.append(legend)
+            elements.append(Spacer(1, 0.3*cm))
+            
+            # Client Approval section - ALIGNED to content_width
+            approval_data = [
+                [Paragraph("<b>Aprovação do Cliente / Client Approval</b>", styles['Normal'])],
+                [""],
+                [Paragraph("<b>Nome / Name</b>", styles['Normal'])],
+                [""],
+                [Paragraph("<b>Função / Function</b>", styles['Normal'])],
+                [""],
+                [Paragraph("<b>Carimbo / Stamp</b>", styles['Normal'])],
+            ]
+            
+            approval_table = Table(approval_data, colWidths=[17*cm], rowHeights=[0.6*cm, 0.6*cm, 0.5*cm, 0.6*cm, 0.5*cm, 0.6*cm, 0.5*cm])
+            approval_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0.3*cm),
+                ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+            ]))
+            
+            elements.append(approval_table)
+            elements.append(Spacer(1, 0.3*cm))
+            
+            # Observations section - ALIGNED to content_width
+            obs_data = [
+                [Paragraph("<b>Observações / Remarks:</b>", styles['Normal'])],
+                [Paragraph(ts.get("observations", ""), styles['Normal']) if ts.get("observations") else ""]
+            ]
+            
+            obs_table = Table(obs_data, colWidths=[17*cm], rowHeights=[0.5*cm, 1.2*cm])
+            obs_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0.3*cm),
+                ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+            ]))
+            
+            elements.append(obs_table)
+            elements.append(Spacer(1, 0.5*cm))
+            
+            # Footer with company info - ALIGNED center
+            footer_style = ParagraphStyle('footer', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER)
+            footer_text = "<b>TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA - CNPJ: 31.839.501/0001-90</b><br/>"
+            footer_text += "Travessa Frederico Marques, N° 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24466-180.<br/>"
+            footer_text += "www.twasrepair.com<br/>"
+            footer_text += f"Página {page_num + 1} de {total_pages}"
+            footer = Paragraph(footer_text, footer_style)
+            elements.append(footer)
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=timesheet_{ts['os_number']}.pdf"}
+    )
+    ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
+    if not ts:
+        raise HTTPException(status_code=404, detail="Timesheet not found")
+    
+    # Check permissions
+    if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     # Create PDF with custom header/footer
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(

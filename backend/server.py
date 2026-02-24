@@ -407,21 +407,21 @@ async def create_employee(employee_data: EmployeeCreate, current_user: Dict[str,
     return Employee(**employee_dict)
 
 
-@api_router.get("/employees", response_model=List[Employee])
+@api_router.get("/employees", response_model=List[dict])
 async def get_employees(current_user: Dict[str, Any] = Depends(get_current_user)):
     employees = await db.employees.find().sort("name", 1).to_list(1000)
     for emp in employees:
-        emp["_id"] = str(emp["_id"])
-    return [Employee(**emp) for emp in employees]
+        emp["id"] = str(emp.pop("_id"))
+    return employees
 
 
-@api_router.get("/employees/{employee_id}", response_model=Employee)
+@api_router.get("/employees/{employee_id}", response_model=dict)
 async def get_employee(employee_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
     employee = await db.employees.find_one({"_id": ObjectId(employee_id)})
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
-    employee["_id"] = str(employee["_id"])
-    return Employee(**employee)
+    employee["id"] = str(employee.pop("_id"))
+    return employee
 
 
 @api_router.put("/employees/{employee_id}", response_model=Employee)

@@ -36,6 +36,30 @@ export const authAPI = {
   },
 };
 
+// User/Supervisor API
+export const supervisorAPI = {
+  getAll: async (): Promise<User[]> => {
+    const response = await api.get('/users/supervisors');
+    return response.data;
+  },
+  create: async (email: string, name: string, password: string): Promise<User> => {
+    const response = await api.post('/users/supervisors', { email, name, password });
+    return response.data;
+  },
+  update: async (id: string, email: string, name: string, password?: string): Promise<User> => {
+    const response = await api.put(`/users/supervisors/${id}`, { 
+      email, 
+      name, 
+      ...(password && { password }) 
+    });
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/users/supervisors/${id}`);
+    return response.data;
+  },
+};
+
 // Employee API
 export const employeeAPI = {
   getAll: async (): Promise<Employee[]> => {

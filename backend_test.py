@@ -26,7 +26,7 @@ class TimesheetAPITester:
         
     def log_result(self, test_name, success, message):
         """Log test results"""
-        status = "✅ PASS" if success else "❌ FAIL"
+        status = "✅ PASS" if success else "❌ FAIL" 
         result = f"{status} {test_name}: {message}"
         print(result)
         self.test_results.append({

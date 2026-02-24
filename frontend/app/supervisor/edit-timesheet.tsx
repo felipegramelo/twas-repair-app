@@ -196,7 +196,7 @@ export default function EditTimesheetScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1a237e" />
         </TouchableOpacity>
-        <Text style={styles.title}>Novo Timesheet</Text>
+        <Text style={styles.title}>Editar Timesheet</Text>
         <View style={{ width: 40 }} />
       </View>
 

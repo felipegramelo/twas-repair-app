@@ -620,7 +620,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Create PDF with A4 page size
+    # Create PDF with A4 page size - OPTIMIZED FOR SINGLE PAGE
     buffer = io.BytesIO()
     
     # A4 dimensions: 21cm x 29.7cm
@@ -628,39 +628,39 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4, 
-        rightMargin=2*cm, 
-        leftMargin=2*cm, 
-        topMargin=2*cm, 
-        bottomMargin=2*cm
+        rightMargin=1.5*cm,  # Reduced margins
+        leftMargin=1.5*cm, 
+        topMargin=1.5*cm, 
+        bottomMargin=1.5*cm
     )
     
     # Available width for content (A4 width - margins)
-    content_width = page_width - 4*cm  # 17cm
+    content_width = page_width - 3*cm  # 18cm
     
     elements = []
     styles = getSampleStyleSheet()
     
-    # Custom styles
+    # Custom styles - REDUCED FONT SIZES
     header_style = ParagraphStyle(
         'HeaderStyle',
         parent=styles['Normal'],
-        fontSize=14,
+        fontSize=12,  # Reduced from 14
         textColor=colors.black,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold',
-        spaceAfter=6
+        spaceAfter=3  # Reduced from 6
     )
     
     small_header_style = ParagraphStyle(
         'SmallHeaderStyle',
         parent=styles['Normal'],
-        fontSize=9,
+        fontSize=8,  # Reduced from 9
         textColor=colors.black,
         alignment=TA_RIGHT,
         fontName='Helvetica'
     )
     
-    # Logo and header
+    # Logo and header - REDUCED SIZE
     logo_path = ROOT_DIR / "../logo.bmp"
     logo_cell = ""
     if logo_path.exists():
@@ -671,7 +671,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             temp_logo = io.BytesIO()
             pil_img.save(temp_logo, format='JPEG')
             temp_logo.seek(0)
-            logo_cell = RLImage(temp_logo, width=4.5*cm, height=2.2*cm)
+            logo_cell = RLImage(temp_logo, width=3.5*cm, height=1.7*cm)  # Reduced from 4.5x2.2
         except Exception as e:
             logging.error(f"Error loading logo: {e}")
             logo_cell = ""

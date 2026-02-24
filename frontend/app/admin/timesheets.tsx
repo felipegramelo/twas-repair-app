@@ -37,17 +37,22 @@ export default function AdminTimesheetsScreen() {
 
   const handleDownloadPDF = async (timesheet: Timesheet) => {
     try {
-      Alert.alert('Info', 'Gerando PDF...');
-      const pdfUrl = await timesheetAPI.downloadPDF(timesheet.id);
+      const blob = await timesheetAPI.downloadPDF(timesheet.id);
       
-      // On web, this will open in a new tab
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(pdfUrl);
-      } else {
-        window.open(pdfUrl, '_blank');
-      }
+      // Create a download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `timesheet_${timesheet.os_number}_${timesheet.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      Alert.alert('Sucesso', 'PDF baixado com sucesso!');
     } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao gerar PDF');
+      console.error('Erro ao baixar PDF:', error);
+      Alert.alert('Erro', 'Erro ao baixar PDF');
     }
   };
 

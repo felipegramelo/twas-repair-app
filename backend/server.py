@@ -529,16 +529,18 @@ async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any
     return Timesheet(**ts_dict)
 
 
-@api_router.get("/timesheets", response_model=List[Timesheet])
+@api_router.get("/timesheets", response_model=List[dict])
 async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user)):
     query = {}
     if current_user.get("role") != UserRole.ADMIN:
         query["supervisor_id"] = current_user["_id"]
     
     timesheets = await db.timesheets.find(query).sort("created_at", -1).to_list(1000)
+    result = []
     for ts in timesheets:
         ts["id"] = str(ts.pop("_id"))  # Rename _id to id
-    return [Timesheet(**ts) for ts in timesheets]
+        result.append(ts)
+    return result
 
 
 @api_router.get("/timesheets/{ts_id}", response_model=Timesheet)

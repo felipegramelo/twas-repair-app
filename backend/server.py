@@ -537,7 +537,7 @@ async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user
     
     timesheets = await db.timesheets.find(query).sort("created_at", -1).to_list(1000)
     for ts in timesheets:
-        ts["_id"] = str(ts["_id"])
+        ts["id"] = str(ts.pop("_id"))  # Rename _id to id
     return [Timesheet(**ts) for ts in timesheets]
 
 
@@ -551,7 +551,7 @@ async def get_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_c
     if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    ts["_id"] = str(ts["_id"])
+    ts["id"] = str(ts.pop("_id"))  # Rename _id to id
     return Timesheet(**ts)
 
 

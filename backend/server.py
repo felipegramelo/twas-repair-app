@@ -620,77 +620,127 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Create PDF
+    # Create PDF with custom header/footer
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=letter, 
+        rightMargin=40, 
+        leftMargin=40, 
+        topMargin=60, 
+        bottomMargin=60
+    )
     
     elements = []
     styles = getSampleStyleSheet()
     
-    # Title style
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        textColor=colors.HexColor('#1a237e'),
-        spaceAfter=30,
-        alignment=TA_CENTER
+    # Custom styles
+    header_style = ParagraphStyle(
+        'HeaderStyle',
+        parent=styles['Normal'],
+        fontSize=14,
+        textColor=colors.black,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold',
+        spaceAfter=6
     )
     
-    # Add logo if exists
+    small_header_style = ParagraphStyle(
+        'SmallHeaderStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.black,
+        alignment=TA_RIGHT,
+        fontName='Helvetica'
+    )
+    
+    # Header table with logo, title, and date
     logo_path = ROOT_DIR / "../logo.bmp"
+    logo_cell = ""
     if logo_path.exists():
         try:
-            # Convert BMP to RGB if needed
             pil_img = PILImage.open(logo_path)
             if pil_img.mode != 'RGB':
                 pil_img = pil_img.convert('RGB')
-            
-            # Save as temporary JPEG
             temp_logo = io.BytesIO()
             pil_img.save(temp_logo, format='JPEG')
             temp_logo.seek(0)
-            
-            logo = RLImage(temp_logo, width=2*inch, height=1*inch)
-            elements.append(logo)
-            elements.append(Spacer(1, 12))
+            logo_cell = RLImage(temp_logo, width=1.8*inch, height=0.9*inch)
         except Exception as e:
             logging.error(f"Error loading logo: {e}")
+            logo_cell = ""
     
-    # Title
-    title = Paragraph("RELATÓRIO DE HORAS (TIME SHEET)", title_style)
-    elements.append(title)
-    elements.append(Spacer(1, 12))
+    # Current date and revision
+    from datetime import datetime as dt
+    current_date = dt.now().strftime("%d/%m/%Y")
+    date_rev_text = f"{current_date}<br/>Rev.: 2"
     
-    # Service Order Info
-    info_data = [
-        ["Serviços / Jobs:", ts["service"]],
-        ["Cliente / Client:", ts["client"]],
-        ["OS / PO (TWAS):", ts["os_number"]],
-        ["Local / Location:", ts["location"]]
+    header_data = [
+        [
+            logo_cell,
+            Paragraph("RELATÓRIO DE HORAS<br/>TIME SHEET", header_style),
+            Paragraph(date_rev_text, small_header_style)
+        ]
     ]
     
-    info_table = Table(info_data, colWidths=[2*inch, 5*inch])
+    header_table = Table(header_data, colWidths=[2*inch, 3.5*inch, 1.5*inch])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+    ]))
+    
+    elements.append(header_table)
+    elements.append(Spacer(1, 20))
+    
+    # Service Order Info - 2x2 grid layout
+    info_data = [
+        [
+            Paragraph("<b>Serviços / Jobs:</b>", styles['Normal']),
+            Paragraph("<b>OS / PO (TWAS):</b>", styles['Normal'])
+        ],
+        [
+            Paragraph(ts["service"], styles['Normal']),
+            Paragraph(ts["os_number"], styles['Normal'])
+        ],
+        [
+            Paragraph("<b>Cliente / Client:</b>", styles['Normal']),
+            Paragraph("<b>Local / Location:</b>", styles['Normal'])
+        ],
+        [
+            Paragraph(ts["client"], styles['Normal']),
+            Paragraph(ts["location"], styles['Normal'])
+        ]
+    ]
+    
+    info_table = Table(info_data, colWidths=[3.5*inch, 3.5*inch])
     info_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e3f2fd')),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     
     elements.append(info_table)
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 15))
     
-    # Timesheet entries table
+    # Main timesheet table - EXACT column order from model
     table_data = [
-        ["Data/\nDate", "Em Serviço / In Service\nInício", "Em Serviço / In Service\nFinal", 
-         "Função/\nFunction", "Nome/\nName", "Em Viagem / In Travel\nInício", "Em Viagem / In Travel\nFinal"]
+        [
+            Paragraph("<b>Data<br/>Date</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
+            Paragraph("<b>Em Serviço<br/>In Service<br/>Início<br/>Start</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+            Paragraph("<b>Em Serviço<br/>In Service<br/>Final<br/>Final</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+            Paragraph("<b>Função<br/>Function</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
+            Paragraph("<b>Nome<br/>Name</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
+            Paragraph("<b>Em Viagem<br/>In Travel<br/>Início<br/>Start</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+            Paragraph("<b>Em Viagem<br/>In Travel<br/>Final<br/>Final</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+        ]
     ]
     
+    # Add timesheet entries
     for entry in ts["entries"]:
         table_data.append([
             entry["date"],
@@ -702,61 +752,85 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             entry.get("travel_end", "")
         ])
     
-    # Add empty rows to fill page
-    while len(table_data) < 12:
+    # Add empty rows (minimum 15 total rows including header)
+    while len(table_data) < 16:
         table_data.append(["", "", "", "", "", "", ""])
     
-    entries_table = Table(table_data, colWidths=[0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 1.5*inch, 0.8*inch, 0.8*inch])
+    entries_table = Table(table_data, colWidths=[0.75*inch, 0.75*inch, 0.75*inch, 0.75*inch, 1.8*inch, 0.75*inch, 0.75*inch])
     entries_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     
     elements.append(entries_table)
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 12))
     
-    # Legend
-    legend_text = "Legenda: Engenheiro (E) / Engineer | Especialista (SE) / Specialist | Técnico (T) / Technician | Mecânico (M) / Mechanic | Soldador (W) / Welder | Almoxarife (TK) / Tool Keeper"
-    legend = Paragraph(legend_text, styles['Normal'])
+    # Legend with correct functions from model
+    legend_style = ParagraphStyle('legend', parent=styles['Normal'], fontSize=8, alignment=TA_LEFT)
+    legend_text = "<b>Legenda / Caption</b><br/>"
+    legend_text += "Engenheiro (E) / Engineer (E) | "
+    legend_text += "Encarregado (EN) / Foreman (EN) | "
+    legend_text += "Supervisor (Sup) / Supervisor (Sup) | "
+    legend_text += "Técnico (T) / Technician (T) | "
+    legend_text += "Mecânico (M) / Mechanic (M) | "
+    legend_text += "Téc. Seg. (TS) / Safety Tech (ST)"
+    legend = Paragraph(legend_text, legend_style)
     elements.append(legend)
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 12))
     
-    # Observations
-    if ts.get("observations"):
-        obs_title = Paragraph("<b>Observações / Remarks:</b>", styles['Normal'])
-        elements.append(obs_title)
-        obs_text = Paragraph(ts["observations"], styles['Normal'])
-        elements.append(obs_text)
-        elements.append(Spacer(1, 20))
-    
-    # Approval section
+    # Client Approval section
     approval_data = [
-        ["Aprovação do Cliente / Client Approval"],
-        ["Nome / Name: _______________________________"],
-        ["Função / Function: _______________________________"],
-        ["Carimbo / Stamp:"]
+        [Paragraph("<b>Aprovação do Cliente / Client Approval</b>", styles['Normal'])],
+        [""],
+        [Paragraph("<b>Nome / Name</b>", styles['Normal'])],
+        [""],
+        [Paragraph("<b>Função / Function</b>", styles['Normal'])],
+        [""],
+        [Paragraph("<b>Carimbo / Stamp</b>", styles['Normal'])],
     ]
     
-    approval_table = Table(approval_data, colWidths=[7*inch])
+    approval_table = Table(approval_data, colWidths=[7*inch], rowHeights=[0.3*inch, 0.3*inch, 0.25*inch, 0.3*inch, 0.25*inch, 0.3*inch, 0.25*inch])
     approval_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e3f2fd')),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
     ]))
     
     elements.append(approval_table)
+    elements.append(Spacer(1, 12))
+    
+    # Observations section
+    obs_data = [
+        [Paragraph("<b>Observações / Remarks:</b>", styles['Normal'])],
+        [Paragraph(ts.get("observations", ""), styles['Normal']) if ts.get("observations") else ""]
+    ]
+    
+    obs_table = Table(obs_data, colWidths=[7*inch], rowHeights=[0.25*inch, 0.6*inch])
+    obs_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    
+    elements.append(obs_table)
+    elements.append(Spacer(1, 20))
+    
+    # Footer with company info
+    footer_style = ParagraphStyle('footer', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER)
+    footer_text = "<b>TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA - CNPJ: 31.839.501/0001-90</b><br/>"
+    footer_text += "Travessa Frederico Marques, N° 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24466-180.<br/>"
+    footer_text += "www.twasrepair.com<br/>"
+    footer_text += "Página 1 de 1"
+    footer = Paragraph(footer_text, footer_style)
+    elements.append(footer)
     
     # Build PDF
     doc.build(elements)

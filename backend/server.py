@@ -630,8 +630,8 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         pagesize=A4, 
         rightMargin=1.5*cm,  
         leftMargin=1.5*cm, 
-        topMargin=1.2*cm,  # Reduced from 1.5cm
-        bottomMargin=1.2*cm  # Reduced from 1.5cm
+        topMargin=1.2*cm,  
+        bottomMargin=0.8*cm  # Reduced from 1.2cm to give more space
     )
     
     # Available width for content (A4 width - margins)

@@ -48,22 +48,39 @@ export default function EditTimesheetScreen() {
   const [travelEnd, setTravelEnd] = useState('');
 
   useEffect(() => {
-    loadData();
+    if (id) {
+      loadTimesheetData();
+    } else {
+      Alert.alert('Erro', 'ID do timesheet não fornecido');
+      router.back();
+    }
   }, []);
 
-  const loadData = async () => {
+  const loadTimesheetData = async () => {
     try {
-      const [soData, empData] = await Promise.all([
+      const [soData, empData, tsData] = await Promise.all([
         serviceOrderAPI.getAll(),
         employeeAPI.getAll(),
+        timesheetAPI.getById(id as string),
       ]);
       setServiceOrders(soData);
       setEmployees(empData);
+      
+      // Load existing timesheet data
+      const so = soData.find(s => s.id === tsData.os_id);
+      setSelectedSO(so || null);
+      setEntries(tsData.entries);
+      setObservations(tsData.observations || '');
     } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao carregar dados');
+      Alert.alert('Erro', 'Erro ao carregar dados do timesheet');
+      router.back();
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadData = async () => {
+    // This function is now unused, replaced by loadTimesheetData
   };
 
   const openAddEntryModal = () => {

@@ -1,0 +1,109 @@
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { User, Employee, ServiceOrder, Timesheet, TimesheetEntry } from '../types';
+
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add token to requests
+api.interceptors.request.use(async (config) => {
+  const token = await AsyncStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Auth API
+export const authAPI = {
+  login: async (email: string, password: string) => {
+    const response = await api.post('/auth/login', { email, password });
+    return response.data;
+  },
+  register: async (email: string, password: string, name: string, role: string) => {
+    const response = await api.post('/auth/register', { email, password, name, role });
+    return response.data;
+  },
+  getMe: async () => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+};
+
+// Employee API
+export const employeeAPI = {
+  getAll: async (): Promise<Employee[]> => {
+    const response = await api.get('/employees');
+    return response.data;
+  },
+  create: async (name: string, functionCode: string): Promise<Employee> => {
+    const response = await api.post('/employees', { name, function: functionCode });
+    return response.data;
+  },
+  update: async (id: string, name: string, functionCode: string): Promise<Employee> => {
+    const response = await api.put(`/employees/${id}`, { name, function: functionCode });
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/employees/${id}`);
+    return response.data;
+  },
+};
+
+// Service Order API
+export const serviceOrderAPI = {
+  getAll: async (): Promise<ServiceOrder[]> => {
+    const response = await api.get('/service-orders');
+    return response.data;
+  },
+  create: async (os_number: string, client: string, location: string, service: string): Promise<ServiceOrder> => {
+    const response = await api.post('/service-orders', { os_number, client, location, service });
+    return response.data;
+  },
+  update: async (id: string, os_number: string, client: string, location: string, service: string): Promise<ServiceOrder> => {
+    const response = await api.put(`/service-orders/${id}`, { os_number, client, location, service });
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/service-orders/${id}`);
+    return response.data;
+  },
+};
+
+// Timesheet API
+export const timesheetAPI = {
+  getAll: async (): Promise<Timesheet[]> => {
+    const response = await api.get('/timesheets');
+    return response.data;
+  },
+  getById: async (id: string): Promise<Timesheet> => {
+    const response = await api.get(`/timesheets/${id}`);
+    return response.data;
+  },
+  create: async (os_id: string, entries: TimesheetEntry[], observations?: string): Promise<Timesheet> => {
+    const response = await api.post('/timesheets', { os_id, entries, observations });
+    return response.data;
+  },
+  update: async (id: string, os_id: string, entries: TimesheetEntry[], observations?: string): Promise<Timesheet> => {
+    const response = await api.put(`/timesheets/${id}`, { os_id, entries, observations });
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/timesheets/${id}`);
+    return response.data;
+  },
+  downloadPDF: async (id: string): Promise<string> => {
+    const response = await api.get(`/timesheets/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    return URL.createObjectURL(response.data);
+  },
+};
+
+export default api;

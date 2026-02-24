@@ -806,7 +806,12 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         
         # Only add legend, approval, observations, and footer on last page
         if page_num == total_pages - 1:
-            # Legend - 6 columns in a single row matching the template
+            # Legend title
+            legend_title = Paragraph("<b>Legenda / Caption</b>", ParagraphStyle('legend_title', parent=styles['Normal'], fontSize=8))
+            elements.append(legend_title)
+            elements.append(Spacer(1, 0.05*cm))
+            
+            # Legend - 6 columns in a single row
             legend_cell_style = ParagraphStyle('legend_cell', parent=styles['Normal'], fontSize=6, alignment=TA_CENTER, leading=8)
             
             legend_data = [

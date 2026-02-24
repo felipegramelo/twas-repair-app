@@ -288,7 +288,7 @@ export default function EditTimesheetScreen() {
             {saving ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.saveButtonText}>Salvar Timesheet</Text>
+              <Text style={styles.saveButtonText}>Atualizar Timesheet</Text>
             )}
           </TouchableOpacity>
         </ScrollView>

@@ -171,12 +171,12 @@ export default function EditTimesheetScreen() {
 
     setSaving(true);
     try {
-      await timesheetAPI.create(selectedSO.id, entries, observations);
-      Alert.alert('Sucesso', 'Timesheet criado com sucesso', [
+      await timesheetAPI.update(id as string, selectedSO.id, entries, observations);
+      Alert.alert('Sucesso', 'Timesheet atualizado com sucesso', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao salvar timesheet');
+      Alert.alert('Erro', 'Erro ao atualizar timesheet');
     } finally {
       setSaving(false);
     }

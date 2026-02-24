@@ -38,7 +38,6 @@ export default function SupervisorDashboard() {
       const blob = await timesheetAPI.downloadPDF(timesheet.id);
       
       if (Platform.OS === 'web') {
-        // Web: Create download link
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -49,11 +48,9 @@ export default function SupervisorDashboard() {
         URL.revokeObjectURL(url);
         Alert.alert('Sucesso', 'PDF baixado com sucesso!');
       } else {
-        // Mobile: Use sharing
         const fileReaderInstance = new FileReader();
         fileReaderInstance.readAsDataURL(blob);
         fileReaderInstance.onload = () => {
-          const base64data = fileReaderInstance.result;
           Alert.alert('PDF', 'PDF gerado com sucesso!');
         };
       }
@@ -63,8 +60,36 @@ export default function SupervisorDashboard() {
     }
   };
 
+  const handleDelete = (timesheet: Timesheet) => {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Excluir timesheet ${timesheet.os_number} - ${timesheet.client}?`)) {
+        deleteTimesheet(timesheet.id);
+      }
+    } else {
+      Alert.alert(
+        'Confirmar Exclusão',
+        `Excluir timesheet ${timesheet.os_number} - ${timesheet.client}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Excluir', style: 'destructive', onPress: () => deleteTimesheet(timesheet.id) },
+        ]
+      );
+    }
+  };
+
+  const deleteTimesheet = async (id: string) => {
+    try {
+      await timesheetAPI.delete(id);
+      setTimesheets(prev => prev.filter(t => t.id !== id));
+      Alert.alert('Sucesso', 'Timesheet excluído com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao excluir:', error);
+      Alert.alert('Erro', 'Erro ao excluir timesheet');
+    }
+  };
+
   const renderTimesheet = ({ item }: { item: Timesheet }) => (
-    <View style={styles.tsCard}>
+    <View style={styles.tsCard} data-testid={`timesheet-card-${item.id}`}>
       <TouchableOpacity 
         style={styles.tsCardContent}
         onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
@@ -82,14 +107,23 @@ export default function SupervisorDashboard() {
         <TouchableOpacity 
           onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
           style={styles.tsActionButton}
+          data-testid={`edit-btn-${item.id}`}
         >
           <Ionicons name="pencil" size={20} color="#1a237e" />
         </TouchableOpacity>
         <TouchableOpacity 
           onPress={() => handleDownloadPDF(item)}
           style={styles.tsActionButton}
+          data-testid={`download-pdf-btn-${item.id}`}
         >
           <Ionicons name="download-outline" size={20} color="#1a237e" />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => handleDelete(item)}
+          style={styles.tsActionButton}
+          data-testid={`delete-btn-${item.id}`}
+        >
+          <Ionicons name="trash-outline" size={20} color="#d32f2f" />
         </TouchableOpacity>
       </View>
     </View>
@@ -211,7 +245,7 @@ const styles = StyleSheet.create({
   },
   tsActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 4,
   },
   tsActionButton: {
     padding: 8,

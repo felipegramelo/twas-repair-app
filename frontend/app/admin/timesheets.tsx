@@ -40,7 +40,6 @@ export default function AdminTimesheetsScreen() {
       const blob = await timesheetAPI.downloadPDF(timesheet.id);
       
       if (Platform.OS === 'web') {
-        // Web: Create download link
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -51,13 +50,10 @@ export default function AdminTimesheetsScreen() {
         URL.revokeObjectURL(url);
         Alert.alert('Sucesso', 'PDF baixado com sucesso!');
       } else {
-        // Mobile: Use sharing
         const fileReaderInstance = new FileReader();
         fileReaderInstance.readAsDataURL(blob);
         fileReaderInstance.onload = () => {
-          const base64data = fileReaderInstance.result;
           Alert.alert('PDF', 'PDF gerado com sucesso!');
-          // On mobile, we would use expo-file-system here
         };
       }
     } catch (error: any) {
@@ -66,8 +62,36 @@ export default function AdminTimesheetsScreen() {
     }
   };
 
+  const handleDelete = (timesheet: Timesheet) => {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Excluir timesheet ${timesheet.os_number} - ${timesheet.client}?`)) {
+        deleteTimesheet(timesheet.id);
+      }
+    } else {
+      Alert.alert(
+        'Confirmar Exclusão',
+        `Excluir timesheet ${timesheet.os_number} - ${timesheet.client}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Excluir', style: 'destructive', onPress: () => deleteTimesheet(timesheet.id) },
+        ]
+      );
+    }
+  };
+
+  const deleteTimesheet = async (id: string) => {
+    try {
+      await timesheetAPI.delete(id);
+      setTimesheets(prev => prev.filter(t => t.id !== id));
+      Alert.alert('Sucesso', 'Timesheet excluído com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao excluir:', error);
+      Alert.alert('Erro', 'Erro ao excluir timesheet');
+    }
+  };
+
   const renderTimesheet = ({ item }: { item: Timesheet }) => (
-    <TouchableOpacity style={styles.card} onPress={() => handleDownloadPDF(item)}>
+    <View style={styles.card} data-testid={`timesheet-card-${item.id}`}>
       <View style={styles.cardContent}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{item.os_number}</Text>
@@ -75,16 +99,27 @@ export default function AdminTimesheetsScreen() {
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle}>{item.client}</Text>
           <Text style={styles.cardSubtitle}>{item.location}</Text>
-          <Text style={styles.cardMeta}>
-            Supervisor: {item.supervisor_name}
-          </Text>
-          <Text style={styles.cardMeta}>
-            {item.entries.length} entrada(s)
-          </Text>
+          <Text style={styles.cardMeta}>Supervisor: {item.supervisor_name}</Text>
+          <Text style={styles.cardMeta}>{item.entries.length} entrada(s)</Text>
         </View>
       </View>
-      <Ionicons name="download-outline" size={24} color="#1a237e" />
-    </TouchableOpacity>
+      <View style={styles.actions}>
+        <TouchableOpacity
+          onPress={() => handleDownloadPDF(item)}
+          style={styles.actionButton}
+          data-testid={`download-pdf-btn-${item.id}`}
+        >
+          <Ionicons name="download-outline" size={22} color="#1a237e" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleDelete(item)}
+          style={styles.actionButton}
+          data-testid={`delete-btn-${item.id}`}
+        >
+          <Ionicons name="trash-outline" size={22} color="#d32f2f" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   if (loading) {
@@ -200,6 +235,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 4,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  actionButton: {
+    padding: 8,
   },
   emptyContainer: {
     alignItems: 'center',

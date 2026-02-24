@@ -524,9 +524,14 @@ async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any
     ts_dict["updated_at"] = datetime.utcnow()
     
     result = await db.timesheets.insert_one(ts_dict)
-    ts_dict["id"] = str(result.inserted_id)  # Return id instead of _id
     
-    return ts_dict
+    # Reload from database and convert _id to id
+    created_ts = await db.timesheets.find_one({"_id": result.inserted_id})
+    created_ts["id"] = str(created_ts.pop("_id"))
+    created_ts["created_at"] = created_ts["created_at"].isoformat() if isinstance(created_ts["created_at"], datetime) else created_ts["created_at"]
+    created_ts["updated_at"] = created_ts["updated_at"].isoformat() if isinstance(created_ts["updated_at"], datetime) else created_ts["updated_at"]
+    
+    return created_ts
 
 
 @api_router.get("/timesheets", response_model=List[dict])

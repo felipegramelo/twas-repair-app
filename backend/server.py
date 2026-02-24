@@ -847,7 +847,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
                 ["", "", ""]  # Empty row for filling
             ]
             
-            approval_table = Table(approval_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.6*cm, 1.2*cm])  # Reduced heights
+            approval_table = Table(approval_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 0.9*cm])
             approval_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -893,7 +893,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
                 ]
             ]
             
-            twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.6*cm, 0.7*cm])  # Reduced heights
+            twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 0.6*cm])
             twas_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),

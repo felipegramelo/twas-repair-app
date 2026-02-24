@@ -122,11 +122,11 @@ export const timesheetAPI = {
     const response = await api.delete(`/timesheets/${id}`);
     return response.data;
   },
-  downloadPDF: async (id: string): Promise<string> => {
+  downloadPDF: async (id: string): Promise<Blob> => {
     const response = await api.get(`/timesheets/${id}/pdf`, {
       responseType: 'blob',
     });
-    return URL.createObjectURL(response.data);
+    return response.data;
   },
 };
 

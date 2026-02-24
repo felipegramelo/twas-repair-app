@@ -50,8 +50,11 @@ export default function SupervisorDashboard() {
   };
 
   const renderTimesheet = ({ item }: { item: Timesheet }) => (
-    <TouchableOpacity style={styles.tsCard} onPress={() => handleDownloadPDF(item)}>
-      <View style={styles.tsCardContent}>
+    <View style={styles.tsCard}>
+      <TouchableOpacity 
+        style={styles.tsCardContent}
+        onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
+      >
         <View style={styles.tsBadge}>
           <Text style={styles.tsBadgeText}>{item.os_number}</Text>
         </View>
@@ -60,9 +63,22 @@ export default function SupervisorDashboard() {
           <Text style={styles.tsCardSubtitle}>{item.location}</Text>
           <Text style={styles.tsCardMeta}>{item.entries.length} entrada(s)</Text>
         </View>
+      </TouchableOpacity>
+      <View style={styles.tsActions}>
+        <TouchableOpacity 
+          onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
+          style={styles.tsActionButton}
+        >
+          <Ionicons name="pencil" size={20} color="#1a237e" />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => handleDownloadPDF(item)}
+          style={styles.tsActionButton}
+        >
+          <Ionicons name="download-outline" size={20} color="#1a237e" />
+        </TouchableOpacity>
       </View>
-      <Ionicons name="download-outline" size={20} color="#1a237e" />
-    </TouchableOpacity>
+    </View>
   );
 
   return (

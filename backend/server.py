@@ -819,35 +819,39 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             elements.append(legend)
             elements.append(Spacer(1, 0.3*cm))
             
-            # Client Approval section - ALIGNED to content_width
+            # Client Approval section - Title + 3 columns table
+            approval_title = Paragraph("<b>Aprovação do Cliente / Client Approval</b>", styles['Normal'])
+            elements.append(approval_title)
+            elements.append(Spacer(1, 0.1*cm))
+            
             approval_data = [
-                [Paragraph("<b>Aprovação do Cliente / Client Approval</b>", styles['Normal'])],
-                [""],
-                [Paragraph("<b>Nome / Name</b>", styles['Normal'])],
-                [""],
-                [Paragraph("<b>Função / Function</b>", styles['Normal'])],
-                [""],
-                [Paragraph("<b>Carimbo / Stamp</b>", styles['Normal'])],
+                [
+                    Paragraph("<b>Nome / Name</b>", ParagraphStyle('approval', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                    Paragraph("<b>Função / Function</b>", ParagraphStyle('approval', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                    Paragraph("<b>Carimbo / Stamp</b>", ParagraphStyle('approval', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
+                ],
+                ["", "", ""]  # Empty row for filling
             ]
             
-            approval_table = Table(approval_data, colWidths=[17*cm], rowHeights=[0.6*cm, 0.6*cm, 0.5*cm, 0.6*cm, 0.5*cm, 0.6*cm, 0.5*cm])
+            approval_table = Table(approval_data, colWidths=[5.5*cm, 5.5*cm, 6*cm], rowHeights=[0.8*cm, 2*cm])
             approval_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0.3*cm),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
                 ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ]))
             
             elements.append(approval_table)
             elements.append(Spacer(1, 0.3*cm))
             
-            # Observations section - ALIGNED to content_width
+            # Observations section
             obs_data = [
                 [Paragraph("<b>Observações / Remarks:</b>", styles['Normal'])],
                 [Paragraph(ts.get("observations", ""), styles['Normal']) if ts.get("observations") else ""]
             ]
             
-            obs_table = Table(obs_data, colWidths=[17*cm], rowHeights=[0.5*cm, 1.2*cm])
+            obs_table = Table(obs_data, colWidths=[17*cm], rowHeights=[0.5*cm, 1.5*cm])
             obs_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -856,6 +860,36 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             ]))
             
             elements.append(obs_table)
+            elements.append(Spacer(1, 0.3*cm))
+            
+            # TWAS Approval section - 3 columns (Data, Nome, Função)
+            from datetime import datetime as dt
+            current_date = dt.now().strftime("%d/%m/%Y")
+            
+            twas_data = [
+                [
+                    Paragraph("<b>Data / Date</b>", ParagraphStyle('twas', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                    Paragraph("<b>Nome / Name</b>", ParagraphStyle('twas', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                    Paragraph("<b>Função / Function</b>", ParagraphStyle('twas', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
+                ],
+                [
+                    Paragraph(current_date, ParagraphStyle('twas_content', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                    Paragraph(ts["supervisor_name"], ParagraphStyle('twas_content', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                    Paragraph("Supervisor", ParagraphStyle('twas_content', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
+                ]
+            ]
+            
+            twas_table = Table(twas_data, colWidths=[5.5*cm, 5.5*cm, 6*cm], rowHeights=[0.8*cm, 1*cm])
+            twas_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
+                ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ]))
+            
+            elements.append(twas_table)
             elements.append(Spacer(1, 0.5*cm))
             
             # Footer with company info - ALIGNED center

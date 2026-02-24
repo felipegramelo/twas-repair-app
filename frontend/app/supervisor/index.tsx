@@ -195,6 +195,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     flex: 1,
   },
+  tsActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  tsActionButton: {
+    padding: 8,
+  },
   tsBadge: {
     backgroundColor: '#e3f2fd',
     paddingHorizontal: 12,

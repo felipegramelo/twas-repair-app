@@ -750,9 +750,9 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             elements.append(PageBreak())
             # Add header again on new page
             elements.append(header_table)
-            elements.append(Spacer(1, 0.5*cm))
+            elements.append(Spacer(1, 0.15*cm))
             elements.append(info_table)
-            elements.append(Spacer(1, 0.4*cm))
+            elements.append(Spacer(1, 0.15*cm))
         
         # Table header
         table_data = [
@@ -802,7 +802,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         ]))
         
         elements.append(entries_table)
-        elements.append(Spacer(1, 0.3*cm))
+        elements.append(Spacer(1, 0.1*cm))
         
         # Only add legend, approval, observations, and footer on last page
         if page_num == total_pages - 1:
@@ -817,7 +817,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             legend_text += "Téc. Seg. (TS) / Safety Tech (ST)"
             legend = Paragraph(legend_text, legend_style)
             elements.append(legend)
-            elements.append(Spacer(1, 0.3*cm))
+            elements.append(Spacer(1, 0.1*cm))
             
             # Client Approval section - Title + 3 columns table
             approval_title = Paragraph("<b>Aprovação do Cliente / Client Approval</b>", styles['Normal'])
@@ -843,7 +843,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             ]))
             
             elements.append(approval_table)
-            elements.append(Spacer(1, 0.3*cm))
+            elements.append(Spacer(1, 0.1*cm))
             
             # Observations section
             obs_data = [
@@ -860,7 +860,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             ]))
             
             elements.append(obs_table)
-            elements.append(Spacer(1, 0.3*cm))
+            elements.append(Spacer(1, 0.1*cm))
             
             # TWAS Approval section - 3 columns (Data, Nome, Função)
             from datetime import datetime as dt
@@ -890,7 +890,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             ]))
             
             elements.append(twas_table)
-            elements.append(Spacer(1, 0.5*cm))
+            elements.append(Spacer(1, 0.15*cm))
             
             # Footer with company info - ALIGNED center
             footer_style = ParagraphStyle('footer', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER)

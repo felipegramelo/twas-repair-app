@@ -15,23 +15,42 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { serviceOrderAPI } from '../../services/api';
-import { ServiceOrder } from '../../types';
+import { serviceOrderAPI, employeeAPI } from '../../services/api';
+import { ServiceOrder, Employee } from '../../types';
 
 export default function ServiceOrdersScreen() {
   const router = useRouter();
   const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingSO, setEditingSO] = useState<ServiceOrder | null>(null);
+
   const [osNumber, setOsNumber] = useState('');
   const [client, setClient] = useState('');
   const [location, setLocation] = useState('');
   const [service, setService] = useState('');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [employeePickerVisible, setEmployeePickerVisible] = useState(false);
 
   useEffect(() => {
-    loadServiceOrders();
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      const [soData, empData] = await Promise.all([
+        serviceOrderAPI.getAll(),
+        employeeAPI.getAll(),
+      ]);
+      setServiceOrders(soData);
+      setEmployees(empData);
+    } catch (error: any) {
+      Alert.alert('Erro', 'Erro ao carregar dados');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadServiceOrders = async () => {
     try {
@@ -39,46 +58,45 @@ export default function ServiceOrdersScreen() {
       setServiceOrders(data);
     } catch (error: any) {
       Alert.alert('Erro', 'Erro ao carregar ordens de serviço');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!osNumber.trim() || !client.trim() || !location.trim() || !service.trim()) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos');
-      return;
-    }
-
-    try {
-      if (editingSO) {
-        await serviceOrderAPI.update(editingSO.id, osNumber, client, location, service);
-      } else {
-        await serviceOrderAPI.create(osNumber, client, location, service);
-      }
-      setModalVisible(false);
-      resetForm();
-      loadServiceOrders();
-    } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao salvar ordem de serviço');
-    }
-  };
-
-  const resetForm = () => {
+  const openAddModal = () => {
+    setEditingSO(null);
     setOsNumber('');
     setClient('');
     setLocation('');
     setService('');
-    setEditingSO(null);
+    setSelectedEmployeeIds([]);
+    setModalVisible(true);
   };
 
-  const handleEdit = (so: ServiceOrder) => {
+  const openEditModal = (so: ServiceOrder) => {
     setEditingSO(so);
     setOsNumber(so.os_number);
     setClient(so.client);
     setLocation(so.location);
     setService(so.service);
+    setSelectedEmployeeIds(so.employee_ids || []);
     setModalVisible(true);
+  };
+
+  const handleSave = async () => {
+    if (!osNumber || !client || !location || !service) {
+      Alert.alert('Erro', 'Preencha todos os campos obrigatórios');
+      return;
+    }
+    try {
+      if (editingSO) {
+        await serviceOrderAPI.update(editingSO.id, osNumber, client, location, service, selectedEmployeeIds);
+      } else {
+        await serviceOrderAPI.create(osNumber, client, location, service, selectedEmployeeIds);
+      }
+      setModalVisible(false);
+      loadServiceOrders();
+    } catch (error: any) {
+      Alert.alert('Erro', 'Erro ao salvar ordem de serviço');
+    }
   };
 
   const handleDelete = (so: ServiceOrder) => {
@@ -87,14 +105,10 @@ export default function ServiceOrdersScreen() {
         performDelete(so);
       }
     } else {
-      Alert.alert(
-        'Confirmar exclusão',
-        `Deseja excluir a O.S. ${so.os_number}?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Excluir', style: 'destructive', onPress: () => performDelete(so) },
-        ]
-      );
+      Alert.alert('Confirmar exclusão', `Deseja excluir a O.S. ${so.os_number}?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir', style: 'destructive', onPress: () => performDelete(so) },
+      ]);
     }
   };
 
@@ -107,40 +121,49 @@ export default function ServiceOrdersScreen() {
     }
   };
 
-  const openAddModal = () => {
-    resetForm();
-    setModalVisible(true);
+  const toggleEmployee = (empId: string) => {
+    setSelectedEmployeeIds(prev =>
+      prev.includes(empId) ? prev.filter(id => id !== empId) : [...prev, empId]
+    );
+  };
+
+  const getEmployeeNames = (ids: string[]) => {
+    if (!ids || ids.length === 0) return 'Nenhum funcionário';
+    return ids
+      .map(id => employees.find(e => e.id === id))
+      .filter(Boolean)
+      .map(e => e!.name)
+      .join(', ');
   };
 
   const renderServiceOrder = ({ item }: { item: ServiceOrder }) => (
-    <View style={styles.card}>
-      <View style={styles.cardContent}>
+    <View style={styles.card} data-testid={`so-card-${item.id}`}>
+      <TouchableOpacity style={styles.cardContent} onPress={() => openEditModal(item)}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{item.os_number}</Text>
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle}>{item.client}</Text>
           <Text style={styles.cardSubtitle}>{item.location}</Text>
-          <Text style={styles.cardService}>{item.service}</Text>
+          <Text style={styles.cardMeta}>{item.service}</Text>
+          <Text style={styles.cardEmployees} numberOfLines={2}>
+            Funcionários: {getEmployeeNames(item.employee_ids || [])}
+          </Text>
         </View>
-      </View>
-      <View style={styles.cardActions}>
-        <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
+      </TouchableOpacity>
+      <View style={styles.actions}>
+        <TouchableOpacity onPress={() => openEditModal(item)} style={styles.actionButton}>
           <Ionicons name="pencil" size={20} color="#1a237e" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
-          <Ionicons name="trash" size={20} color="#d32f2f" />
+        <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton} data-testid={`delete-so-${item.id}`}>
+          <Ionicons name="trash-outline" size={20} color="#d32f2f" />
         </TouchableOpacity>
       </View>
     </View>
   );
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a237e" />
-      </View>
-    );
+    return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#1a237e" /></View>;
   }
 
   return (
@@ -151,7 +174,7 @@ export default function ServiceOrdersScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>Ordens de Serviço</Text>
         <TouchableOpacity onPress={openAddModal} style={styles.addButton}>
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name="add" size={28} color="#1a237e" />
         </TouchableOpacity>
       </View>
 
@@ -163,69 +186,88 @@ export default function ServiceOrdersScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="document-text-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>Nenhuma O.S. cadastrada</Text>
+            <Text style={styles.emptyText}>Nenhuma ordem de serviço</Text>
           </View>
         }
       />
 
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setModalVisible(false)}
-      >
+      {/* Create/Edit Modal */}
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView>
-              <Text style={styles.modalTitle}>
-                {editingSO ? 'Editar O.S.' : 'Nova O.S.'}
-              </Text>
+              <Text style={styles.modalTitle}>{editingSO ? 'Editar O.S.' : 'Nova Ordem de Serviço'}</Text>
 
-              <TextInput
-                style={styles.input}
-                placeholder="Número da O.S."
-                value={osNumber}
-                onChangeText={setOsNumber}
-              />
+              <Text style={styles.inputLabel}>Número da O.S. *</Text>
+              <TextInput style={styles.input} value={osNumber} onChangeText={setOsNumber} placeholder="Ex: 2602-14" />
 
-              <TextInput
-                style={styles.input}
-                placeholder="Cliente"
-                value={client}
-                onChangeText={setClient}
-              />
+              <Text style={styles.inputLabel}>Cliente *</Text>
+              <TextInput style={styles.input} value={client} onChangeText={setClient} placeholder="Nome do cliente" />
 
-              <TextInput
-                style={styles.input}
-                placeholder="Local"
-                value={location}
-                onChangeText={setLocation}
-              />
+              <Text style={styles.inputLabel}>Localização *</Text>
+              <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholder="Local do serviço" />
 
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Serviço"
-                value={service}
-                onChangeText={setService}
-                multiline
-                numberOfLines={4}
-              />
+              <Text style={styles.inputLabel}>Serviço *</Text>
+              <TextInput style={styles.input} value={service} onChangeText={setService} placeholder="Descrição do serviço" />
+
+              <Text style={styles.inputLabel}>Funcionários ({selectedEmployeeIds.length} selecionados)</Text>
+              <TouchableOpacity style={styles.selectButton} onPress={() => setEmployeePickerVisible(true)}>
+                <Text style={selectedEmployeeIds.length > 0 ? styles.selectTextSelected : styles.selectText} numberOfLines={2}>
+                  {selectedEmployeeIds.length > 0
+                    ? getEmployeeNames(selectedEmployeeIds)
+                    : 'Selecionar funcionários'}
+                </Text>
+                <Ionicons name="people" size={20} color="#666" />
+              </TouchableOpacity>
 
               <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <TouchableOpacity style={[styles.modalButton, styles.cancelBtn]} onPress={() => setModalVisible(false)}>
+                  <Text style={styles.cancelBtnText}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.saveButton]}
-                  onPress={handleSave}
-                >
-                  <Text style={styles.saveButtonText}>Salvar</Text>
+                <TouchableOpacity style={[styles.modalButton, styles.saveBtn]} onPress={handleSave}>
+                  <Text style={styles.saveBtnText}>Salvar</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Employee Multi-Select Modal */}
+      <Modal visible={employeePickerVisible} animationType="slide" transparent onRequestClose={() => setEmployeePickerVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Selecionar Funcionários</Text>
+            <ScrollView style={styles.employeeList}>
+              {employees.length === 0 ? (
+                <Text style={styles.emptyText}>Nenhum funcionário cadastrado</Text>
+              ) : (
+                employees.map(emp => (
+                  <TouchableOpacity
+                    key={emp.id}
+                    style={[styles.employeeItem, selectedEmployeeIds.includes(emp.id) && styles.employeeItemSelected]}
+                    onPress={() => toggleEmployee(emp.id)}
+                  >
+                    <View style={styles.employeeItemContent}>
+                      <View style={[styles.empBadge, selectedEmployeeIds.includes(emp.id) && styles.empBadgeSelected]}>
+                        <Text style={[styles.empBadgeText, selectedEmployeeIds.includes(emp.id) && styles.empBadgeTextSelected]}>
+                          {emp.function}
+                        </Text>
+                      </View>
+                      <Text style={styles.employeeName}>{emp.name}</Text>
+                    </View>
+                    <Ionicons
+                      name={selectedEmployeeIds.includes(emp.id) ? 'checkbox' : 'square-outline'}
+                      size={24}
+                      color={selectedEmployeeIds.includes(emp.id) ? '#1a237e' : '#ccc'}
+                    />
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+            <TouchableOpacity style={styles.doneButton} onPress={() => setEmployeePickerVisible(false)}>
+              <Text style={styles.doneButtonText}>Concluído ({selectedEmployeeIds.length})</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -234,166 +276,49 @@ export default function ServiceOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  backButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1a237e',
-  },
-  addButton: {
-    backgroundColor: '#1a237e',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    padding: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  cardContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  badge: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  badgeText: {
-    color: '#1a237e',
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#212121',
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  cardService: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    padding: 8,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-    marginTop: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1a237e',
-    marginBottom: 24,
-  },
-  input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f5f5f5',
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: '#1a237e',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  backButton: { padding: 8 },
+  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  addButton: { padding: 8 },
+  listContent: { padding: 16 },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
+  cardContent: { flexDirection: 'row', flex: 1 },
+  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 12 },
+  badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  cardInfo: { flex: 1 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
+  cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
+  cardMeta: { fontSize: 12, color: '#999', marginTop: 4 },
+  cardEmployees: { fontSize: 11, color: '#1a237e', marginTop: 6, fontStyle: 'italic' },
+  actions: { flexDirection: 'row', gap: 4 },
+  actionButton: { padding: 8 },
+  emptyContainer: { alignItems: 'center', paddingVertical: 64 },
+  emptyText: { fontSize: 16, color: '#999', marginTop: 16, textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '85%' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8, marginTop: 12 },
+  input: { backgroundColor: '#fff', borderRadius: 8, padding: 14, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0' },
+  selectButton: { backgroundColor: '#fff', borderRadius: 8, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e0e0e0' },
+  selectText: { fontSize: 16, color: '#999', flex: 1 },
+  selectTextSelected: { fontSize: 16, color: '#212121', flex: 1 },
+  modalButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  modalButton: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  cancelBtn: { backgroundColor: '#f5f5f5' },
+  cancelBtnText: { color: '#666', fontSize: 16, fontWeight: '600' },
+  saveBtn: { backgroundColor: '#1a237e' },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  employeeList: { maxHeight: 400 },
+  employeeItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', borderRadius: 8 },
+  employeeItemSelected: { backgroundColor: '#e8eaf6' },
+  employeeItemContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  empBadge: { backgroundColor: '#e3f2fd', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginRight: 12 },
+  empBadgeSelected: { backgroundColor: '#1a237e' },
+  empBadgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  empBadgeTextSelected: { color: '#fff' },
+  employeeName: { fontSize: 16, color: '#212121' },
+  doneButton: { backgroundColor: '#1a237e', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
+  doneButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

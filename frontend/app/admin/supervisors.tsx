@@ -94,27 +94,29 @@ export default function SupervisorsScreen() {
   };
 
   const handleDelete = (supervisor: User) => {
-    Alert.alert(
-      'Confirmar exclusão',
-      `Deseja excluir o supervisor ${supervisor.name}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await supervisorAPI.delete(supervisor.id);
-              loadSupervisors();
-              Alert.alert('Sucesso', 'Supervisor excluído');
-            } catch (error: any) {
-              const errorMsg = error.response?.data?.detail || 'Erro ao excluir supervisor';
-              Alert.alert('Erro', errorMsg);
-            }
-          },
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Deseja excluir o supervisor ${supervisor.name}?`)) {
+        performDeleteSupervisor(supervisor);
+      }
+    } else {
+      Alert.alert(
+        'Confirmar exclusão',
+        `Deseja excluir o supervisor ${supervisor.name}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Excluir', style: 'destructive', onPress: () => performDeleteSupervisor(supervisor) },
+        ]
+      );
+    }
+  };
+
+  const performDeleteSupervisor = async (supervisor: User) => {
+    try {
+      await supervisorAPI.delete(supervisor.id);
+      loadSupervisors();
+    } catch (error: any) {
+      Alert.alert('Erro', 'Erro ao excluir supervisor');
+    }
   };
 
   const openAddModal = () => {

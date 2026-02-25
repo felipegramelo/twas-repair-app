@@ -57,6 +57,23 @@ def api_client(supervisor_token):
     return session
 
 
+@pytest.fixture(scope="module")
+def valid_employee_id(supervisor_token):
+    """Fetch a valid employee ID from the database"""
+    response = requests.get(
+        f"{BASE_URL}/api/employees",
+        headers={"Authorization": f"Bearer {supervisor_token}"}
+    )
+    if response.status_code == 200 and response.json():
+        return response.json()[0]["id"]
+    return None
+
+
+def get_id(data):
+    """Helper to get ID from response data that may have 'id' or '_id'"""
+    return data.get("id") or data.get("_id")
+
+
 class TestAuthentication:
     """Authentication endpoint tests"""
     

@@ -338,14 +338,17 @@ class TestPDFGenerationSinglePage:
 class TestPDFGenerationMultiPage:
     """PDF Generation tests for multi-page timesheets (>12 entries)"""
     
-    def test_pdf_multipage_15_entries(self, api_client):
+    def test_pdf_multipage_15_entries(self, api_client, valid_employee_id):
         """Create timesheet with 15 entries, verify 2-page PDF with per-page sections"""
+        if not valid_employee_id:
+            pytest.skip("No employee available for testing")
+        
         # Create 15 entries to force pagination
         entries = []
         for i in range(15):
             entries.append({
                 "date": f"{(i % 28) + 1}/01/2026",
-                "employee_id": EXISTING_EMPLOYEE_ID,
+                "employee_id": valid_employee_id,
                 "employee_name": f"Worker {i+1}",
                 "employee_function": ["E", "EN", "Sup", "T", "M", "TS"][i % 6],
                 "service_start": f"{8 + (i % 4):02d}:00",
@@ -363,7 +366,7 @@ class TestPDFGenerationMultiPage:
         response = api_client.post(f"{BASE_URL}/api/timesheets", json=create_payload)
         assert response.status_code == 200
         created = response.json()
-        timesheet_id = created["id"]
+        timesheet_id = get_id(created)
         
         # Verify 15 entries were created
         assert len(created["entries"]) == 15, f"Expected 15 entries, got {len(created['entries'])}"

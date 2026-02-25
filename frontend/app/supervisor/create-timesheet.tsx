@@ -199,7 +199,7 @@ export default function CreateTimesheetScreen() {
       date: entryDate,
       employee_id: selectedEmployee.id,
       employee_name: selectedEmployee.name,
-      employee_function: selectedEmployee.function,
+      employee_function: selectedEmployee.function || 'T',
       service_start: serviceStart,
       service_end: serviceEnd,
       travel_start: travelStart,

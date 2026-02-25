@@ -133,15 +133,18 @@ class TestTimesheetCRUD:
         assert "os_number" in data
         print(f"Timesheet {EXISTING_TIMESHEET_ID}: OS {data['os_number']}, {len(data['entries'])} entries")
     
-    def test_create_and_delete_timesheet(self, api_client):
+    def test_create_and_delete_timesheet(self, api_client, valid_employee_id):
         """POST /api/timesheets - Create a new timesheet, then delete it"""
+        if not valid_employee_id:
+            pytest.skip("No employee available for testing")
+        
         # Create timesheet with 2 entries
         create_payload = {
             "os_id": EXISTING_SERVICE_ORDER_ID,
             "entries": [
                 {
                     "date": "15/01/2026",
-                    "employee_id": EXISTING_EMPLOYEE_ID,
+                    "employee_id": valid_employee_id,
                     "employee_name": "Test Employee",
                     "employee_function": "T",
                     "service_start": "08:00",
@@ -151,7 +154,7 @@ class TestTimesheetCRUD:
                 },
                 {
                     "date": "16/01/2026",
-                    "employee_id": EXISTING_EMPLOYEE_ID,
+                    "employee_id": valid_employee_id,
                     "employee_name": "Test Employee",
                     "employee_function": "T",
                     "service_start": "08:30",
@@ -167,19 +170,18 @@ class TestTimesheetCRUD:
         response = api_client.post(f"{BASE_URL}/api/timesheets", json=create_payload)
         assert response.status_code == 200, f"Create failed: {response.text}"
         created = response.json()
-        assert "id" in created
+        timesheet_id = get_id(created)
+        assert timesheet_id is not None, "No id returned in response"
         assert created["os_id"] == EXISTING_SERVICE_ORDER_ID
         assert len(created["entries"]) == 2
         assert created["observations"] == "TEST_timesheet for API testing"
-        print(f"Created timesheet: {created['id']}")
-        
-        timesheet_id = created["id"]
+        print(f"Created timesheet: {timesheet_id}")
         
         # Verify by GET
         get_response = api_client.get(f"{BASE_URL}/api/timesheets/{timesheet_id}")
         assert get_response.status_code == 200
         fetched = get_response.json()
-        assert fetched["id"] == timesheet_id
+        assert get_id(fetched) == timesheet_id
         
         # Delete
         delete_response = api_client.delete(f"{BASE_URL}/api/timesheets/{timesheet_id}")

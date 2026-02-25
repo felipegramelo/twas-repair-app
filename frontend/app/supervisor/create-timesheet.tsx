@@ -175,7 +175,17 @@ export default function CreateTimesheetScreen() {
     }
   };
 
+  const MAX_ENTRIES = 12;
+
   const openAddEntryModal = () => {
+    if (entries.length >= MAX_ENTRIES) {
+      if (Platform.OS === 'web') {
+        window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+      } else {
+        Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+      }
+      return;
+    }
     setEditingEntryIndex(null);
     resetEntryForm();
     setEmployeeModalVisible(true);

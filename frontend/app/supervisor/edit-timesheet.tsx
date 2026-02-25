@@ -112,8 +112,11 @@ export default function EditTimesheetScreen() {
 
   const resetEntryForm = () => { setEntryDate(''); setSelectedEmployee(null); setServiceStart(''); setServiceEnd(''); setTravelStart(''); setTravelEnd(''); };
 
+  const MAX_ENTRIES = 12;
+
   const handleAddEntry = () => {
     if (!entryDate || !selectedEmployee || !serviceStart || !serviceEnd) { if (Platform.OS === 'web') window.alert('Preencha data, funcionário, início e fim'); else Alert.alert('Erro', 'Preencha data, funcionário, início e fim'); return; }
+    if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.'); else Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet. Crie um novo.'); return; }
     const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart, service_end: serviceEnd, travel_start: travelStart, travel_end: travelEnd };
     if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u); } else { setEntries([...entries, newEntry]); }
     setEmployeeModalVisible(false); resetEntryForm();
@@ -172,7 +175,7 @@ export default function EditTimesheetScreen() {
           <View style={s.section}>
             <View style={s.sectionHeader}>
               <Text style={s.label}>Entradas ({entries.length})</Text>
-              <TouchableOpacity onPress={() => { setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn}><Ionicons name="add" size={20} color="#1a237e" /><Text style={s.addEntryText}>Adicionar</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { if (entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet.'); return; } setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn}><Ionicons name="add" size={20} color="#1a237e" /><Text style={s.addEntryText}>Adicionar</Text></TouchableOpacity>
             </View>
             {entries.map((entry, i) => (
               <View key={i} style={s.entryCard}>

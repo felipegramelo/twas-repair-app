@@ -513,6 +513,8 @@ async def delete_service_order(so_id: str, current_user: Dict[str, Any] = Depend
 
 @api_router.post("/timesheets", response_model=dict)
 async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
+    if len(ts_data.entries) > 12:
+        raise HTTPException(status_code=400, detail="Máximo de 12 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
     # Get service order details
     so = await db.service_orders.find_one({"_id": ObjectId(ts_data.os_id)})
     if not so:

@@ -126,7 +126,9 @@ class TestTimesheetCRUD:
         response = api_client.get(f"{BASE_URL}/api/timesheets/{EXISTING_TIMESHEET_ID}")
         assert response.status_code == 200
         data = response.json()
-        assert data.get("id") == EXISTING_TIMESHEET_ID
+        # API may return 'id' or '_id' depending on serialization
+        timesheet_id = get_id(data)
+        assert timesheet_id == EXISTING_TIMESHEET_ID, f"Expected {EXISTING_TIMESHEET_ID}, got {timesheet_id}"
         assert "entries" in data
         assert "os_number" in data
         print(f"Timesheet {EXISTING_TIMESHEET_ID}: OS {data['os_number']}, {len(data['entries'])} entries")

@@ -336,11 +336,23 @@ export default function CreateTimesheetScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.label}>Entradas ({entries.length}/12)</Text>
-              <TouchableOpacity onPress={openAddEntryModal} style={styles.addEntryButton}>
-                <Ionicons name="add" size={20} color="#1a237e" />
-                <Text style={styles.addEntryText}>Adicionar</Text>
-              </TouchableOpacity>
+              {entries.length < 12 ? (
+                <TouchableOpacity onPress={openAddEntryModal} style={styles.addEntryButton}>
+                  <Ionicons name="add" size={20} color="#1a237e" />
+                  <Text style={styles.addEntryText}>Adicionar</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.addEntryButton}>
+                  <Ionicons name="lock-closed" size={16} color="#999" />
+                  <Text style={{ fontSize: 14, color: '#999' }}>Limite atingido</Text>
+                </View>
+              )}
             </View>
+            {entries.length >= 12 && (
+              <View style={{ backgroundColor: '#fff3e0', padding: 10, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#ffb74d' }}>
+                <Text style={{ color: '#e65100', fontSize: 13, textAlign: 'center' }}>Máximo de 12 funcionários atingido. Para adicionar mais, crie um novo timesheet.</Text>
+              </View>
+            )}
             {entries.map((entry, index) => (
               <View key={index} style={styles.entryCard}>
                 <View style={styles.entryCardContent}>

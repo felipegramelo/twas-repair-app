@@ -179,8 +179,17 @@ export default function EditTimesheetScreen() {
           <View style={s.section}>
             <View style={s.sectionHeader}>
               <Text style={s.label}>Entradas ({entries.length}/12)</Text>
-              <TouchableOpacity onPress={() => { if (entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet.'); return; } setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn}><Ionicons name="add" size={20} color="#1a237e" /><Text style={s.addEntryText}>Adicionar</Text></TouchableOpacity>
+              {entries.length < 12 ? (
+                <TouchableOpacity onPress={() => { setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn}><Ionicons name="add" size={20} color="#1a237e" /><Text style={s.addEntryText}>Adicionar</Text></TouchableOpacity>
+              ) : (
+                <View style={s.addEntryBtn}><Ionicons name="lock-closed" size={16} color="#999" /><Text style={{ fontSize: 14, color: '#999' }}>Limite atingido</Text></View>
+              )}
             </View>
+            {entries.length >= 12 && (
+              <View style={{ backgroundColor: '#fff3e0', padding: 10, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#ffb74d' }}>
+                <Text style={{ color: '#e65100', fontSize: 13, textAlign: 'center' }}>Máximo de 12 funcionários atingido. Para adicionar mais, crie um novo timesheet.</Text>
+              </View>
+            )}
             {entries.map((entry, i) => (
               <View key={i} style={s.entryCard}>
                 <View style={s.entryCardContent}>

@@ -329,7 +329,7 @@ export default function CreateTimesheetScreen() {
                     <Text style={styles.entryName}>{entry.employee_name}</Text>
                     <Text style={styles.entryDetail}>Data: {entry.date}</Text>
                     <Text style={styles.entryDetail}>Serviço: {entry.service_start} - {entry.service_end}</Text>
-                    {entry.travel_start ? <Text style={styles.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
+                    {entry.travel_start && entry.travel_start !== '0' && entry.travel_start !== '' ? <Text style={styles.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
                   </View>
                 </View>
                 <View style={styles.entryActions}>

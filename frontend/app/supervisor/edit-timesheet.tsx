@@ -133,14 +133,14 @@ export default function EditTimesheetScreen() {
   };
 
   const handleSave = async () => {
-    if (!selectedSO) { Alert.alert('Erro', 'Selecione uma O.S.'); return; }
-    if (entries.length === 0) { Alert.alert('Erro', 'Adicione ao menos uma entrada'); return; }
+    if (!selectedSO) { if (Platform.OS === 'web') window.alert('Selecione uma O.S.'); else Alert.alert('Erro', 'Selecione uma O.S.'); return; }
+    if (entries.length === 0) { if (Platform.OS === 'web') window.alert('Adicione ao menos uma entrada'); else Alert.alert('Erro', 'Adicione ao menos uma entrada'); return; }
     setSaving(true);
     try {
       await timesheetAPI.update(id as string, selectedSO.id, entries, observations);
       if (Platform.OS === 'web') { window.alert('Timesheet atualizado!'); router.back(); }
       else { Alert.alert('Sucesso', 'Timesheet atualizado!', [{ text: 'OK', onPress: () => router.back() }]); }
-    } catch { Alert.alert('Erro', 'Erro ao atualizar'); } finally { setSaving(false); }
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao atualizar'); else Alert.alert('Erro', 'Erro ao atualizar'); } finally { setSaving(false); }
   };
 
   const openTimePicker = (field: string) => setTimePickerField(field);

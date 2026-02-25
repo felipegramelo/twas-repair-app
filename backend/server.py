@@ -809,125 +809,121 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         elements.append(entries_table)
         elements.append(Spacer(1, 0.1*cm))
         
-        # Only add legend, approval, observations, and footer on last page
-        if page_num == total_pages - 1:
-            # Legend title
-            legend_title = Paragraph("<b>Legenda / Caption</b>", ParagraphStyle('legend_title', parent=styles['Normal'], fontSize=8))
-            elements.append(legend_title)
-            elements.append(Spacer(1, 0.05*cm))
-            
-            # Legend - 6 columns in a single row
-            legend_cell_style = ParagraphStyle('legend_cell', parent=styles['Normal'], fontSize=6, alignment=TA_CENTER, leading=8)
-            
-            legend_data = [
-                [
-                    Paragraph("Engenheiro (E)<br/>Engineer (E)", legend_cell_style),
-                    Paragraph("Encarregado (EN)<br/>Foreman (EN)", legend_cell_style),
-                    Paragraph("Supervisor (Sup)<br/>Supervisor (Sup)", legend_cell_style),
-                    Paragraph("Técnico (T)<br/>Technician (T)", legend_cell_style),
-                    Paragraph("Mecânico (M)<br/>Mechanic (M)", legend_cell_style),
-                    Paragraph("Téc. Seg. (TS)<br/>Safety Tech (ST)", legend_cell_style),
-                ],
+        # Legend title
+        legend_title = Paragraph("<b>Legenda / Caption</b>", ParagraphStyle(f'legend_title_{page_num}', parent=styles['Normal'], fontSize=8))
+        elements.append(legend_title)
+        elements.append(Spacer(1, 0.05*cm))
+        
+        # Legend - 6 columns in a single row
+        legend_cell_style = ParagraphStyle(f'legend_cell_{page_num}', parent=styles['Normal'], fontSize=6, alignment=TA_CENTER, leading=8)
+        
+        legend_data = [
+            [
+                Paragraph("Engenheiro (E)<br/>Engineer (E)", legend_cell_style),
+                Paragraph("Encarregado (EN)<br/>Foreman (EN)", legend_cell_style),
+                Paragraph("Supervisor (Sup)<br/>Supervisor (Sup)", legend_cell_style),
+                Paragraph("Técnico (T)<br/>Technician (T)", legend_cell_style),
+                Paragraph("Mecânico (M)<br/>Mechanic (M)", legend_cell_style),
+                Paragraph("Téc. Seg. (TS)<br/>Safety Tech (ST)", legend_cell_style),
+            ],
+        ]
+        
+        legend_table = Table(legend_data, colWidths=[3*cm]*6, rowHeights=[0.7*cm])
+        legend_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0.1*cm),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0.1*cm),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.05*cm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.05*cm),
+        ]))
+        
+        elements.append(legend_table)
+        elements.append(Spacer(1, 0.1*cm))
+        
+        # Client Approval section
+        approval_title = Paragraph("<b>Aprovação do Cliente / Client Approval</b>", ParagraphStyle(f'approval_title_{page_num}', parent=styles['Normal'], fontSize=9))
+        elements.append(approval_title)
+        elements.append(Spacer(1, 0.1*cm))
+        
+        approval_data = [
+            [
+                Paragraph("<b>Nome / Name</b>", ParagraphStyle(f'appr_h_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                Paragraph("<b>Função / Function</b>", ParagraphStyle(f'appr_h2_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                Paragraph("<b>Carimbo / Stamp</b>", ParagraphStyle(f'appr_h3_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
+            ],
+            ["", "", ""]
+        ]
+        
+        approval_table = Table(approval_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 0.9*cm])
+        approval_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ]))
+        
+        elements.append(approval_table)
+        elements.append(Spacer(1, 0.1*cm))
+        
+        # Observations section - each page gets its own observations box
+        obs_title = Paragraph("<b>Observações / Remarks:</b>", ParagraphStyle(f'obs_title_{page_num}', parent=styles['Normal'], fontSize=9))
+        elements.append(obs_title)
+        elements.append(Spacer(1, 0.05*cm))
+        
+        # First page shows saved observations; other pages have empty box
+        obs_content = (ts.get("observations", "") or "") if page_num == 0 else ""
+        obs_data = [
+            [Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]
+        ]
+        
+        obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[3.5*cm])
+        obs_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0.3*cm),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+        ]))
+        
+        elements.append(obs_table)
+        elements.append(Spacer(1, 0.1*cm))
+        
+        # TWAS Approval section
+        twas_data = [
+            [
+                Paragraph("<b>Data / Date</b>", ParagraphStyle(f'twas_h_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                Paragraph("<b>Nome / Name</b>", ParagraphStyle(f'twas_h2_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                Paragraph("<b>Função / Function</b>", ParagraphStyle(f'twas_h3_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
+            ],
+            [
+                Paragraph(current_date, ParagraphStyle(f'twas_c_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                Paragraph(ts["supervisor_name"], ParagraphStyle(f'twas_c2_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                Paragraph("Supervisor", ParagraphStyle(f'twas_c3_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
             ]
-            
-            legend_table = Table(legend_data, colWidths=[3*cm]*6, rowHeights=[0.7*cm])
-            legend_table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0.1*cm),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0.1*cm),
-                ('TOPPADDING', (0, 0), (-1, -1), 0.05*cm),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 0.05*cm),
-            ]))
-            
-            elements.append(legend_table)
-            elements.append(Spacer(1, 0.1*cm))
-            
-            # Client Approval section - Title + 3 columns table
-            approval_title = Paragraph("<b>Aprovação do Cliente / Client Approval</b>", styles['Normal'])
-            elements.append(approval_title)
-            elements.append(Spacer(1, 0.1*cm))
-            
-            approval_data = [
-                [
-                    Paragraph("<b>Nome / Name</b>", ParagraphStyle('approval', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
-                    Paragraph("<b>Função / Function</b>", ParagraphStyle('approval', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
-                    Paragraph("<b>Carimbo / Stamp</b>", ParagraphStyle('approval', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
-                ],
-                ["", "", ""]  # Empty row for filling
-            ]
-            
-            approval_table = Table(approval_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 0.9*cm])
-            approval_table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
-                ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ]))
-            
-            elements.append(approval_table)
-            elements.append(Spacer(1, 0.1*cm))
-            
-            # Observations section - title as header above the box
-            obs_title = Paragraph("<b>Observações / Remarks:</b>", ParagraphStyle('obs_title', parent=styles['Normal'], fontSize=9))
-            elements.append(obs_title)
-            elements.append(Spacer(1, 0.05*cm))
-            
-            obs_content = ts.get("observations", "") or ""
-            obs_data = [
-                [Paragraph(obs_content, ParagraphStyle('obs', parent=styles['Normal'], fontSize=9, leading=12))]
-            ]
-            
-            obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[3.5*cm])
-            obs_table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0.3*cm),
-                ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
-            ]))
-            
-            elements.append(obs_table)
-            elements.append(Spacer(1, 0.1*cm))
-            
-            # TWAS Approval section - 3 columns (Data, Nome, Função)
-            from datetime import datetime as dt
-            current_date = dt.now().strftime("%d/%m/%Y")
-            
-            twas_data = [
-                [
-                    Paragraph("<b>Data / Date</b>", ParagraphStyle('twas', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
-                    Paragraph("<b>Nome / Name</b>", ParagraphStyle('twas', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
-                    Paragraph("<b>Função / Function</b>", ParagraphStyle('twas', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
-                ],
-                [
-                    Paragraph(current_date, ParagraphStyle('twas_content', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
-                    Paragraph(ts["supervisor_name"], ParagraphStyle('twas_content', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
-                    Paragraph("Supervisor", ParagraphStyle('twas_content', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
-                ]
-            ]
-            
-            twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 0.6*cm])
-            twas_table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
-                ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ]))
-            
-            elements.append(twas_table)
-            elements.append(Spacer(1, 0.15*cm))
-            
-            # Footer with company info - ALIGNED center
-            footer_style = ParagraphStyle('footer', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER)
-            footer_text = "<b>TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA - CNPJ: 31.839.501/0001-90</b><br/>"
-            footer_text += "Travessa Frederico Marques, N° 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24466-180.<br/>"
-            footer_text += "www.twasrepair.com<br/>"
-            footer_text += f"Página {page_num + 1} de {total_pages}"
-            footer = Paragraph(footer_text, footer_style)
-            elements.append(footer)
+        ]
+        
+        twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 0.6*cm])
+        twas_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ]))
+        
+        elements.append(twas_table)
+        elements.append(Spacer(1, 0.15*cm))
+        
+        # Footer with company info
+        footer_style = ParagraphStyle(f'footer_{page_num}', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER)
+        footer_text = "<b>TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA - CNPJ: 31.839.501/0001-90</b><br/>"
+        footer_text += "Travessa Frederico Marques, N° 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24466-180.<br/>"
+        footer_text += "www.twasrepair.com<br/>"
+        footer_text += f"Página {page_num + 1} de {total_pages}"
+        footer = Paragraph(footer_text, footer_style)
+        elements.append(footer)
     
     # Build PDF
     doc.build(elements)

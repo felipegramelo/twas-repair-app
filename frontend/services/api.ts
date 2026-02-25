@@ -86,12 +86,12 @@ export const serviceOrderAPI = {
     const response = await api.get('/service-orders');
     return response.data;
   },
-  create: async (os_number: string, client: string, location: string, service: string, employee_ids: string[] = []): Promise<ServiceOrder> => {
-    const response = await api.post('/service-orders', { os_number, client, location, service, employee_ids });
+  create: async (os_number: string, client: string, location: string, service: string, employees: {employee_id: string, function: string}[] = []): Promise<ServiceOrder> => {
+    const response = await api.post('/service-orders', { os_number, client, location, service, employees });
     return response.data;
   },
-  update: async (id: string, os_number: string, client: string, location: string, service: string, employee_ids: string[] = []): Promise<ServiceOrder> => {
-    const response = await api.put(`/service-orders/${id}`, { os_number, client, location, service, employee_ids });
+  update: async (id: string, os_number: string, client: string, location: string, service: string, employees: {employee_id: string, function: string}[] = []): Promise<ServiceOrder> => {
+    const response = await api.put(`/service-orders/${id}`, { os_number, client, location, service, employees });
     return response.data;
   },
   delete: async (id: string) => {

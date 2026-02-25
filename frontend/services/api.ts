@@ -66,12 +66,12 @@ export const employeeAPI = {
     const response = await api.get('/employees');
     return response.data;
   },
-  create: async (name: string, functionCode: string): Promise<Employee> => {
-    const response = await api.post('/employees', { name, function: functionCode });
+  create: async (name: string): Promise<Employee> => {
+    const response = await api.post('/employees', { name });
     return response.data;
   },
-  update: async (id: string, name: string, functionCode: string): Promise<Employee> => {
-    const response = await api.put(`/employees/${id}`, { name, function: functionCode });
+  update: async (id: string, name: string): Promise<Employee> => {
+    const response = await api.put(`/employees/${id}`, { name });
     return response.data;
   },
   delete: async (id: string) => {

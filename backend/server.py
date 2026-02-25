@@ -553,7 +553,7 @@ async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user
     return result
 
 
-@api_router.get("/timesheets/{ts_id}", response_model=Timesheet)
+@api_router.get("/timesheets/{ts_id}")
 async def get_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not ts:
@@ -564,10 +564,10 @@ async def get_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_c
         raise HTTPException(status_code=403, detail="Access denied")
     
     ts["id"] = str(ts.pop("_id"))  # Rename _id to id
-    return Timesheet(**ts)
+    return ts
 
 
-@api_router.put("/timesheets/{ts_id}", response_model=Timesheet)
+@api_router.put("/timesheets/{ts_id}")
 async def update_timesheet(ts_id: str, ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not ts:

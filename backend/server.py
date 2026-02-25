@@ -131,6 +131,7 @@ class ServiceOrder(BaseModel):
     client: str
     location: str
     service: str
+    employee_ids: List[str] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
@@ -143,6 +144,7 @@ class ServiceOrderCreate(BaseModel):
     client: str
     location: str
     service: str
+    employee_ids: List[str] = []
 
 
 class TimesheetEntry(BaseModel):

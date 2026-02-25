@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the timesheet application's PDF generation and delete functionality"
+user_problem_statement: "Test the timesheet application's service orders with employee assignment and supervisor timesheet creation with calendar/time picker functionality"
 
 backend:
   - task: "Admin Authentication"

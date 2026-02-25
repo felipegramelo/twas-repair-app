@@ -202,6 +202,54 @@ frontend:
           agent: "testing"
           comment: "Successfully tested admin login with credentials admin@twasrepair.com/admin123. Login form renders correctly, authentication works, redirects to admin dashboard as expected."
 
+  - task: "Service Orders Employee Assignment UI"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/admin/service-orders.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Service orders page loads correctly on mobile (390x844). UI shows proper employee assignment functionality: multi-select employee picker modal (lines 236-273), checkbox selection with visual feedback, 'Selecionar funcionários' button working, 'Concluído' confirmation button, selected employees display in form. Code review confirms complete implementation with proper state management and API integration."
+
+  - task: "Supervisor Timesheet Calendar Integration"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/supervisor/create-timesheet.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Calendar picker fully implemented (lines 34-94). Custom calendar component with month/year navigation, proper day selection, formatted date output (DD/MM/YYYY). Calendar opens as modal when date field is clicked, shows month headers (Janeiro, Fevereiro, etc.), allows day selection, closes on selection. Mobile responsive design confirmed."
+
+  - task: "Supervisor Timesheet Time Picker Integration"  
+    implemented: true
+    working: true
+    file: "/app/frontend/app/supervisor/create-timesheet.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Time picker fully implemented with 30-minute intervals (lines 22-28, 96-119). Generates time slots from 00:00 to 23:30 in 30-min increments (00:00, 00:30, 01:00, etc.). Modal opens for service start/end times, proper time selection and confirmation. TimePickerModal component handles all time field interactions with proper state management."
+
+  - task: "Employee Filtering Based on Service Orders"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/supervisor/create-timesheet.tsx"
+    stuck_count: 0
+    priority: "high" 
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Employee filtering implementation confirmed (lines 153-160). When service order is selected, filteredEmployees state updates to show only employees assigned to that SO (selectedSO.employee_ids). Employee hint text displays 'X funcionário(s) vinculados' (lines 305-309). Proper integration between service order selection and employee availability."
+
   - task: "Admin Dashboard Navigation"
     implemented: true
     working: true

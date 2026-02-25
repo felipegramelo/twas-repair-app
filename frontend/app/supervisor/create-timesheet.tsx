@@ -460,9 +460,15 @@ export default function CreateTimesheetScreen() {
                 </View>
               ) : (
                 filteredEmployees.map(emp => (
-                  <TouchableOpacity key={emp.id} style={styles.modalItem} onPress={() => { setSelectedEmployee(emp); setEmployeePickerVisible(false); }}>
+                  <TouchableOpacity key={emp.id} style={styles.modalItem} onPress={() => {
+                    const soEmp = selectedSO?.employees?.find(e => e.employee_id === emp.id);
+                    setSelectedEmployee({ id: emp.id, name: emp.name, function: soEmp?.function || 'T' });
+                    setEmployeePickerVisible(false);
+                  }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={styles.entryBadge}><Text style={styles.entryBadgeText}>{emp.function}</Text></View>
+                      <View style={styles.entryBadge}><Text style={styles.entryBadgeText}>
+                        {selectedSO?.employees?.find(e => e.employee_id === emp.id)?.function || '-'}
+                      </Text></View>
                       <Text style={styles.modalItemTitle}>{emp.name}</Text>
                     </View>
                   </TouchableOpacity>

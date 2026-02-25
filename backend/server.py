@@ -596,7 +596,7 @@ async def update_timesheet(ts_id: str, ts_data: TimesheetCreate, current_user: D
     
     updated_ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     updated_ts["id"] = str(updated_ts.pop("_id"))  # Return id instead of _id
-    return Timesheet(**updated_ts)
+    return updated_ts
 
 
 @api_router.delete("/timesheets/{ts_id}")

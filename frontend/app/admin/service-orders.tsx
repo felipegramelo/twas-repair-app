@@ -81,25 +81,29 @@ export default function ServiceOrdersScreen() {
   };
 
   const handleDelete = (so: ServiceOrder) => {
-    Alert.alert(
-      'Confirmar exclusão',
-      `Deseja excluir a O.S. ${so.os_number}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await serviceOrderAPI.delete(so.id);
-              loadServiceOrders();
-            } catch (error: any) {
-              Alert.alert('Erro', 'Erro ao excluir ordem de serviço');
-            }
-          },
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Deseja excluir a O.S. ${so.os_number}?`)) {
+        performDelete(so);
+      }
+    } else {
+      Alert.alert(
+        'Confirmar exclusão',
+        `Deseja excluir a O.S. ${so.os_number}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Excluir', style: 'destructive', onPress: () => performDelete(so) },
+        ]
+      );
+    }
+  };
+
+  const performDelete = async (so: ServiceOrder) => {
+    try {
+      await serviceOrderAPI.delete(so.id);
+      loadServiceOrders();
+    } catch (error: any) {
+      Alert.alert('Erro', 'Erro ao excluir ordem de serviço');
+    }
   };
 
   const openAddModal = () => {

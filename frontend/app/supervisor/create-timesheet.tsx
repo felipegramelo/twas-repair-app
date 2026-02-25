@@ -261,8 +261,9 @@ export default function CreateTimesheetScreen() {
   };
 
   const handleSave = async () => {
-    if (!selectedSO) { Alert.alert('Erro', 'Selecione uma Ordem de Serviço'); return; }
-    if (entries.length === 0) { Alert.alert('Erro', 'Adicione pelo menos uma entrada'); return; }
+    if (!selectedSO) { if (Platform.OS === 'web') window.alert('Selecione uma Ordem de Serviço'); else Alert.alert('Erro', 'Selecione uma Ordem de Serviço'); return; }
+    if (entries.length === 0) { if (Platform.OS === 'web') window.alert('Adicione pelo menos uma entrada'); else Alert.alert('Erro', 'Adicione pelo menos uma entrada'); return; }
+    if (entries.length > 12) { if (Platform.OS === 'web') window.alert('Máximo de 12 funcionários por timesheet. Remova entradas extras ou crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Máximo de 12 funcionários por timesheet.'); return; }
     setSaving(true);
     try {
       await timesheetAPI.create(selectedSO.id, entries, observations);
@@ -273,7 +274,8 @@ export default function CreateTimesheetScreen() {
         Alert.alert('Sucesso', 'Timesheet criado com sucesso', [{ text: 'OK', onPress: () => router.replace(`/supervisor?refresh=${Date.now()}`) }]);
       }
     } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao salvar timesheet');
+      const msg = error?.response?.data?.detail || 'Erro ao salvar timesheet';
+      if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Erro', msg);
     } finally {
       setSaving(false);
     }

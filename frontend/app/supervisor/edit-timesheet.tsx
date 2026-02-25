@@ -138,12 +138,16 @@ export default function EditTimesheetScreen() {
   const handleSave = async () => {
     if (!selectedSO) { if (Platform.OS === 'web') window.alert('Selecione uma O.S.'); else Alert.alert('Erro', 'Selecione uma O.S.'); return; }
     if (entries.length === 0) { if (Platform.OS === 'web') window.alert('Adicione ao menos uma entrada'); else Alert.alert('Erro', 'Adicione ao menos uma entrada'); return; }
+    if (entries.length > 12) { if (Platform.OS === 'web') window.alert('Máximo de 12 funcionários por timesheet. Remova entradas extras ou crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Máximo de 12 funcionários por timesheet.'); return; }
     setSaving(true);
     try {
       await timesheetAPI.update(id as string, selectedSO.id, entries, observations);
       if (Platform.OS === 'web') { window.alert('Timesheet atualizado!'); router.back(); }
       else { Alert.alert('Sucesso', 'Timesheet atualizado!', [{ text: 'OK', onPress: () => router.back() }]); }
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao atualizar'); else Alert.alert('Erro', 'Erro ao atualizar'); } finally { setSaving(false); }
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail || 'Erro ao atualizar timesheet';
+      if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Erro', msg);
+    } finally { setSaving(false); }
   };
 
   const openTimePicker = (field: string) => setTimePickerField(field);

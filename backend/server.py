@@ -571,6 +571,8 @@ async def get_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_c
 
 @api_router.put("/timesheets/{ts_id}")
 async def update_timesheet(ts_id: str, ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
+    if len(ts_data.entries) > 12:
+        raise HTTPException(status_code=400, detail="Máximo de 12 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not ts:
         raise HTTPException(status_code=404, detail="Timesheet not found")

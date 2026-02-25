@@ -631,7 +631,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         rightMargin=1.5*cm,  
         leftMargin=1.5*cm, 
         topMargin=1.2*cm,  
-        bottomMargin=0.8*cm  # Reduced from 1.2cm to give more space
+        bottomMargin=0.5*cm  # Reduced to give more space for observations
     )
     
     # Available width for content (A4 width - margins)
@@ -874,7 +874,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
                 [Paragraph(obs_content, ParagraphStyle('obs', parent=styles['Normal'], fontSize=9, leading=12))]
             ]
             
-            obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[2.2*cm])
+            obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[3.5*cm])
             obs_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),

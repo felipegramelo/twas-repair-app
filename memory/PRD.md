@@ -33,6 +33,8 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geração d
 - [x] **Fix Alert.alert web** — Todas as mensagens de erro/sucesso usam window.alert/confirm na web - 25/02/2026
 - [x] **Fix travel display** — Viagem "0" não é mais exibida nas entradas - 25/02/2026
 
+- [x] **Limite 12 entradas por timesheet** — Frontend bloqueia adição, backend valida POST/PUT, contador X/12 - 25/02/2026
+
 ## Modelos de Dados
 - **Employee**: name
 - **Service Order**: os_number, client, location, service, employees[{employee_id, function}]

@@ -409,14 +409,17 @@ class TestPDFGenerationMultiPage:
         # Cleanup
         api_client.delete(f"{BASE_URL}/api/timesheets/{timesheet_id}")
     
-    def test_pdf_multipage_24_entries(self, api_client):
+    def test_pdf_multipage_24_entries(self, api_client, valid_employee_id):
         """Create timesheet with 24 entries, verify 2-page PDF"""
+        if not valid_employee_id:
+            pytest.skip("No employee available for testing")
+        
         # Create 24 entries
         entries = []
         for i in range(24):
             entries.append({
                 "date": f"{(i % 28) + 1}/01/2026",
-                "employee_id": EXISTING_EMPLOYEE_ID,
+                "employee_id": valid_employee_id,
                 "employee_name": f"Technician {i+1}",
                 "employee_function": "T",
                 "service_start": "08:00",
@@ -433,7 +436,7 @@ class TestPDFGenerationMultiPage:
         
         response = api_client.post(f"{BASE_URL}/api/timesheets", json=create_payload)
         assert response.status_code == 200
-        timesheet_id = response.json()["id"]
+        timesheet_id = get_id(response.json())
         
         # Generate PDF
         pdf_response = api_client.get(

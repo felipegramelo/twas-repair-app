@@ -112,7 +112,6 @@ class Token(BaseModel):
 class Employee(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     name: str
-    function: str  # E, SE, T, M, W, TK
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
@@ -122,7 +121,11 @@ class Employee(BaseModel):
 
 class EmployeeCreate(BaseModel):
     name: str
-    function: str
+
+
+class SOEmployee(BaseModel):
+    employee_id: str
+    function: str  # E, EN, Sup, T, M, TS
 
 
 class ServiceOrder(BaseModel):
@@ -131,7 +134,7 @@ class ServiceOrder(BaseModel):
     client: str
     location: str
     service: str
-    employee_ids: List[str] = []
+    employees: List[SOEmployee] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
@@ -144,7 +147,7 @@ class ServiceOrderCreate(BaseModel):
     client: str
     location: str
     service: str
-    employee_ids: List[str] = []
+    employees: List[SOEmployee] = []
 
 
 class TimesheetEntry(BaseModel):

@@ -9,6 +9,7 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,25 +80,29 @@ export default function EmployeesScreen() {
   };
 
   const handleDelete = (employee: Employee) => {
-    Alert.alert(
-      'Confirmar exclusão',
-      `Deseja excluir ${employee.name}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await employeeAPI.delete(employee.id);
-              loadEmployees();
-            } catch (error: any) {
-              Alert.alert('Erro', 'Erro ao excluir funcionário');
-            }
-          },
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Deseja excluir ${employee.name}?`)) {
+        performDeleteEmployee(employee);
+      }
+    } else {
+      Alert.alert(
+        'Confirmar exclusão',
+        `Deseja excluir ${employee.name}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Excluir', style: 'destructive', onPress: () => performDeleteEmployee(employee) },
+        ]
+      );
+    }
+  };
+
+  const performDeleteEmployee = async (employee: Employee) => {
+    try {
+      await employeeAPI.delete(employee.id);
+      loadEmployees();
+    } catch (error: any) {
+      Alert.alert('Erro', 'Erro ao excluir funcionário');
+    }
   };
 
   const openAddModal = () => {

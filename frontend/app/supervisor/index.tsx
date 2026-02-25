@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList, Alert, ActivityIndicator, Platform } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,12 +12,11 @@ export default function SupervisorDashboard() {
   const router = useRouter();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [loading, setLoading] = useState(true);
+  const params = useLocalSearchParams();
 
-  useFocusEffect(
-    useCallback(() => {
-      loadTimesheets();
-    }, [])
-  );
+  useEffect(() => {
+    loadTimesheets();
+  }, [params.refresh]);
 
   const loadTimesheets = async () => {
     try {

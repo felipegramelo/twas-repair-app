@@ -86,7 +86,7 @@ export default function EditTimesheetScreen() {
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [timePickerField, setTimePickerField] = useState<string | null>(null);
 
-  useEffect(() => { if (id) loadTimesheetData(); else { Alert.alert('Erro', 'ID não fornecido'); router.back(); } }, []);
+  useEffect(() => { if (id) loadTimesheetData(); else { if (Platform.OS === 'web') window.alert('ID não fornecido'); else Alert.alert('Erro', 'ID não fornecido'); router.back(); } }, []);
 
   useEffect(() => {
     if (selectedSO && selectedSO.employees && selectedSO.employees.length > 0) {
@@ -106,14 +106,14 @@ export default function EditTimesheetScreen() {
       setServiceOrders(soData); setAllEmployees(empData);
       const so = soData.find((s: ServiceOrder) => s.id === tsData.os_id);
       setSelectedSO(so || null); setEntries(tsData.entries); setObservations(tsData.observations || '');
-    } catch { Alert.alert('Erro', 'Erro ao carregar dados'); router.back(); }
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao carregar dados'); else Alert.alert('Erro', 'Erro ao carregar dados'); router.back(); }
     finally { setLoading(false); }
   };
 
   const resetEntryForm = () => { setEntryDate(''); setSelectedEmployee(null); setServiceStart(''); setServiceEnd(''); setTravelStart(''); setTravelEnd(''); };
 
   const handleAddEntry = () => {
-    if (!entryDate || !selectedEmployee || !serviceStart || !serviceEnd) { Alert.alert('Erro', 'Preencha data, funcionário, início e fim'); return; }
+    if (!entryDate || !selectedEmployee || !serviceStart || !serviceEnd) { if (Platform.OS === 'web') window.alert('Preencha data, funcionário, início e fim'); else Alert.alert('Erro', 'Preencha data, funcionário, início e fim'); return; }
     const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart, service_end: serviceEnd, travel_start: travelStart, travel_end: travelEnd };
     if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u); } else { setEntries([...entries, newEntry]); }
     setEmployeeModalVisible(false); resetEntryForm();
@@ -182,7 +182,7 @@ export default function EditTimesheetScreen() {
                     <Text style={s.entryName}>{entry.employee_name}</Text>
                     <Text style={s.entryDetail}>Data: {entry.date}</Text>
                     <Text style={s.entryDetail}>Serviço: {entry.service_start} - {entry.service_end}</Text>
-                    {entry.travel_start ? <Text style={s.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
+                    {entry.travel_start && entry.travel_start !== '0' && entry.travel_start !== '' ? <Text style={s.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
                   </View>
                 </View>
                 <View style={s.entryActions}>

@@ -18,9 +18,10 @@ ADMIN_EMAIL = "admin@twasrepair.com"
 ADMIN_PASSWORD = "admin123"
 
 # Existing test data
-EXISTING_TIMESHEET_ID = "699dfc74f83c38c3a573cf8d"
-EXISTING_SERVICE_ORDER_ID = "699df3e6cf749c0aece02e93"
-EXISTING_EMPLOYEE_ID = "699df05b67a32342504627bc"
+# Existing test data - fetched dynamically to avoid stale IDs
+EXISTING_TIMESHEET_ID = "699dfc74f83c38c3a573cf8d"  # May vary
+EXISTING_SERVICE_ORDER_ID = "699df3e6cf749c0aece02e93"  # May vary
+EXISTING_EMPLOYEE_ID = None  # Will be fetched dynamically
 
 
 @pytest.fixture(scope="module")

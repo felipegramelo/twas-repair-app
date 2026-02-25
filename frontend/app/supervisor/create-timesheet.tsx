@@ -333,7 +333,7 @@ export default function CreateTimesheetScreen() {
           {/* Entries */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.label}>Entradas ({entries.length})</Text>
+              <Text style={styles.label}>Entradas ({entries.length}/12)</Text>
               <TouchableOpacity onPress={openAddEntryModal} style={styles.addEntryButton}>
                 <Ionicons name="add" size={20} color="#1a237e" />
                 <Text style={styles.addEntryText}>Adicionar</Text>

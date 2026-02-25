@@ -490,12 +490,15 @@ class TestEmployeeAPIs:
         assert isinstance(data, list)
         print(f"Found {len(data)} employees")
     
-    def test_get_employee_by_id(self, api_client):
+    def test_get_employee_by_id(self, api_client, valid_employee_id):
         """GET /api/employees/{id} - Get existing employee"""
-        response = api_client.get(f"{BASE_URL}/api/employees/{EXISTING_EMPLOYEE_ID}")
+        if not valid_employee_id:
+            pytest.skip("No employee available for testing")
+        
+        response = api_client.get(f"{BASE_URL}/api/employees/{valid_employee_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data.get("id") == EXISTING_EMPLOYEE_ID
+        assert data.get("id") == valid_employee_id
         assert "name" in data
         print(f"Employee: {data['name']}")
 

@@ -275,14 +275,17 @@ class TestPDFGenerationSinglePage:
         assert num_pages >= 1
         print(f"Generated PDF with {num_pages} page(s) for existing timesheet")
     
-    def test_pdf_content_single_page(self, api_client):
+    def test_pdf_content_single_page(self, api_client, valid_employee_id):
         """Create single-page timesheet (<=12 entries) and verify PDF sections"""
+        if not valid_employee_id:
+            pytest.skip("No employee available for testing")
+        
         # Create timesheet with 5 entries
         entries = []
         for i in range(5):
             entries.append({
                 "date": f"{10+i}/01/2026",
-                "employee_id": EXISTING_EMPLOYEE_ID,
+                "employee_id": valid_employee_id,
                 "employee_name": f"Employee {i+1}",
                 "employee_function": "T",
                 "service_start": "08:00",
@@ -299,7 +302,7 @@ class TestPDFGenerationSinglePage:
         
         response = api_client.post(f"{BASE_URL}/api/timesheets", json=create_payload)
         assert response.status_code == 200
-        timesheet_id = response.json()["id"]
+        timesheet_id = get_id(response.json())
         
         # Generate PDF
         pdf_response = api_client.get(

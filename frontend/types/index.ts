@@ -17,6 +17,7 @@ export interface ServiceOrder {
   client: string;
   location: string;
   service: string;
+  employee_ids: string[];
 }
 
 export interface TimesheetEntry {

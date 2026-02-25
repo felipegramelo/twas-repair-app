@@ -154,9 +154,14 @@ export default function CreateTimesheetScreen() {
     setSaving(true);
     try {
       await timesheetAPI.create(selectedSO.id, entries, observations);
-      Alert.alert('Sucesso', 'Timesheet criado com sucesso', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      if (Platform.OS === 'web') {
+        window.alert('Timesheet criado com sucesso!');
+        router.back();
+      } else {
+        Alert.alert('Sucesso', 'Timesheet criado com sucesso', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      }
     } catch (error: any) {
       Alert.alert('Erro', 'Erro ao salvar timesheet');
     } finally {

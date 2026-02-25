@@ -192,15 +192,18 @@ class TestTimesheetCRUD:
         get_after_delete = api_client.get(f"{BASE_URL}/api/timesheets/{timesheet_id}")
         assert get_after_delete.status_code == 404
     
-    def test_update_timesheet(self, api_client):
+    def test_update_timesheet(self, api_client, valid_employee_id):
         """PUT /api/timesheets/{id} - Update an existing timesheet"""
+        if not valid_employee_id:
+            pytest.skip("No employee available for testing")
+        
         # First create a timesheet to update
         create_payload = {
             "os_id": EXISTING_SERVICE_ORDER_ID,
             "entries": [
                 {
                     "date": "17/01/2026",
-                    "employee_id": EXISTING_EMPLOYEE_ID,
+                    "employee_id": valid_employee_id,
                     "employee_name": "Original Employee",
                     "employee_function": "T",
                     "service_start": "09:00",
@@ -215,7 +218,7 @@ class TestTimesheetCRUD:
         response = api_client.post(f"{BASE_URL}/api/timesheets", json=create_payload)
         assert response.status_code == 200
         created = response.json()
-        timesheet_id = created["id"]
+        timesheet_id = get_id(created)
         
         # Update the timesheet
         update_payload = {
@@ -223,7 +226,7 @@ class TestTimesheetCRUD:
             "entries": [
                 {
                     "date": "17/01/2026",
-                    "employee_id": EXISTING_EMPLOYEE_ID,
+                    "employee_id": valid_employee_id,
                     "employee_name": "Updated Employee",
                     "employee_function": "E",
                     "service_start": "10:00",

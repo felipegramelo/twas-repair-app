@@ -24,7 +24,7 @@ except ImportError:
     import PyPDF2
 
 # API Configuration  
-API_BASE_URL = "https://shift-docs-staging.preview.emergentagent.com/api"
+API_BASE_URL = "https://duty-sheet.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@twasrepair.com"
 ADMIN_PASSWORD = "admin123"
 SUPERVISOR_EMAIL = "supervisor@twasrepair.com"

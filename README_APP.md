@@ -111,8 +111,8 @@ O PDF é gerado automaticamente com:
 
 ## 🌐 URLs
 
-- **Frontend:** https://shift-docs-staging.preview.emergentagent.com
-- **Backend API:** https://shift-docs-staging.preview.emergentagent.com/api
+- **Frontend:** https://duty-sheet.preview.emergentagent.com
+- **Backend API:** https://duty-sheet.preview.emergentagent.com/api
 
 ## 📱 Acesso Mobile
 

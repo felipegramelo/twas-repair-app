@@ -138,7 +138,7 @@ export default function CreateTimesheetScreen() {
 
   // Entry form
   const [entryDate, setEntryDate] = useState('');
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<{id: string, name: string, function: string} | null>(null);
   const [serviceStart, setServiceStart] = useState('');
   const [serviceEnd, setServiceEnd] = useState('');
   const [travelStart, setTravelStart] = useState('');
@@ -151,8 +151,11 @@ export default function CreateTimesheetScreen() {
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    if (selectedSO && selectedSO.employee_ids && selectedSO.employee_ids.length > 0) {
-      const filtered = allEmployees.filter(e => selectedSO.employee_ids.includes(e.id));
+    if (selectedSO && selectedSO.employees && selectedSO.employees.length > 0) {
+      const filtered = selectedSO.employees.map(soEmp => {
+        const emp = allEmployees.find(e => e.id === soEmp.employee_id);
+        return emp ? { ...emp, function: soEmp.function } : null;
+      }).filter(Boolean) as Employee[];
       setFilteredEmployees(filtered);
     } else {
       setFilteredEmployees(allEmployees);

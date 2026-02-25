@@ -8,6 +8,10 @@ export interface User {
 export interface Employee {
   id: string;
   name: string;
+}
+
+export interface SOEmployee {
+  employee_id: string;
   function: string;
 }
 
@@ -17,7 +21,7 @@ export interface ServiceOrder {
   client: string;
   location: string;
   service: string;
-  employee_ids: string[];
+  employees: SOEmployee[];
 }
 
 export interface TimesheetEntry {

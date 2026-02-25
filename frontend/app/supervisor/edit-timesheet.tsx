@@ -174,7 +174,7 @@ export default function EditTimesheetScreen() {
           </View>
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.label}>Entradas ({entries.length})</Text>
+              <Text style={s.label}>Entradas ({entries.length}/12)</Text>
               <TouchableOpacity onPress={() => { if (entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet.'); return; } setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn}><Ionicons name="add" size={20} color="#1a237e" /><Text style={s.addEntryText}>Adicionar</Text></TouchableOpacity>
             </View>
             {entries.map((entry, i) => (

@@ -205,6 +205,14 @@ export default function CreateTimesheetScreen() {
       Alert.alert('Erro', 'Preencha data, funcionário, início e fim do serviço');
       return;
     }
+    if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) {
+      if (Platform.OS === 'web') {
+        window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+      } else {
+        Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet. Crie um novo.');
+      }
+      return;
+    }
     const newEntry: TimesheetEntry = {
       date: entryDate,
       employee_id: selectedEmployee.id,

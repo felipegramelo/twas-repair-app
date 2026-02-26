@@ -871,23 +871,27 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         elements.append(approval_table)
         elements.append(Spacer(1, 0.1*cm))
         
-        # Observations section - each page gets its own observations box
+        # Observations section - each page gets its own observations box with 8 lines
         obs_title = Paragraph("<b>Observações / Remarks:</b>", ParagraphStyle(f'obs_title_{page_num}', parent=styles['Normal'], fontSize=9))
         elements.append(obs_title)
         elements.append(Spacer(1, 0.05*cm))
         
-        # First page shows saved observations; other pages have empty box
-        obs_content = (ts.get("observations", "") or "") if page_num == 0 else ""
-        obs_data = [
-            [Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]
-        ]
+        # 8 rows for handwritten observations
+        obs_line_style = ParagraphStyle(f'obs_line_{page_num}', parent=styles['Normal'], fontSize=9, leading=12)
+        obs_data = []
+        saved_obs = (ts.get("observations", "") or "") if page_num == 0 else ""
+        obs_lines = saved_obs.split("\n") if saved_obs else []
+        for line_idx in range(8):
+            line_text = obs_lines[line_idx] if line_idx < len(obs_lines) else ""
+            obs_data.append([Paragraph(line_text, obs_line_style)])
         
-        obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[3.5*cm])
+        obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[0.45*cm]*8)
         obs_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (0, 0), (-1, -1), 0.3*cm),
-            ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.05*cm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.05*cm),
         ]))
         
         elements.append(obs_table)

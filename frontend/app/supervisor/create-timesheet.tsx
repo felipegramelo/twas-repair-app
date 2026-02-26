@@ -380,11 +380,11 @@ export default function CreateTimesheetScreen() {
 
           {/* Observations */}
           <View style={styles.section}>
-            <Text style={styles.label}>Observações</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.label}>Observações</Text>
+              <Text style={{ fontSize: 12, color: observations.length >= 800 ? '#d32f2f' : '#999' }}>{observations.length}/800</Text>
+            </View>
             <TextInput style={[styles.input, styles.textArea]} placeholder="Adicione observações (opcional)" value={observations} onChangeText={(text) => { if (text.length <= 800) setObservations(text); }} multiline numberOfLines={4} maxLength={800} />
-          </View>
-          <View style={{ paddingHorizontal: 16, marginTop: -8, marginBottom: 8 }}>
-            <Text style={{ fontSize: 12, color: observations.length >= 800 ? '#d32f2f' : '#999', textAlign: 'right' }}>{observations.length}/800 caracteres</Text>
           </View>
 
           <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>

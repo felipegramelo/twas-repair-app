@@ -210,11 +210,11 @@ export default function EditTimesheetScreen() {
             {entries.length === 0 && <View style={s.emptyEntries}><Ionicons name="people-outline" size={48} color="#ccc" /><Text style={s.emptyText}>Nenhuma entrada</Text></View>}
           </View>
           <View style={s.section}>
-            <Text style={s.label}>Observações</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={s.label}>Observações</Text>
+              <Text style={{ fontSize: 12, color: observations.length >= 800 ? '#d32f2f' : '#999' }}>{observations.length}/800</Text>
+            </View>
             <TextInput style={[s.input, s.textArea]} placeholder="Observações (opcional)" value={observations} onChangeText={(text) => { if (text.length <= 800) setObservations(text); }} multiline numberOfLines={4} maxLength={800} />
-          </View>
-          <View style={{ paddingHorizontal: 16, marginTop: -8, marginBottom: 8 }}>
-            <Text style={{ fontSize: 12, color: observations.length >= 800 ? '#d32f2f' : '#999', textAlign: 'right' }}>{observations.length}/800 caracteres</Text>
           </View>
           <TouchableOpacity style={[s.saveButton, saving && s.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.saveButtonText}>Atualizar Timesheet</Text>}

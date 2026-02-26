@@ -309,7 +309,7 @@ class SupervisorUpdate(BaseModel):
 
 @api_router.get("/users/supervisors", response_model=List[UserResponse])
 async def get_supervisors(current_user: Dict[str, Any] = Depends(get_admin_user)):
-    supervisors = await db.users.find({"role": UserRole.SUPERVISOR}, {"password_hash": 0}).sort("name", 1).to_list(1000)
+    supervisors = await db.users.find({"role": UserRole.SUPERVISOR}, {"password_hash": 0}).sort("name", 1).to_list(100)
     return [UserResponse(
         id=str(user["_id"]),
         email=user["email"],
@@ -414,7 +414,7 @@ async def create_employee(employee_data: EmployeeCreate, current_user: Dict[str,
 
 @api_router.get("/employees", response_model=List[dict])
 async def get_employees(current_user: Dict[str, Any] = Depends(get_current_user)):
-    employees = await db.employees.find().sort("name", 1).to_list(1000)
+    employees = await db.employees.find().sort("name", 1).to_list(500)
     for emp in employees:
         emp["id"] = str(emp.pop("_id"))
     return employees
@@ -469,7 +469,7 @@ async def create_service_order(so_data: ServiceOrderCreate, current_user: Dict[s
 
 @api_router.get("/service-orders", response_model=List[dict])
 async def get_service_orders(current_user: Dict[str, Any] = Depends(get_current_user)):
-    service_orders = await db.service_orders.find().sort("os_number", 1).to_list(1000)
+    service_orders = await db.service_orders.find().sort("os_number", 1).to_list(500)
     for so in service_orders:
         so["id"] = str(so.pop("_id"))
     return service_orders
@@ -547,7 +547,7 @@ async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user
     if current_user.get("role") != UserRole.ADMIN:
         query["supervisor_id"] = current_user["_id"]
     
-    timesheets = await db.timesheets.find(query).sort("created_at", -1).to_list(1000)
+    timesheets = await db.timesheets.find(query).sort("created_at", -1).to_list(500)
     result = []
     for ts in timesheets:
         ts["id"] = str(ts.pop("_id"))  # Rename _id to id

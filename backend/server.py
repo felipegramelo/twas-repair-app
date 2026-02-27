@@ -881,7 +881,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             [Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]
         ]
         
-        obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[3.5*cm])
+        obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[2.5*cm])
         obs_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),

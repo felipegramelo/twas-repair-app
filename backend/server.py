@@ -881,7 +881,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             [Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]
         ]
         
-        obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[2.5*cm])
+        obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[3.5*cm])
         obs_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -902,12 +902,12 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             ],
             [
                 Paragraph(current_date, ParagraphStyle(f'twas_c_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
-                Paragraph(f"<br/><br/>______________________<br/><font size=8>{ts['supervisor_name']}</font>", sig_name_style),
+                Paragraph(f"<br/>______________________<br/><font size=8>{ts['supervisor_name']}</font>", sig_name_style),
                 Paragraph("Supervisor", ParagraphStyle(f'twas_c3_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
             ]
         ]
         
-        twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 1.8*cm])
+        twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 1.2*cm])
         twas_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),

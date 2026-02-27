@@ -6,6 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { timesheetAPI } from '../../services/api';
 import { Timesheet } from '../../types';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import api from '../../services/api';
 
 export default function SupervisorDashboard() {
   const { user, signOut } = useAuth();

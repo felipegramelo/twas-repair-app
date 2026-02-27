@@ -34,7 +34,8 @@ export default function SupervisorDashboard() {
   };
 
   const handleOpenPDF = (timesheet: Timesheet) => {
-    const url = `${api.defaults.baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`;
+    const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+    const url = `${baseURL}/api/timesheets/${timesheet.id}/pdf?t=${Date.now()}`;
     if (Platform.OS === 'web') {
       window.open(url, '_blank');
     }

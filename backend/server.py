@@ -892,7 +892,8 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         elements.append(obs_table)
         elements.append(Spacer(1, 0.1*cm))
         
-        # TWAS Approval section
+        # TWAS Approval section with signature in Nome column
+        sig_name_style = ParagraphStyle(f'sig_nm_{page_num}', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER)
         twas_data = [
             [
                 Paragraph("<b>Data / Date</b>", ParagraphStyle(f'twas_h_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
@@ -901,55 +902,27 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             ],
             [
                 Paragraph(current_date, ParagraphStyle(f'twas_c_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
-                Paragraph(ts["supervisor_name"], ParagraphStyle(f'twas_c2_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                Paragraph(f"<br/><br/>______________________<br/><font size=8>{ts['supervisor_name']}</font>", sig_name_style),
                 Paragraph("Supervisor", ParagraphStyle(f'twas_c3_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
             ]
         ]
         
-        twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 0.6*cm])
+        twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 1.8*cm])
         twas_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('VALIGN', (0, 1), (0, 1), 'MIDDLE'),
+            ('VALIGN', (1, 1), (1, 1), 'BOTTOM'),
+            ('VALIGN', (2, 1), (2, 1), 'MIDDLE'),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
-            ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.1*cm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.1*cm),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ]))
         
         elements.append(twas_table)
-        elements.append(Spacer(1, 0.2*cm))
-        
-        # Supervisor signature field
-        sig_style_name = ParagraphStyle(f'sig_name_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)
-        sig_style_label = ParagraphStyle(f'sig_label_{page_num}', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.grey)
-        sig_line_style = ParagraphStyle(f'sig_line_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)
-        
-        sig_data = [
-            [
-                Paragraph("______________________________", sig_line_style),
-                Paragraph("______________________________", sig_line_style),
-            ],
-            [
-                Paragraph(f"<b>{ts['supervisor_name']}</b>", sig_style_name),
-                Paragraph("<b>Cliente / Client</b>", sig_style_name),
-            ],
-            [
-                Paragraph("Supervisor TWAS Repair", sig_style_label),
-                Paragraph("Representante / Representative", sig_style_label),
-            ],
-        ]
-        
-        sig_table = Table(sig_data, colWidths=[9*cm, 9*cm], rowHeights=[0.5*cm, 0.4*cm, 0.3*cm])
-        sig_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, 0), 'BOTTOM'),
-            ('VALIGN', (0, 1), (-1, -1), 'TOP'),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ]))
-        
-        elements.append(sig_table)
-        elements.append(Spacer(1, 0.1*cm))
+        elements.append(Spacer(1, 0.15*cm))
         
         # Footer with company info
         footer_style = ParagraphStyle(f'footer_{page_num}', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER)

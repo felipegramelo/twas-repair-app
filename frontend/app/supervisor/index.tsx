@@ -112,6 +112,13 @@ export default function SupervisorDashboard() {
       </TouchableOpacity>
       <View style={styles.tsActions}>
         <TouchableOpacity 
+          onPress={() => handleOpenPDF(item)}
+          style={styles.tsActionButton}
+          data-testid={`open-pdf-btn-${item.id}`}
+        >
+          <Ionicons name="document-text-outline" size={20} color="#1a237e" />
+        </TouchableOpacity>
+        <TouchableOpacity 
           onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
           style={styles.tsActionButton}
           data-testid={`edit-btn-${item.id}`}

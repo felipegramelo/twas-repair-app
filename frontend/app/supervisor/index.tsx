@@ -33,11 +33,16 @@ export default function SupervisorDashboard() {
     router.replace('/');
   };
 
-  const handleOpenPDF = (timesheet: Timesheet) => {
-    const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-    const url = `${baseURL}/api/timesheets/${timesheet.id}/pdf?t=${Date.now()}`;
-    if (Platform.OS === 'web') {
-      window.open(url, '_blank');
+  const handleOpenPDF = async (timesheet: Timesheet) => {
+    try {
+      const blob = await timesheetAPI.downloadPDF(timesheet.id);
+      if (Platform.OS === 'web') {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
+      else Alert.alert('Erro', 'Erro ao abrir PDF');
     }
   };
 

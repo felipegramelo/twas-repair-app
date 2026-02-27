@@ -44,23 +44,29 @@ export default function SupervisorDashboard() {
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
       } else {
-        const token = api.defaults.headers.common['Authorization'];
-        const baseURL = api.defaults.baseURL;
-        const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}.pdf`;
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
           fileUri,
-          { headers: { Authorization: token as string } }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         if (result.status === 200) {
-          await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          } else {
+            Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
+          }
         } else {
-          Alert.alert('Erro', 'Erro ao gerar PDF');
+          Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
         }
       }
     } catch (error: any) {
+      console.error('Erro ao abrir PDF:', error);
       if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
-      else Alert.alert('Erro', 'Erro ao abrir PDF');
+      else Alert.alert('Erro', 'Erro ao abrir PDF: ' + (error.message || ''));
     }
   };
 
@@ -76,27 +82,32 @@ export default function SupervisorDashboard() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        if (Platform.OS === 'web') window.alert('PDF baixado com sucesso!');
+        window.alert('PDF baixado com sucesso!');
       } else {
-        const token = api.defaults.headers.common['Authorization'];
-        const baseURL = api.defaults.baseURL;
-        const fileName = `timesheet_${timesheet.os_number}_${timesheet.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const fileName = `timesheet_${timesheet.os_number || 'ts'}_${Date.now()}.pdf`;
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
           fileUri,
-          { headers: { Authorization: token as string } }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         if (result.status === 200) {
-          await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Salvar PDF' });
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Salvar PDF' });
+          } else {
+            Alert.alert('Sucesso', 'PDF salvo com sucesso!');
+          }
         } else {
-          Alert.alert('Erro', 'Erro ao baixar PDF');
+          Alert.alert('Erro', 'Erro ao baixar PDF. Status: ' + result.status);
         }
       }
     } catch (error: any) {
       console.error('Erro ao baixar PDF:', error);
       if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');
-      else Alert.alert('Erro', 'Erro ao baixar PDF');
+      else Alert.alert('Erro', 'Erro ao baixar PDF: ' + (error.message || ''));
     }
   };
 

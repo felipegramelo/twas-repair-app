@@ -33,6 +33,13 @@ export default function SupervisorDashboard() {
     router.replace('/');
   };
 
+  const handleOpenPDF = (timesheet: Timesheet) => {
+    const url = `${api.defaults.baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`;
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank');
+    }
+  };
+
   const handleDownloadPDF = async (timesheet: Timesheet) => {
     try {
       const blob = await timesheetAPI.downloadPDF(timesheet.id);

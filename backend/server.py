@@ -917,6 +917,39 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         ]))
         
         elements.append(twas_table)
+        elements.append(Spacer(1, 0.3*cm))
+        
+        # Supervisor signature field
+        sig_style_name = ParagraphStyle(f'sig_name_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)
+        sig_style_label = ParagraphStyle(f'sig_label_{page_num}', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.grey)
+        
+        sig_data = [
+            ["", ""],  # Empty row for signature space
+            [
+                Paragraph("_" * 50, ParagraphStyle(f'sig_line_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+                Paragraph("_" * 50, ParagraphStyle(f'sig_line2_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
+            ],
+            [
+                Paragraph(f"<b>{ts['supervisor_name']}</b>", sig_style_name),
+                Paragraph("<b>Cliente / Client</b>", sig_style_name),
+            ],
+            [
+                Paragraph("Supervisor TWAS Repair", sig_style_label),
+                Paragraph("Representante / Representative", sig_style_label),
+            ],
+        ]
+        
+        sig_table = Table(sig_data, colWidths=[9*cm, 9*cm], rowHeights=[1.2*cm, 0.4*cm, 0.4*cm, 0.3*cm])
+        sig_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0.5*cm),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0.5*cm),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        
+        elements.append(sig_table)
         elements.append(Spacer(1, 0.15*cm))
         
         # Footer with company info

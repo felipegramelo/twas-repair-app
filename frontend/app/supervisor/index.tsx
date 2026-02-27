@@ -38,10 +38,24 @@ export default function SupervisorDashboard() {
 
   const handleOpenPDF = async (timesheet: Timesheet) => {
     try {
-      const blob = await timesheetAPI.downloadPDF(timesheet.id);
       if (Platform.OS === 'web') {
+        const blob = await timesheetAPI.downloadPDF(timesheet.id);
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
+      } else {
+        const token = api.defaults.headers.common['Authorization'];
+        const baseURL = api.defaults.baseURL;
+        const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}.pdf`;
+        const result = await FileSystem.downloadAsync(
+          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
+          fileUri,
+          { headers: { Authorization: token as string } }
+        );
+        if (result.status === 200) {
+          await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+        } else {
+          Alert.alert('Erro', 'Erro ao gerar PDF');
+        }
       }
     } catch (error: any) {
       if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
@@ -51,9 +65,8 @@ export default function SupervisorDashboard() {
 
   const handleDownloadPDF = async (timesheet: Timesheet) => {
     try {
-      const blob = await timesheetAPI.downloadPDF(timesheet.id);
-      
       if (Platform.OS === 'web') {
+        const blob = await timesheetAPI.downloadPDF(timesheet.id);
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -62,17 +75,27 @@ export default function SupervisorDashboard() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        Alert.alert('Sucesso', 'PDF baixado com sucesso!');
+        if (Platform.OS === 'web') window.alert('PDF baixado com sucesso!');
       } else {
-        const fileReaderInstance = new FileReader();
-        fileReaderInstance.readAsDataURL(blob);
-        fileReaderInstance.onload = () => {
-          Alert.alert('PDF', 'PDF gerado com sucesso!');
-        };
+        const token = api.defaults.headers.common['Authorization'];
+        const baseURL = api.defaults.baseURL;
+        const fileName = `timesheet_${timesheet.os_number}_${timesheet.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+        const result = await FileSystem.downloadAsync(
+          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
+          fileUri,
+          { headers: { Authorization: token as string } }
+        );
+        if (result.status === 200) {
+          await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Salvar PDF' });
+        } else {
+          Alert.alert('Erro', 'Erro ao baixar PDF');
+        }
       }
     } catch (error: any) {
       console.error('Erro ao baixar PDF:', error);
-      Alert.alert('Erro', 'Erro ao baixar PDF');
+      if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');
+      else Alert.alert('Erro', 'Erro ao baixar PDF');
     }
   };
 

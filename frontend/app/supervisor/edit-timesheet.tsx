@@ -73,6 +73,10 @@ export default function EditTimesheetScreen() {
   const [selectedSO, setSelectedSO] = useState<ServiceOrder | null>(null);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
   const [observations, setObservations] = useState('');
+  const [supervisorFunction, setSupervisorFunction] = useState('Supervisor');
+  const [functionPickerVisible, setFunctionPickerVisible] = useState(false);
+
+  const SUPERVISOR_FUNCTIONS = ['Engenheiro (E)', 'Encarregado (EN)', 'Supervisor (Sup)', 'Técnico (T)', 'Mecânico (M)', 'Téc. Seg. (TS)'];
   const [soModalVisible, setSOModalVisible] = useState(false);
   const [employeeModalVisible, setEmployeeModalVisible] = useState(false);
   const [employeePickerVisible, setEmployeePickerVisible] = useState(false);

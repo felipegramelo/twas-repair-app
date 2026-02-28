@@ -172,6 +172,7 @@ class Timesheet(BaseModel):
     observations: Optional[str] = ""
     supervisor_id: str
     supervisor_name: str
+    supervisor_function: Optional[str] = "Supervisor"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -184,6 +185,7 @@ class TimesheetCreate(BaseModel):
     os_id: str
     entries: List[TimesheetEntry]
     observations: Optional[str] = ""
+    supervisor_function: Optional[str] = "Supervisor"
 
 
 # ==================== AUTH FUNCTIONS ====================
@@ -903,7 +905,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             [
                 Paragraph(current_date, ParagraphStyle(f'twas_c_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
                 Paragraph(f"<br/>______________________<br/><font size=8>{ts['supervisor_name']}</font>", sig_name_style),
-                Paragraph("Supervisor", ParagraphStyle(f'twas_c3_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
+                Paragraph(ts.get("supervisor_function", "Supervisor"), ParagraphStyle(f'twas_c3_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
             ]
         ]
         

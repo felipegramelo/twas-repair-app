@@ -382,6 +382,15 @@ export default function CreateTimesheetScreen() {
             )}
           </View>
 
+          {/* Supervisor Function */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Função do Supervisor</Text>
+            <TouchableOpacity style={styles.selectInput} onPress={() => setFunctionPickerVisible(true)}>
+              <Text style={styles.selectInputText}>{supervisorFunction}</Text>
+              <Ionicons name="chevron-down" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
+
           {/* Observations */}
           <View style={styles.section}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

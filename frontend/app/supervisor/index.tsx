@@ -169,6 +169,7 @@ export default function SupervisorDashboard() {
         <View style={styles.tsCardInfo}>
           <Text style={styles.tsCardTitle}>{item.client}</Text>
           <Text style={styles.tsCardSubtitle}>{item.location}</Text>
+          <Text style={styles.tsCardService} numberOfLines={1} data-testid={`timesheet-service-${item.id}`}>{item.service}</Text>
           <Text style={styles.tsCardMeta}>{item.entries.length} entrada(s)</Text>
           {item.entries.length > 0 && (
             <Text style={styles.tsDateRange} data-testid={`timesheet-date-range-${item.id}`}>{getDateRangeText(item.entries)}</Text>

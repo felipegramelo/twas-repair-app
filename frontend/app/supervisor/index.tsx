@@ -355,6 +355,12 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
+  tsCardService: {
+    fontSize: 13,
+    color: '#444',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
   tsCardMeta: {
     fontSize: 12,
     color: '#999',

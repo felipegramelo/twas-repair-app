@@ -11,6 +11,24 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import api from '../../services/api';
 
+function getDateRangeText(entries: Timesheet['entries']): string {
+  if (!entries || entries.length === 0) return '';
+  const dates = entries
+    .map(e => e.date)
+    .filter(Boolean)
+    .map(d => {
+      const [day, month, year] = d.split('/');
+      return { raw: d, sortKey: `${year}-${month}-${day}` };
+    })
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  if (dates.length === 0) return '';
+  const uniqueDates = [...new Set(dates.map(d => d.raw))];
+  const first = uniqueDates[0];
+  const last = uniqueDates[uniqueDates.length - 1];
+  if (first === last) return `Timesheet do dia ${first}`;
+  return `Timesheet do dia ${first} até ${last}`;
+}
+
 export default function SupervisorDashboard() {
   const { user, signOut } = useAuth();
   const router = useRouter();

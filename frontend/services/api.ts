@@ -110,12 +110,12 @@ export const timesheetAPI = {
     const response = await api.get(`/timesheets/${id}`);
     return response.data;
   },
-  create: async (os_id: string, entries: TimesheetEntry[], observations?: string): Promise<Timesheet> => {
-    const response = await api.post('/timesheets', { os_id, entries, observations });
+  create: async (os_id: string, entries: TimesheetEntry[], observations?: string, supervisor_function?: string): Promise<Timesheet> => {
+    const response = await api.post('/timesheets', { os_id, entries, observations, supervisor_function });
     return response.data;
   },
-  update: async (id: string, os_id: string, entries: TimesheetEntry[], observations?: string): Promise<Timesheet> => {
-    const response = await api.put(`/timesheets/${id}`, { os_id, entries, observations });
+  update: async (id: string, os_id: string, entries: TimesheetEntry[], observations?: string, supervisor_function?: string): Promise<Timesheet> => {
+    const response = await api.put(`/timesheets/${id}`, { os_id, entries, observations, supervisor_function });
     return response.data;
   },
   delete: async (id: string) => {

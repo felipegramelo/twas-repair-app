@@ -18,6 +18,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
+function getDateRangeText(entries: Timesheet['entries']): string {
+  if (!entries || entries.length === 0) return '';
+  const dates = entries
+    .map(e => e.date)
+    .filter(Boolean)
+    .map(d => {
+      const [day, month, year] = d.split('/');
+      return { raw: d, sortKey: `${year}-${month}-${day}` };
+    })
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  if (dates.length === 0) return '';
+  const uniqueDates = [...new Set(dates.map(d => d.raw))];
+  const first = uniqueDates[0];
+  const last = uniqueDates[uniqueDates.length - 1];
+  if (first === last) return `Timesheet do dia ${first}`;
+  return `Timesheet do dia ${first} até ${last}`;
+}
+
 export default function AdminTimesheetsScreen() {
   const router = useRouter();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
@@ -142,39 +160,31 @@ export default function AdminTimesheetsScreen() {
 
   const renderTimesheet = ({ item }: { item: Timesheet }) => (
     <View style={styles.card} data-testid={`timesheet-card-${item.id}`}>
-      <View style={styles.cardContent}>
+      <View style={styles.topRow}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{item.os_number}</Text>
         </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle}>{item.client}</Text>
-          <Text style={styles.cardSubtitle}>{item.location}</Text>
-          <Text style={styles.cardMeta}>Supervisor: {item.supervisor_name}</Text>
-          <Text style={styles.cardMeta}>{item.entries.length} entrada(s)</Text>
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionButton} data-testid={`open-pdf-btn-${item.id}`}>
+            <Ionicons name="document-text-outline" size={22} color="#1a237e" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.actionButton} data-testid={`download-pdf-btn-${item.id}`}>
+            <Ionicons name="download-outline" size={22} color="#1a237e" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton} data-testid={`delete-btn-${item.id}`}>
+            <Ionicons name="trash-outline" size={22} color="#d32f2f" />
+          </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.actions}>
-        <TouchableOpacity
-          onPress={() => handleOpenPDF(item)}
-          style={styles.actionButton}
-          data-testid={`open-pdf-btn-${item.id}`}
-        >
-          <Ionicons name="document-text-outline" size={22} color="#1a237e" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleDownloadPDF(item)}
-          style={styles.actionButton}
-          data-testid={`download-pdf-btn-${item.id}`}
-        >
-          <Ionicons name="download-outline" size={22} color="#1a237e" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleDelete(item)}
-          style={styles.actionButton}
-          data-testid={`delete-btn-${item.id}`}
-        >
-          <Ionicons name="trash-outline" size={22} color="#d32f2f" />
-        </TouchableOpacity>
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardTitle}>{item.client}</Text>
+        <Text style={styles.cardSubtitle}>{item.location}</Text>
+        <Text style={styles.cardService} numberOfLines={1} data-testid={`timesheet-service-${item.id}`}>{item.service}</Text>
+        <Text style={styles.cardMeta}>Supervisor: {item.supervisor_name}</Text>
+        <Text style={styles.cardMeta}>{item.entries.length} entrada(s)</Text>
+        {item.entries.length > 0 && (
+          <Text style={styles.dateRange} data-testid={`timesheet-date-range-${item.id}`}>{getDateRangeText(item.entries)}</Text>
+        )}
       </View>
     </View>
   );
@@ -220,14 +230,16 @@ const styles = StyleSheet.create({
   backButton: { padding: 8 },
   title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
   listContent: { padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
-  cardContent: { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
-  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 12 },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
-  cardInfo: { flex: 1 },
+  cardInfo: { paddingLeft: 2 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
+  cardService: { fontSize: 13, color: '#444', marginTop: 2, fontStyle: 'italic' },
   cardMeta: { fontSize: 12, color: '#999', marginTop: 4 },
+  dateRange: { fontSize: 12, color: '#1a237e', marginTop: 4, fontWeight: '500' },
   actions: { flexDirection: 'row', gap: 4 },
   actionButton: { padding: 8 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 64 },

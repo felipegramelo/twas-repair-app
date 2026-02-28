@@ -213,6 +213,15 @@ export default function EditTimesheetScreen() {
             ))}
             {entries.length === 0 && <View style={s.emptyEntries}><Ionicons name="people-outline" size={48} color="#ccc" /><Text style={s.emptyText}>Nenhuma entrada</Text></View>}
           </View>
+          {/* Supervisor Function */}
+          <View style={s.section}>
+            <Text style={s.label}>Função do Supervisor</Text>
+            <TouchableOpacity style={s.selectButton} onPress={() => setFunctionPickerVisible(true)}>
+              <Text style={supervisorFunction !== 'Supervisor' ? s.selectTextSelected : s.selectText}>{supervisorFunction}</Text>
+              <Ionicons name="chevron-down" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
+
           <View style={s.section}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={s.label}>Observações</Text>

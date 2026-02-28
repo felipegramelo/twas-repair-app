@@ -385,8 +385,8 @@ export default function CreateTimesheetScreen() {
           {/* Supervisor Function */}
           <View style={styles.section}>
             <Text style={styles.label}>Função do Supervisor</Text>
-            <TouchableOpacity style={styles.selectInput} onPress={() => setFunctionPickerVisible(true)}>
-              <Text style={styles.selectInputText}>{supervisorFunction}</Text>
+            <TouchableOpacity style={styles.selectButton} onPress={() => setFunctionPickerVisible(true)}>
+              <Text style={supervisorFunction !== 'Supervisor' ? styles.selectTextSelected : styles.selectText}>{supervisorFunction}</Text>
               <Ionicons name="chevron-down" size={20} color="#666" />
             </TouchableOpacity>
           </View>

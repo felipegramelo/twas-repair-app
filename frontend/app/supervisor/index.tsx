@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   tsCardInfo: {
-    flex: 1,
+    paddingLeft: 2,
   },
   tsCardTitle: {
     fontSize: 16,

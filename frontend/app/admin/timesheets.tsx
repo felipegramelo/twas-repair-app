@@ -14,6 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { timesheetAPI } from '../../services/api';
 import { Timesheet } from '../../types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 export default function AdminTimesheetsScreen() {
   const router = useRouter();
@@ -29,17 +32,49 @@ export default function AdminTimesheetsScreen() {
       const data = await timesheetAPI.getAll();
       setTimesheets(data);
     } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao carregar timesheets');
+      if (Platform.OS === 'web') window.alert('Erro ao carregar timesheets');
+      else Alert.alert('Erro', 'Erro ao carregar timesheets');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleOpenPDF = async (timesheet: Timesheet) => {
+    try {
+      if (Platform.OS === 'web') {
+        const blob = await timesheetAPI.downloadPDF(timesheet.id);
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } else {
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
+        const result = await FileSystem.downloadAsync(
+          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
+          fileUri,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (result.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          } else {
+            Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
+          }
+        } else {
+          Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
+        }
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
+      else Alert.alert('Erro', 'Erro ao abrir PDF: ' + (error.message || ''));
+    }
+  };
+
   const handleDownloadPDF = async (timesheet: Timesheet) => {
     try {
-      const blob = await timesheetAPI.downloadPDF(timesheet.id);
-      
       if (Platform.OS === 'web') {
+        const blob = await timesheetAPI.downloadPDF(timesheet.id);
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -48,17 +83,31 @@ export default function AdminTimesheetsScreen() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        Alert.alert('Sucesso', 'PDF baixado com sucesso!');
+        window.alert('PDF baixado com sucesso!');
       } else {
-        const fileReaderInstance = new FileReader();
-        fileReaderInstance.readAsDataURL(blob);
-        fileReaderInstance.onload = () => {
-          Alert.alert('PDF', 'PDF gerado com sucesso!');
-        };
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const fileName = `timesheet_${timesheet.os_number || 'ts'}_${Date.now()}.pdf`;
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+        const result = await FileSystem.downloadAsync(
+          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
+          fileUri,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (result.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Salvar PDF' });
+          } else {
+            Alert.alert('Sucesso', 'PDF salvo com sucesso!');
+          }
+        } else {
+          Alert.alert('Erro', 'Erro ao baixar PDF. Status: ' + result.status);
+        }
       }
     } catch (error: any) {
-      console.error('Erro ao baixar PDF:', error);
-      Alert.alert('Erro', 'Erro ao baixar PDF');
+      if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');
+      else Alert.alert('Erro', 'Erro ao baixar PDF: ' + (error.message || ''));
     }
   };
 
@@ -83,10 +132,11 @@ export default function AdminTimesheetsScreen() {
     try {
       await timesheetAPI.delete(id);
       setTimesheets(prev => prev.filter(t => t.id !== id));
-      Alert.alert('Sucesso', 'Timesheet excluído com sucesso!');
+      if (Platform.OS === 'web') window.alert('Timesheet excluído!');
+      else Alert.alert('Sucesso', 'Timesheet excluído com sucesso!');
     } catch (error: any) {
-      console.error('Erro ao excluir:', error);
-      Alert.alert('Erro', 'Erro ao excluir timesheet');
+      if (Platform.OS === 'web') window.alert('Erro ao excluir');
+      else Alert.alert('Erro', 'Erro ao excluir timesheet');
     }
   };
 
@@ -104,6 +154,13 @@ export default function AdminTimesheetsScreen() {
         </View>
       </View>
       <View style={styles.actions}>
+        <TouchableOpacity
+          onPress={() => handleOpenPDF(item)}
+          style={styles.actionButton}
+          data-testid={`open-pdf-btn-${item.id}`}
+        >
+          <Ionicons name="document-text-outline" size={22} color="#1a237e" />
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() => handleDownloadPDF(item)}
           style={styles.actionButton}
@@ -157,100 +214,22 @@ export default function AdminTimesheetsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  backButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1a237e',
-  },
-  listContent: {
-    padding: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  cardContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  badge: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  badgeText: {
-    color: '#1a237e',
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#212121',
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  cardMeta: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  actionButton: {
-    padding: 8,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-    marginTop: 16,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  backButton: { padding: 8 },
+  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  listContent: { padding: 16 },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  cardContent: { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
+  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 12 },
+  badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  cardInfo: { flex: 1 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
+  cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
+  cardMeta: { fontSize: 12, color: '#999', marginTop: 4 },
+  actions: { flexDirection: 'row', gap: 4 },
+  actionButton: { padding: 8 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 64 },
+  emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
 });

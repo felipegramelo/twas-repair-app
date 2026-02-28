@@ -111,8 +111,8 @@ O PDF é gerado automaticamente com:
 
 ## 🌐 URLs
 
-- **Frontend:** https://duty-sheet.preview.emergentagent.com
-- **Backend API:** https://duty-sheet.preview.emergentagent.com/api
+- **Frontend:** https://timesheet-tracker-58.preview.emergentagent.com
+- **Backend API:** https://timesheet-tracker-58.preview.emergentagent.com/api
 
 ## 📱 Acesso Mobile
 

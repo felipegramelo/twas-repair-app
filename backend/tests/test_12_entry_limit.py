@@ -9,7 +9,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://duty-sheet.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://timesheet-tracker-58.preview.emergentagent.com')
 
 # Test credentials
 SUPERVISOR_EMAIL = "supervisor@twasrepair.com"

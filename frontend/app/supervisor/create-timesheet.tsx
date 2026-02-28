@@ -230,9 +230,9 @@ export default function CreateTimesheetScreen() {
     if (editingEntryIndex !== null) {
       const newEntries = [...entries];
       newEntries[editingEntryIndex] = newEntry;
-      setEntries(newEntries);
+      setEntries(newEntries.sort((a, b) => a.employee_name.localeCompare(b.employee_name)));
     } else {
-      setEntries([...entries, newEntry]);
+      setEntries([...entries, newEntry].sort((a, b) => a.employee_name.localeCompare(b.employee_name)));
     }
     setEmployeeModalVisible(false);
     resetEntryForm();

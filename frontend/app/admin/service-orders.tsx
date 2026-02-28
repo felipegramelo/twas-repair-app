@@ -9,6 +9,7 @@ import { serviceOrderAPI, employeeAPI } from '../../services/api';
 import { ServiceOrder, Employee, SOEmployee } from '../../types';
 
 const FUNCTIONS = ['E', 'EN', 'Sup', 'T', 'M', 'TS'];
+const FUNC_LABELS: Record<string, string> = { 'E': 'Engenheiro', 'EN': 'Encarregado', 'Sup': 'Supervisor', 'T': 'Técnico', 'M': 'Mecânico', 'TS': 'Téc. Segurança' };
 
 export default function ServiceOrdersScreen() {
   const router = useRouter();
@@ -27,14 +28,17 @@ export default function ServiceOrdersScreen() {
   const [funcPickerVisible, setFuncPickerVisible] = useState(false);
   const [editingEmpIndex, setEditingEmpIndex] = useState<number | null>(null);
 
+  // Multi-select state
+  const [selectedNewEmps, setSelectedNewEmps] = useState<string[]>([]);
+  const [bulkFuncPickerVisible, setBulkFuncPickerVisible] = useState(false);
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       const [soData, empData] = await Promise.all([serviceOrderAPI.getAll(), employeeAPI.getAll()]);
-      setServiceOrders(soData);
-      setAllEmployees(empData);
-    } catch { Alert.alert('Erro', 'Erro ao carregar dados'); }
+      setServiceOrders(soData); setAllEmployees(empData);
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao carregar dados'); else Alert.alert('Erro', 'Erro ao carregar dados'); }
     finally { setLoading(false); }
   };
 
@@ -54,12 +58,19 @@ export default function ServiceOrdersScreen() {
   };
 
   const handleSave = async () => {
-    if (!osNumber || !client || !location || !service) { Alert.alert('Erro', 'Preencha todos os campos'); return; }
+    if (!osNumber || !client || !location || !service) {
+      if (Platform.OS === 'web') window.alert('Preencha todos os campos');
+      else Alert.alert('Erro', 'Preencha todos os campos');
+      return;
+    }
     try {
       if (editingSO) await serviceOrderAPI.update(editingSO.id, osNumber, client, location, service, soEmployees);
       else await serviceOrderAPI.create(osNumber, client, location, service, soEmployees);
       setModalVisible(false); loadServiceOrders();
-    } catch { Alert.alert('Erro', 'Erro ao salvar'); }
+    } catch {
+      if (Platform.OS === 'web') window.alert('Erro ao salvar');
+      else Alert.alert('Erro', 'Erro ao salvar');
+    }
   };
 
   const handleDelete = (so: ServiceOrder) => {
@@ -68,12 +79,41 @@ export default function ServiceOrdersScreen() {
   };
 
   const performDelete = async (so: ServiceOrder) => {
-    try { await serviceOrderAPI.delete(so.id); loadServiceOrders(); } catch { Alert.alert('Erro', 'Erro ao excluir'); }
+    try { await serviceOrderAPI.delete(so.id); loadServiceOrders(); } catch {
+      if (Platform.OS === 'web') window.alert('Erro ao excluir');
+      else Alert.alert('Erro', 'Erro ao excluir');
+    }
   };
 
-  const addEmployee = (emp: Employee) => {
-    if (soEmployees.find(e => e.employee_id === emp.id)) return;
-    setSOEmployees([...soEmployees, { employee_id: emp.id, function: 'T' }]);
+  // Toggle single employee selection in picker
+  const toggleEmpSelection = (empId: string) => {
+    setSelectedNewEmps(prev =>
+      prev.includes(empId) ? prev.filter(id => id !== empId) : [...prev, empId]
+    );
+  };
+
+  // Select all available employees
+  const selectAllEmployees = () => {
+    const available = allEmployees.filter(e => !soEmployees.find(se => se.employee_id === e.id)).map(e => e.id);
+    if (selectedNewEmps.length === available.length) {
+      setSelectedNewEmps([]);
+    } else {
+      setSelectedNewEmps(available);
+    }
+  };
+
+  // Add selected employees and open bulk function picker
+  const confirmAddEmployees = () => {
+    if (selectedNewEmps.length === 0) return;
+    setBulkFuncPickerVisible(true);
+  };
+
+  // Set function for all newly selected employees and add them
+  const addSelectedWithFunction = (func: string) => {
+    const newEmps: SOEmployee[] = selectedNewEmps.map(empId => ({ employee_id: empId, function: func }));
+    setSOEmployees([...soEmployees, ...newEmps]);
+    setSelectedNewEmps([]);
+    setBulkFuncPickerVisible(false);
     setEmployeePickerVisible(false);
   };
 
@@ -97,6 +137,9 @@ export default function ServiceOrdersScreen() {
     if (!emps || emps.length === 0) return 'Nenhum funcionário';
     return emps.map(e => `${getEmpName(e.employee_id)} (${e.function})`).join(', ');
   };
+
+  const availableEmployees = allEmployees.filter(e => !soEmployees.find(se => se.employee_id === e.id));
+  const allSelected = availableEmployees.length > 0 && selectedNewEmps.length === availableEmployees.length;
 
   if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
 
@@ -144,7 +187,7 @@ export default function ServiceOrdersScreen() {
 
           <View style={s.sectionHeader}>
             <Text style={s.label}>Funcionários ({soEmployees.length})</Text>
-            <TouchableOpacity onPress={() => setEmployeePickerVisible(true)} style={s.addEmpBtn}>
+            <TouchableOpacity onPress={() => { setSelectedNewEmps([]); setEmployeePickerVisible(true); }} style={s.addEmpBtn}>
               <Ionicons name="add" size={18} color="#1a237e" /><Text style={s.addEmpText}>Adicionar</Text>
             </TouchableOpacity>
           </View>
@@ -169,35 +212,77 @@ export default function ServiceOrdersScreen() {
         </ScrollView></View></View>
       </Modal>
 
-      {/* Employee Picker */}
+      {/* Employee Picker with Multi-select */}
       <Modal visible={employeePickerVisible} animationType="slide" transparent onRequestClose={() => setEmployeePickerVisible(false)}>
         <View style={s.modalOverlay}><View style={s.modalContent}>
-          <Text style={s.modalTitle}>Adicionar Funcionário</Text>
-          <ScrollView style={{ maxHeight: 400 }}>
-            {allEmployees.filter(e => !soEmployees.find(se => se.employee_id === e.id)).map(emp => (
-              <TouchableOpacity key={emp.id} style={s.pickerItem} onPress={() => addEmployee(emp)}>
-                <Text style={s.pickerItemText}>{emp.name}</Text>
-                <Ionicons name="add-circle" size={24} color="#1a237e" />
-              </TouchableOpacity>
-            ))}
-            {allEmployees.filter(e => !soEmployees.find(se => se.employee_id === e.id)).length === 0 && (
+          <Text style={s.modalTitle}>Selecionar Funcionários</Text>
+
+          {availableEmployees.length > 0 && (
+            <TouchableOpacity style={s.selectAllRow} onPress={selectAllEmployees}>
+              <View style={[s.checkbox, allSelected && s.checkboxChecked]}>
+                {allSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+              </View>
+              <Text style={s.selectAllText}>Selecionar Todos ({availableEmployees.length})</Text>
+            </TouchableOpacity>
+          )}
+
+          <ScrollView style={{ maxHeight: 350 }}>
+            {availableEmployees.map(emp => {
+              const isSelected = selectedNewEmps.includes(emp.id);
+              return (
+                <TouchableOpacity key={emp.id} style={s.pickerItem} onPress={() => toggleEmpSelection(emp.id)}>
+                  <View style={[s.checkbox, isSelected && s.checkboxChecked]}>
+                    {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+                  </View>
+                  <Text style={[s.pickerItemText, isSelected && { color: '#1a237e', fontWeight: '600' }]}>{emp.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            {availableEmployees.length === 0 && (
               <Text style={s.emptyText}>Todos os funcionários já foram adicionados</Text>
             )}
           </ScrollView>
-          <TouchableOpacity style={s.closeBtn} onPress={() => setEmployeePickerVisible(false)}><Text style={s.closeBtnText}>Fechar</Text></TouchableOpacity>
+
+          <View style={[s.modalBtns, { marginTop: 16 }]}>
+            <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => setEmployeePickerVisible(false)}>
+              <Text style={s.cancelText}>Fechar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.modalBtn, s.saveBtn, selectedNewEmps.length === 0 && { opacity: 0.4 }]}
+              onPress={confirmAddEmployees}
+              disabled={selectedNewEmps.length === 0}
+            >
+              <Text style={s.saveText}>Adicionar ({selectedNewEmps.length})</Text>
+            </TouchableOpacity>
+          </View>
         </View></View>
       </Modal>
 
-      {/* Function Picker */}
+      {/* Bulk Function Picker - after selecting employees */}
+      <Modal visible={bulkFuncPickerVisible} animationType="fade" transparent onRequestClose={() => setBulkFuncPickerVisible(false)}>
+        <View style={s.modalOverlay}><View style={[s.modalContent, { maxWidth: 320, alignSelf: 'center' }]}>
+          <Text style={s.modalTitle}>Função para {selectedNewEmps.length} funcionário(s)</Text>
+          <Text style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Selecione a função. Você pode alterar individualmente depois.</Text>
+          {FUNCTIONS.map(f => (
+            <TouchableOpacity key={f} style={s.funcItem} onPress={() => addSelectedWithFunction(f)}>
+              <Text style={s.funcItemText}>{f}</Text>
+              <Text style={s.funcItemDesc}>{FUNC_LABELS[f]}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={[s.closeBtn, { marginTop: 12 }]} onPress={() => setBulkFuncPickerVisible(false)}>
+            <Text style={s.closeBtnText}>Cancelar</Text>
+          </TouchableOpacity>
+        </View></View>
+      </Modal>
+
+      {/* Individual Function Picker */}
       <Modal visible={funcPickerVisible} animationType="fade" transparent onRequestClose={() => setFuncPickerVisible(false)}>
         <View style={s.modalOverlay}><View style={[s.modalContent, { maxWidth: 300, alignSelf: 'center' }]}>
           <Text style={s.modalTitle}>Selecionar Função</Text>
           {FUNCTIONS.map(f => (
             <TouchableOpacity key={f} style={s.funcItem} onPress={() => setEmployeeFunc(f)}>
               <Text style={s.funcItemText}>{f}</Text>
-              <Text style={s.funcItemDesc}>
-                {f === 'E' ? 'Engenheiro' : f === 'EN' ? 'Encarregado' : f === 'Sup' ? 'Supervisor' : f === 'T' ? 'Técnico' : f === 'M' ? 'Mecânico' : 'Téc. Segurança'}
-              </Text>
+              <Text style={s.funcItemDesc}>{FUNC_LABELS[f]}</Text>
             </TouchableOpacity>
           ))}
         </View></View>
@@ -243,7 +328,11 @@ const s = StyleSheet.create({
   cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
   saveBtn: { backgroundColor: '#1a237e' },
   saveText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  pickerItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  selectAllRow: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 2, borderBottomColor: '#1a237e', marginBottom: 4, gap: 12 },
+  selectAllText: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
+  checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 2, borderColor: '#bdbdbd', justifyContent: 'center', alignItems: 'center' },
+  checkboxChecked: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  pickerItem: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', gap: 12 },
   pickerItemText: { fontSize: 16, color: '#212121' },
   closeBtn: { backgroundColor: '#f5f5f5', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   closeBtnText: { fontSize: 16, fontWeight: '600', color: '#666' },

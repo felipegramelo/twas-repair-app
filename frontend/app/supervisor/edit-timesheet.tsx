@@ -309,6 +309,21 @@ export default function EditTimesheetScreen() {
         </View></View>
       </Modal>
 
+      {/* Function Picker Modal */}
+      <Modal visible={functionPickerVisible} animationType="slide" transparent onRequestClose={() => setFunctionPickerVisible(false)}>
+        <View style={s.modalOverlay}><View style={s.modalContent}>
+          <Text style={s.modalTitle}>Função do Supervisor</Text>
+          <ScrollView style={s.modalList}>
+            {SUPERVISOR_FUNCTIONS.map(fn => (
+              <TouchableOpacity key={fn} style={[s.modalItem, supervisorFunction === fn && { backgroundColor: '#e8eaf6' }]} onPress={() => { setSupervisorFunction(fn); setFunctionPickerVisible(false); }}>
+                <Text style={[s.modalItemTitle, supervisorFunction === fn && { color: '#1a237e', fontWeight: '700' }]}>{fn}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={s.modalCloseBtn} onPress={() => setFunctionPickerVisible(false)}><Text style={s.modalCloseBtnText}>Fechar</Text></TouchableOpacity>
+        </View></View>
+      </Modal>
+
       <CalendarPicker visible={calendarVisible} onClose={() => setCalendarVisible(false)} onSelect={setEntryDate} />
       <TimePickerModal visible={!!timePickerField} onClose={() => setTimePickerField(null)} onSelect={handleTimeSelect} title={getTimePickerTitle()} />
     </SafeAreaView>

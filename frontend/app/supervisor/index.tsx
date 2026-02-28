@@ -359,6 +359,12 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
   },
+  tsDateRange: {
+    fontSize: 12,
+    color: '#1a237e',
+    marginTop: 4,
+    fontWeight: '500',
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',

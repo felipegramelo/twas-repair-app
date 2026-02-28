@@ -36,6 +36,8 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 - [x] Contador de caracteres (800) no campo de observacoes
 - [x] **Multi-select checkbox para funcionarios na O.S.** - Selecao em massa com checkbox, "Selecionar Todos", picker de funcao em lote - 28/02/2026
 - [x] **Intervalo de datas no dashboard do supervisor** - Exibe "Timesheet do dia DD/MM/YYYY" ou "Timesheet do dia DD/MM/YYYY ate DD/MM/YYYY" - 28/02/2026
+- [x] **Servico visivel no card do timesheet** - Supervisor ve o servico sem precisar abrir o timesheet - 28/02/2026
+- [x] **Layout do card reorganizado** - O.S. e icones no topo (mesma linha), detalhes abaixo - 28/02/2026
 
 ## Modelos de Dados
 - **Employee**: name

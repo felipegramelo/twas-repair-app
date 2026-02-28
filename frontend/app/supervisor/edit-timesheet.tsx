@@ -109,7 +109,7 @@ export default function EditTimesheetScreen() {
       const [soData, empData, tsData] = await Promise.all([serviceOrderAPI.getAll(), employeeAPI.getAll(), timesheetAPI.getById(id as string)]);
       setServiceOrders(soData); setAllEmployees(empData);
       const so = soData.find((s: ServiceOrder) => s.id === tsData.os_id);
-      setSelectedSO(so || null); setEntries(tsData.entries); setObservations(tsData.observations || '');
+      setSelectedSO(so || null); setEntries(tsData.entries); setObservations(tsData.observations || ''); setSupervisorFunction(tsData.supervisor_function || 'Supervisor');
     } catch { if (Platform.OS === 'web') window.alert('Erro ao carregar dados'); else Alert.alert('Erro', 'Erro ao carregar dados'); router.back(); }
     finally { setLoading(false); }
   };
@@ -145,7 +145,7 @@ export default function EditTimesheetScreen() {
     if (entries.length > 12) { if (Platform.OS === 'web') window.alert('Máximo de 12 funcionários por timesheet. Remova entradas extras ou crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Máximo de 12 funcionários por timesheet.'); return; }
     setSaving(true);
     try {
-      await timesheetAPI.update(id as string, selectedSO.id, entries, observations);
+      await timesheetAPI.update(id as string, selectedSO.id, entries, observations, supervisorFunction);
       if (Platform.OS === 'web') { window.alert('Timesheet atualizado!'); router.back(); }
       else { Alert.alert('Sucesso', 'Timesheet atualizado!', [{ text: 'OK', onPress: () => router.back() }]); }
     } catch (error: any) {

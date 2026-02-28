@@ -158,55 +158,41 @@ export default function SupervisorDashboard() {
   };
 
   const renderTimesheet = ({ item }: { item: Timesheet }) => (
-    <View style={styles.tsCard} data-testid={`timesheet-card-${item.id}`}>
-      <TouchableOpacity 
-        style={styles.tsCardContent}
-        onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
-      >
+    <TouchableOpacity
+      style={styles.tsCard}
+      data-testid={`timesheet-card-${item.id}`}
+      onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.tsTopRow}>
         <View style={styles.tsBadge}>
           <Text style={styles.tsBadgeText}>{item.os_number}</Text>
         </View>
-        <View style={styles.tsCardInfo}>
-          <Text style={styles.tsCardTitle}>{item.client}</Text>
-          <Text style={styles.tsCardSubtitle}>{item.location}</Text>
-          <Text style={styles.tsCardService} numberOfLines={1} data-testid={`timesheet-service-${item.id}`}>{item.service}</Text>
-          <Text style={styles.tsCardMeta}>{item.entries.length} entrada(s)</Text>
-          {item.entries.length > 0 && (
-            <Text style={styles.tsDateRange} data-testid={`timesheet-date-range-${item.id}`}>{getDateRangeText(item.entries)}</Text>
-          )}
+        <View style={styles.tsActions}>
+          <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.tsActionButton} data-testid={`open-pdf-btn-${item.id}`}>
+            <Ionicons name="document-text-outline" size={20} color="#1a237e" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)} style={styles.tsActionButton} data-testid={`edit-btn-${item.id}`}>
+            <Ionicons name="pencil" size={20} color="#1a237e" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.tsActionButton} data-testid={`download-pdf-btn-${item.id}`}>
+            <Ionicons name="download-outline" size={20} color="#1a237e" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDelete(item)} style={styles.tsActionButton} data-testid={`delete-btn-${item.id}`}>
+            <Ionicons name="trash-outline" size={20} color="#d32f2f" />
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
-      <View style={styles.tsActions}>
-        <TouchableOpacity 
-          onPress={() => handleOpenPDF(item)}
-          style={styles.tsActionButton}
-          data-testid={`open-pdf-btn-${item.id}`}
-        >
-          <Ionicons name="document-text-outline" size={20} color="#1a237e" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
-          style={styles.tsActionButton}
-          data-testid={`edit-btn-${item.id}`}
-        >
-          <Ionicons name="pencil" size={20} color="#1a237e" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => handleDownloadPDF(item)}
-          style={styles.tsActionButton}
-          data-testid={`download-pdf-btn-${item.id}`}
-        >
-          <Ionicons name="download-outline" size={20} color="#1a237e" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => handleDelete(item)}
-          style={styles.tsActionButton}
-          data-testid={`delete-btn-${item.id}`}
-        >
-          <Ionicons name="trash-outline" size={20} color="#d32f2f" />
-        </TouchableOpacity>
       </View>
-    </View>
+      <View style={styles.tsCardInfo}>
+        <Text style={styles.tsCardTitle}>{item.client}</Text>
+        <Text style={styles.tsCardSubtitle}>{item.location}</Text>
+        <Text style={styles.tsCardService} numberOfLines={1} data-testid={`timesheet-service-${item.id}`}>{item.service}</Text>
+        <Text style={styles.tsCardMeta}>{item.entries.length} entrada(s)</Text>
+        {item.entries.length > 0 && (
+          <Text style={styles.tsDateRange} data-testid={`timesheet-date-range-${item.id}`}>{getDateRangeText(item.entries)}</Text>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 
   return (

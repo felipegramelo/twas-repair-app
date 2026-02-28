@@ -1,7 +1,7 @@
 # Timesheet Corporativo - TWAS Repair
 
 ## Problema Original
-Aplicativo de timesheet corporativo usando Expo para mobile/web, com geração de PDF seguindo modelo específico.
+Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de PDF seguindo modelo especifico.
 
 ## Stack
 - Frontend: Expo + React Native + expo-router
@@ -14,31 +14,33 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geração d
 
 ## Implementado
 - [x] CRUD completo: Employees, Service Orders, Users/Supervisors, Timesheets
-- [x] Autenticação JWT com roles (admin/supervisor)
+- [x] Autenticacao JWT com roles (admin/supervisor)
 - [x] Dashboards por role (Admin e Supervisor)
-- [x] Geração de PDF com reportlab matching template (A4, 1 página)
+- [x] Geracao de PDF com reportlab matching template (A4, 1 pagina)
 - [x] Download de PDF (web) com anti-cache
-- [x] Edição de timesheet com calendário e seletor de horário (mesma UX do create) - 25/02/2026
-- [x] Legenda do PDF: título + 6 colunas PT/EN
-- [x] Observações como título separado no PDF
-- [x] Botão de excluir com window.confirm na web
+- [x] Edicao de timesheet com calendario e seletor de horario
+- [x] Legenda do PDF: titulo + 6 colunas PT/EN
+- [x] Observacoes como titulo separado no PDF
+- [x] Botao de excluir com window.confirm na web
 - [x] Lista de timesheets atualiza automaticamente (useFocusEffect)
-- [x] Funcionários vinculados a O.S. — Multi-select na tela admin de O.S. - 25/02/2026
-- [x] Calendário visual para seleção de data no timesheet - 25/02/2026
-- [x] Seletor de horário 30 em 30 min para início/fim de serviço e viagem - 25/02/2026
-- [x] Filtro de funcionários — Ao selecionar O.S., só mostra funcionários vinculados - 25/02/2026
-- [x] **PDF multi-página** — Paginação com 12 entradas por página, cada página com observações próprias - 25/02/2026
-- [x] **Per-page sections** — Cada página do PDF tem cabeçalho, legenda, aprovação, observações e rodapé - 25/02/2026
-- [x] **Fix API _id/id inconsistency** — GET/PUT timesheets retorna `id` consistentemente - 25/02/2026
-- [x] **Fix Alert.alert web** — Todas as mensagens de erro/sucesso usam window.alert/confirm na web - 25/02/2026
-- [x] **Fix travel display** — Viagem "0" não é mais exibida nas entradas - 25/02/2026
-
-- [x] **Limite 12 entradas por timesheet** — Frontend bloqueia adição, backend valida POST/PUT, contador X/12 - 25/02/2026
+- [x] Funcionarios vinculados a O.S. - Multi-select na tela admin de O.S.
+- [x] Calendario visual para selecao de data no timesheet
+- [x] Seletor de horario 30 em 30 min para inicio/fim de servico e viagem
+- [x] Filtro de funcionarios - Ao selecionar O.S., so mostra funcionarios vinculados
+- [x] Limite 12 entradas por timesheet - Frontend bloqueia adicao, backend valida POST/PUT
+- [x] Compatibilidade mobile (expo-file-system + expo-sharing para PDFs)
+- [x] Assinatura do supervisor no PDF com funcao editavel
+- [x] Acesso admin a PDFs (abrir/baixar)
+- [x] Ordenacao de entradas por data e nome
+- [x] Icones/logo do app personalizados
+- [x] Contador de caracteres (800) no campo de observacoes
+- [x] **Multi-select checkbox para funcionarios na O.S.** - Selecao em massa com checkbox, "Selecionar Todos", picker de funcao em lote - 28/02/2026
+- [x] **Intervalo de datas no dashboard do supervisor** - Exibe "Timesheet do dia DD/MM/YYYY" ou "Timesheet do dia DD/MM/YYYY ate DD/MM/YYYY" - 28/02/2026
 
 ## Modelos de Dados
 - **Employee**: name
 - **Service Order**: os_number, client, location, service, employees[{employee_id, function}]
-- **Timesheet**: os_id, os_number, client, location, service, entries[], observations, supervisor_id, supervisor_name
+- **Timesheet**: os_id, os_number, client, location, service, entries[], observations, supervisor_id, supervisor_name, supervisor_function
 
 ## Arquitetura
 ```
@@ -46,8 +48,7 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geração d
 ├── backend/
 │   ├── .env
 │   ├── requirements.txt
-│   ├── server.py         # FastAPI: models, endpoints, PDF logic
-│   └── tests/            # pytest tests
+│   └── server.py         # FastAPI: models, endpoints, PDF logic
 ├── frontend/
 │   ├── services/api.ts   # Centralized API functions
 │   ├── app/
@@ -60,5 +61,6 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geração d
 ```
 
 ## Backlog / Futuro
-- [ ] Refatorar server.py (extrair PDF para módulo separado)
-- [ ] Suporte a download de PDF em dispositivos nativos (expo-file-system + expo-sharing)
+- [ ] Refatorar: centralizar funcoes de PDF (handleDownloadPDF/handleOpenPDF) entre supervisor e admin
+- [ ] Refatorar: dividir server.py em modulos (routes, models, PDF utils)
+- [ ] Preparacao EAS Build para publicacao nas app stores

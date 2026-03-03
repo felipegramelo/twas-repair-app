@@ -38,11 +38,14 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 - [x] Intervalo de datas no dashboard do supervisor - 28/02/2026
 - [x] Servico visivel no card do timesheet (supervisor + admin) - 28/02/2026
 - [x] Layout do card reorganizado: O.S. + icones no topo, detalhes abaixo (supervisor + admin) - 28/02/2026
+- [x] **Alterar Senha** - Tela para admin alterar sua propria senha com validacao - 03/03/2026
+- [x] **Gerenciar Administradores** - CRUD completo de administradores (criar, editar, excluir) com protecao contra auto-exclusao - 03/03/2026
 
 ## Modelos de Dados
 - **Employee**: name
 - **Service Order**: os_number, client, location, service, employees[{employee_id, function}]
 - **Timesheet**: os_id, os_number, client, location, service, entries[], observations, supervisor_id, supervisor_name, supervisor_function
+- **User**: email, password_hash, role (admin/supervisor), name
 
 ## Arquitetura
 ```
@@ -50,11 +53,12 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 ├── backend/
 │   ├── .env
 │   ├── requirements.txt
-│   └── server.py         # FastAPI: models, endpoints, PDF logic
+│   ├── server.py         # FastAPI: models, endpoints, PDF logic
+│   └── tests/            # pytest tests
 ├── frontend/
 │   ├── services/api.ts   # Centralized API functions
 │   ├── app/
-│   │   ├── admin/        # Admin screens (timesheets, service-orders, employees, supervisors)
+│   │   ├── admin/        # Admin screens (dashboard, supervisors, employees, service-orders, timesheets, admins, change-password)
 │   │   └── supervisor/   # Supervisor screens (dashboard, create, edit)
 │   ├── contexts/AuthContext.tsx
 │   ├── types/index.ts
@@ -66,3 +70,4 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 - [ ] Refatorar: centralizar funcoes de PDF (handleDownloadPDF/handleOpenPDF) entre supervisor e admin
 - [ ] Refatorar: dividir server.py em modulos (routes, models, PDF utils)
 - [ ] Preparacao EAS Build para publicacao nas app stores
+- [ ] Modo offline com sincronizacao automatica

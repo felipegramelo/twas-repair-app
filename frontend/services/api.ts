@@ -60,6 +60,34 @@ export const supervisorAPI = {
   },
 };
 
+// Admin API
+export const adminAPI = {
+  getAll: async (): Promise<User[]> => {
+    const response = await api.get('/users/admins');
+    return response.data;
+  },
+  create: async (email: string, name: string, password: string): Promise<User> => {
+    const response = await api.post('/users/admins', { email, name, password });
+    return response.data;
+  },
+  update: async (id: string, email: string, name: string, password?: string): Promise<User> => {
+    const response = await api.put(`/users/admins/${id}`, { 
+      email, 
+      name, 
+      ...(password && { password }) 
+    });
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/users/admins/${id}`);
+    return response.data;
+  },
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const response = await api.put('/auth/change-password', { current_password: currentPassword, new_password: newPassword });
+    return response.data;
+  },
+};
+
 // Employee API
 export const employeeAPI = {
   getAll: async (): Promise<Employee[]> => {

@@ -401,6 +401,92 @@ async def delete_supervisor(user_id: str, current_user: Dict[str, Any] = Depends
     return {"message": "Supervisor excluído com sucesso"}
 
 
+# ==================== CHANGE PASSWORD ENDPOINT ====================
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+@api_router.put("/auth/change-password")
+async def change_password(data: ChangePasswordRequest, current_user: Dict[str, Any] = Depends(get_current_user)):
+    if not verify_password(data.current_password, current_user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Senha atual incorreta")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="A nova senha deve ter no mínimo 6 caracteres")
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["_id"])},
+        {"$set": {"password_hash": get_password_hash(data.new_password)}}
+    )
+    return {"message": "Senha alterada com sucesso"}
+
+
+# ==================== ADMIN MANAGEMENT ENDPOINTS ====================
+
+@api_router.get("/users/admins", response_model=List[UserResponse])
+async def get_admins(current_user: Dict[str, Any] = Depends(get_admin_user)):
+    admins = await db.users.find({"role": UserRole.ADMIN}, {"password_hash": 0}).sort("name", 1).to_list(100)
+    return [UserResponse(
+        id=str(user["_id"]),
+        email=user["email"],
+        role=user["role"],
+        name=user["name"]
+    ) for user in admins]
+
+
+@api_router.post("/users/admins", response_model=UserResponse)
+async def create_admin(admin_data: SupervisorCreate, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    existing_user = await db.users.find_one({"email": admin_data.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email já cadastrado")
+    user_dict = admin_data.model_dump()
+    user_dict["password_hash"] = get_password_hash(user_dict.pop("password"))
+    user_dict["role"] = UserRole.ADMIN
+    user_dict["created_at"] = datetime.utcnow()
+    result = await db.users.insert_one(user_dict)
+    return UserResponse(
+        id=str(result.inserted_id),
+        email=user_dict["email"],
+        role=user_dict["role"],
+        name=user_dict["name"]
+    )
+
+
+@api_router.put("/users/admins/{user_id}", response_model=UserResponse)
+async def update_admin(user_id: str, admin_data: SupervisorUpdate, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="Administrador não encontrado")
+    if user["role"] != UserRole.ADMIN:
+        raise HTTPException(status_code=400, detail="Usuário não é um administrador")
+    existing_user = await db.users.find_one({"email": admin_data.email, "_id": {"$ne": ObjectId(user_id)}})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email já cadastrado para outro usuário")
+    update_dict = {"email": admin_data.email, "name": admin_data.name}
+    if admin_data.password:
+        update_dict["password_hash"] = get_password_hash(admin_data.password)
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": update_dict})
+    updated_user = await db.users.find_one({"_id": ObjectId(user_id)})
+    return UserResponse(
+        id=str(updated_user["_id"]),
+        email=updated_user["email"],
+        role=updated_user["role"],
+        name=updated_user["name"]
+    )
+
+
+@api_router.delete("/users/admins/{user_id}")
+async def delete_admin(user_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if user_id == current_user["_id"]:
+        raise HTTPException(status_code=400, detail="Você não pode excluir sua própria conta")
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="Administrador não encontrado")
+    if user["role"] != UserRole.ADMIN:
+        raise HTTPException(status_code=400, detail="Usuário não é um administrador")
+    await db.users.delete_one({"_id": ObjectId(user_id)})
+    return {"message": "Administrador excluído com sucesso"}
+
+
 # ==================== EMPLOYEE ENDPOINTS (Admin only) ====================
 
 @api_router.post("/employees", response_model=Employee)

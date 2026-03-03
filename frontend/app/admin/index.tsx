@@ -63,6 +63,26 @@ export default function AdminDashboard() {
             <Text style={styles.cardTitle}>Timesheets</Text>
             <Text style={styles.cardDescription}>Ver todos os timesheets</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push('/admin/admins')}
+            data-testid="admin-admins-card"
+          >
+            <Ionicons name="shield-checkmark" size={40} color="#1a237e" />
+            <Text style={styles.cardTitle}>Administradores</Text>
+            <Text style={styles.cardDescription}>Gerenciar administradores</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push('/admin/change-password')}
+            data-testid="admin-change-password-card"
+          >
+            <Ionicons name="key" size={40} color="#1a237e" />
+            <Text style={styles.cardTitle}>Alterar Senha</Text>
+            <Text style={styles.cardDescription}>Alterar sua senha de acesso</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>

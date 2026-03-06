@@ -38,8 +38,10 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 - [x] Intervalo de datas no dashboard do supervisor - 28/02/2026
 - [x] Servico visivel no card do timesheet (supervisor + admin) - 28/02/2026
 - [x] Layout do card reorganizado: O.S. + icones no topo, detalhes abaixo (supervisor + admin) - 28/02/2026
-- [x] **Alterar Senha** - Tela para admin alterar sua propria senha com validacao - 03/03/2026
-- [x] **Gerenciar Administradores** - CRUD completo de administradores (criar, editar, excluir) com protecao contra auto-exclusao - 03/03/2026
+- [x] Alterar Senha - Tela para admin alterar propria senha - 03/03/2026
+- [x] Gerenciar Administradores - CRUD completo de admins - 03/03/2026
+- [x] **Bug fix**: Ordenacao de datas corrigida (DD/MM/YYYY convertido para YYYY-MM-DD) - 06/03/2026
+- [x] **Servico no picker de O.S.** - Exibe servico em italico no modal de selecao (create + edit) - 06/03/2026
 
 ## Modelos de Dados
 - **Employee**: name
@@ -53,13 +55,13 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 ├── backend/
 │   ├── .env
 │   ├── requirements.txt
-│   ├── server.py         # FastAPI: models, endpoints, PDF logic
-│   └── tests/            # pytest tests
+│   ├── server.py
+│   └── tests/
 ├── frontend/
-│   ├── services/api.ts   # Centralized API functions
+│   ├── services/api.ts
 │   ├── app/
-│   │   ├── admin/        # Admin screens (dashboard, supervisors, employees, service-orders, timesheets, admins, change-password)
-│   │   └── supervisor/   # Supervisor screens (dashboard, create, edit)
+│   │   ├── admin/        # dashboard, supervisors, employees, service-orders, timesheets, admins, change-password
+│   │   └── supervisor/   # dashboard, create-timesheet, edit-timesheet
 │   ├── contexts/AuthContext.tsx
 │   ├── types/index.ts
 │   └── .env
@@ -67,7 +69,7 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 ```
 
 ## Backlog / Futuro
-- [ ] Refatorar: centralizar funcoes de PDF (handleDownloadPDF/handleOpenPDF) entre supervisor e admin
-- [ ] Refatorar: dividir server.py em modulos (routes, models, PDF utils)
-- [ ] Preparacao EAS Build para publicacao nas app stores
+- [ ] Refatorar: centralizar funcoes de PDF entre supervisor e admin
+- [ ] Refatorar: dividir server.py em modulos
+- [ ] Preparacao EAS Build para app stores
 - [ ] Modo offline com sincronizacao automatica

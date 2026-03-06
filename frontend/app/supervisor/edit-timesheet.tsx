@@ -242,7 +242,7 @@ export default function EditTimesheetScreen() {
           <ScrollView style={s.modalList}>{serviceOrders.map(so => (
             <TouchableOpacity key={so.id} style={s.modalItem} onPress={() => { setSelectedSO(so); setSOModalVisible(false); }}>
               <Text style={s.modalItemTitle}>{so.os_number}</Text><Text style={s.modalItemSub}>{so.client} - {so.location}</Text>
-              {so.service ? <Text style={s.modalItemService}>{so.service}</Text> : null}
+              <Text style={s.modalItemService} numberOfLines={1}>{so.service || ''}</Text>
             </TouchableOpacity>
           ))}</ScrollView>
           <TouchableOpacity style={s.modalCloseBtn} onPress={() => setSOModalVisible(false)}><Text style={s.modalCloseBtnText}>Fechar</Text></TouchableOpacity>

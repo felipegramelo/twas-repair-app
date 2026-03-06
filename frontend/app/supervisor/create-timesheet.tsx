@@ -425,7 +425,7 @@ export default function CreateTimesheetScreen() {
                   <Text style={styles.modalItemTitle}>{so.os_number}</Text>
                   <Text style={styles.modalItemSubtitle}>{so.client}</Text>
                   <Text style={styles.modalItemDetail}>{so.location}</Text>
-                  {so.service ? <Text style={styles.modalItemService}>{so.service}</Text> : null}
+                  <Text style={styles.modalItemService} numberOfLines={1}>{so.service || ''}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>

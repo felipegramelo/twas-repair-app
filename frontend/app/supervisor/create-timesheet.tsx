@@ -230,9 +230,17 @@ export default function CreateTimesheetScreen() {
     if (editingEntryIndex !== null) {
       const newEntries = [...entries];
       newEntries[editingEntryIndex] = newEntry;
-      setEntries(newEntries.sort((a, b) => a.date.localeCompare(b.date) || a.employee_name.localeCompare(b.employee_name)));
+      setEntries(newEntries.sort((a, b) => {
+        const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/');
+        const dateComp = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`);
+        return dateComp || a.employee_name.localeCompare(b.employee_name);
+      }));
     } else {
-      setEntries([...entries, newEntry].sort((a, b) => a.date.localeCompare(b.date) || a.employee_name.localeCompare(b.employee_name)));
+      setEntries([...entries, newEntry].sort((a, b) => {
+        const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/');
+        const dateComp = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`);
+        return dateComp || a.employee_name.localeCompare(b.employee_name);
+      }));
     }
     setEmployeeModalVisible(false);
     resetEntryForm();
@@ -417,6 +425,7 @@ export default function CreateTimesheetScreen() {
                   <Text style={styles.modalItemTitle}>{so.os_number}</Text>
                   <Text style={styles.modalItemSubtitle}>{so.client}</Text>
                   <Text style={styles.modalItemDetail}>{so.location}</Text>
+                  {so.service ? <Text style={styles.modalItemService}>{so.service}</Text> : null}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -624,6 +633,7 @@ const styles = StyleSheet.create({
   modalItemTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   modalItemSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
   modalItemDetail: { fontSize: 12, color: '#999', marginTop: 2 },
+  modalItemService: { fontSize: 12, color: '#444', marginTop: 2, fontStyle: 'italic' },
   modalCloseButton: { backgroundColor: '#f5f5f5', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   modalCloseButtonText: { fontSize: 16, fontWeight: '600', color: '#666' },
   inputLabel: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8, marginTop: 12 },

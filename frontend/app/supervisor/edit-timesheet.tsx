@@ -122,7 +122,7 @@ export default function EditTimesheetScreen() {
     if (!entryDate || !selectedEmployee || !serviceStart || !serviceEnd) { if (Platform.OS === 'web') window.alert('Preencha data, funcionário, início e fim'); else Alert.alert('Erro', 'Preencha data, funcionário, início e fim'); return; }
     if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.'); else Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet. Crie um novo.'); return; }
     const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart, service_end: serviceEnd, travel_start: travelStart, travel_end: travelEnd };
-    if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u.sort((a, b) => a.date.localeCompare(b.date) || a.employee_name.localeCompare(b.employee_name))); } else { setEntries([...entries, newEntry].sort((a, b) => a.date.localeCompare(b.date) || a.employee_name.localeCompare(b.employee_name))); }
+    if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u.sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); } else { setEntries([...entries, newEntry].sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); }
     setEmployeeModalVisible(false); resetEntryForm();
   };
 
@@ -242,6 +242,7 @@ export default function EditTimesheetScreen() {
           <ScrollView style={s.modalList}>{serviceOrders.map(so => (
             <TouchableOpacity key={so.id} style={s.modalItem} onPress={() => { setSelectedSO(so); setSOModalVisible(false); }}>
               <Text style={s.modalItemTitle}>{so.os_number}</Text><Text style={s.modalItemSub}>{so.client} - {so.location}</Text>
+              {so.service ? <Text style={s.modalItemService}>{so.service}</Text> : null}
             </TouchableOpacity>
           ))}</ScrollView>
           <TouchableOpacity style={s.modalCloseBtn} onPress={() => setSOModalVisible(false)}><Text style={s.modalCloseBtnText}>Fechar</Text></TouchableOpacity>
@@ -394,6 +395,7 @@ const s = StyleSheet.create({
   modalItem: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   modalItemTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   modalItemSub: { fontSize: 14, color: '#666', marginTop: 4 },
+  modalItemService: { fontSize: 12, color: '#444', marginTop: 2, fontStyle: 'italic' },
   modalCloseBtn: { backgroundColor: '#f5f5f5', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   modalCloseBtnText: { fontSize: 16, fontWeight: '600', color: '#666' },
   inputLabel: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8, marginTop: 12 },

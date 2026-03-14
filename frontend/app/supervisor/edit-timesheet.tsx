@@ -87,6 +87,7 @@ export default function EditTimesheetScreen() {
   const [serviceEnd, setServiceEnd] = useState('');
   const [travelStart, setTravelStart] = useState('');
   const [travelEnd, setTravelEnd] = useState('');
+  const [hasTravel, setHasTravel] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [timePickerField, setTimePickerField] = useState<string | null>(null);
 
@@ -114,14 +115,14 @@ export default function EditTimesheetScreen() {
     finally { setLoading(false); }
   };
 
-  const resetEntryForm = () => { setEntryDate(''); setSelectedEmployee(null); setServiceStart(''); setServiceEnd(''); setTravelStart(''); setTravelEnd(''); };
+  const resetEntryForm = () => { setEntryDate(''); setSelectedEmployee(null); setServiceStart(''); setServiceEnd(''); setTravelStart(''); setTravelEnd(''); setHasTravel(false); };
 
   const MAX_ENTRIES = 12;
 
   const handleAddEntry = () => {
     if (!entryDate || !selectedEmployee || !serviceStart || !serviceEnd) { if (Platform.OS === 'web') window.alert('Preencha data, funcionário, início e fim'); else Alert.alert('Erro', 'Preencha data, funcionário, início e fim'); return; }
     if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.'); else Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet. Crie um novo.'); return; }
-    const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart, service_end: serviceEnd, travel_start: travelStart, travel_end: travelEnd };
+    const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart, service_end: serviceEnd, travel_start: hasTravel ? travelStart : '-', travel_end: hasTravel ? travelEnd : '-' };
     if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u.sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); } else { setEntries([...entries, newEntry].sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); }
     setEmployeeModalVisible(false); resetEntryForm();
   };
@@ -131,6 +132,7 @@ export default function EditTimesheetScreen() {
     const soEmp = selectedSO?.employees?.find(e => e.employee_id === entry.employee_id);
     setSelectedEmployee({ id: entry.employee_id, name: entry.employee_name, function: soEmp?.function || entry.employee_function });
     setServiceStart(entry.service_start); setServiceEnd(entry.service_end); setTravelStart(entry.travel_start || ''); setTravelEnd(entry.travel_end || '');
+    setHasTravel(!!(entry.travel_start && entry.travel_start !== '' && entry.travel_start !== '-'));
     setEmployeeModalVisible(true);
   };
 
@@ -274,15 +276,22 @@ export default function EditTimesheetScreen() {
             <Ionicons name="time" size={20} color="#1a237e" />
           </TouchableOpacity>
           <Text style={s.inputLabel}>Viagem - Início</Text>
-          <TouchableOpacity style={s.selectButton} onPress={() => openTimePicker('travelStart')}>
-            <Text style={travelStart ? s.selectTextSelected : s.selectText}>{travelStart || 'Selecionar horário'}</Text>
-            <Ionicons name="time" size={20} color="#666" />
+          <TouchableOpacity style={s.travelCheckRow} onPress={() => { setHasTravel(!hasTravel); if (hasTravel) { setTravelStart(''); setTravelEnd(''); } }} data-testid="has-travel-checkbox">
+            <Ionicons name={hasTravel ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
+            <Text style={s.travelCheckText}>Tem viagem?</Text>
           </TouchableOpacity>
-          <Text style={s.inputLabel}>Viagem - Fim</Text>
-          <TouchableOpacity style={s.selectButton} onPress={() => openTimePicker('travelEnd')}>
-            <Text style={travelEnd ? s.selectTextSelected : s.selectText}>{travelEnd || 'Selecionar horário'}</Text>
-            <Ionicons name="time" size={20} color="#666" />
-          </TouchableOpacity>
+          {hasTravel && (<>
+            <Text style={s.inputLabel}>Viagem - Início</Text>
+            <TouchableOpacity style={s.selectButton} onPress={() => openTimePicker('travelStart')}>
+              <Text style={travelStart ? s.selectTextSelected : s.selectText}>{travelStart || 'Selecionar horário'}</Text>
+              <Ionicons name="time" size={20} color="#666" />
+            </TouchableOpacity>
+            <Text style={s.inputLabel}>Viagem - Fim</Text>
+            <TouchableOpacity style={s.selectButton} onPress={() => openTimePicker('travelEnd')}>
+              <Text style={travelEnd ? s.selectTextSelected : s.selectText}>{travelEnd || 'Selecionar horário'}</Text>
+              <Ionicons name="time" size={20} color="#666" />
+            </TouchableOpacity>
+          </>)}
           <View style={s.modalBtns}>
             <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => setEmployeeModalVisible(false)}><Text style={s.cancelText}>Cancelar</Text></TouchableOpacity>
             <TouchableOpacity style={[s.modalBtn, s.confirmBtn]} onPress={handleAddEntry}><Text style={s.confirmText}>{editingEntryIndex !== null ? 'Atualizar' : 'Adicionar'}</Text></TouchableOpacity>
@@ -396,6 +405,8 @@ const s = StyleSheet.create({
   modalItemTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   modalItemSub: { fontSize: 14, color: '#666', marginTop: 4 },
   modalItemService: { fontSize: 12, color: '#444', marginTop: 2, fontStyle: 'italic' },
+  travelCheckRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 8 },
+  travelCheckText: { fontSize: 16, color: '#212121' },
   modalCloseBtn: { backgroundColor: '#f5f5f5', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   modalCloseBtnText: { fontSize: 16, fontWeight: '600', color: '#666' },
   inputLabel: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8, marginTop: 12 },

@@ -760,7 +760,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         
         # === PAGE BORDER ===
         canvas_obj.setStrokeColor(colors.black)
-        canvas_obj.setLineWidth(1.5)
+        canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(
             border_margin, border_margin,
             page_width - 2*border_margin,
@@ -773,14 +773,14 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         
         # Header horizontal line below header
         canvas_obj.setLineWidth(0.5)
-        canvas_obj.line(border_margin, header_bottom, page_width - border_margin, header_bottom)
+        canvas_obj.line(content_left, header_bottom, page_width - content_right, header_bottom)
         
         # Logo (left side)
         if logo_image:
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, border_margin + 0.4*cm, header_bottom + 0.15*cm, width=3.2*cm, height=1.5*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left, header_bottom + 0.15*cm, width=3.2*cm, height=1.5*cm, preserveAspectRatio=True)
         
         # Title (center)
         canvas_obj.setFont("Helvetica-Bold", 12)
@@ -789,7 +789,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         canvas_obj.drawCentredString(page_width/2, header_bottom + 0.4*cm, "TIME SHEET")
         
         # Right side - Client/OS details
-        right_x = page_width - border_margin - 0.4*cm
+        right_x = page_width - content_right
         detail_y = header_top - 0.3*cm
         canvas_obj.setFont("Helvetica-Bold", 6.5)
         canvas_obj.drawRightString(right_x, detail_y, f"Cliente: {ts['client']}")
@@ -806,7 +806,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         
         # Footer horizontal line above footer
         canvas_obj.setLineWidth(0.5)
-        canvas_obj.line(border_margin, footer_top, page_width - border_margin, footer_top)
+        canvas_obj.line(content_left, footer_top, page_width - content_right, footer_top)
         
         # Company info
         center_x = page_width / 2

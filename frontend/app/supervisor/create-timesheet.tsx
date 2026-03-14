@@ -147,6 +147,7 @@ export default function CreateTimesheetScreen() {
   const [serviceEnd, setServiceEnd] = useState('');
   const [travelStart, setTravelStart] = useState('');
   const [travelEnd, setTravelEnd] = useState('');
+  const [hasTravel, setHasTravel] = useState(false);
 
   // Picker visibility
   const [calendarVisible, setCalendarVisible] = useState(false);
@@ -202,6 +203,7 @@ export default function CreateTimesheetScreen() {
     setServiceEnd('');
     setTravelStart('');
     setTravelEnd('');
+    setHasTravel(false);
   };
 
   const handleAddEntry = () => {
@@ -224,8 +226,8 @@ export default function CreateTimesheetScreen() {
       employee_function: selectedEmployee.function || 'T',
       service_start: serviceStart,
       service_end: serviceEnd,
-      travel_start: travelStart,
-      travel_end: travelEnd,
+      travel_start: hasTravel ? travelStart : '-',
+      travel_end: hasTravel ? travelEnd : '-',
     };
     if (editingEntryIndex !== null) {
       const newEntries = [...entries];
@@ -256,6 +258,7 @@ export default function CreateTimesheetScreen() {
     setServiceEnd(entry.service_end);
     setTravelStart(entry.travel_start || '');
     setTravelEnd(entry.travel_end || '');
+    setHasTravel(!!(entry.travel_start && entry.travel_start !== '' && entry.travel_start !== '-'));
     setEmployeeModalVisible(true);
   };
 
@@ -476,20 +479,30 @@ export default function CreateTimesheetScreen() {
               </TouchableOpacity>
 
               <Text style={styles.inputLabel}>Viagem - Início</Text>
-              <TouchableOpacity style={styles.selectButton} onPress={() => openTimePicker('travelStart')}>
-                <Text style={travelStart ? styles.selectTextSelected : styles.selectText}>
-                  {travelStart || 'Selecionar horário'}
-                </Text>
-                <Ionicons name="time" size={20} color="#666" />
+              <TouchableOpacity style={styles.travelCheckRow} onPress={() => { setHasTravel(!hasTravel); if (hasTravel) { setTravelStart(''); setTravelEnd(''); } }} data-testid="has-travel-checkbox">
+                <Ionicons name={hasTravel ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
+                <Text style={styles.travelCheckText}>Tem viagem?</Text>
               </TouchableOpacity>
 
-              <Text style={styles.inputLabel}>Viagem - Fim</Text>
-              <TouchableOpacity style={styles.selectButton} onPress={() => openTimePicker('travelEnd')}>
-                <Text style={travelEnd ? styles.selectTextSelected : styles.selectText}>
-                  {travelEnd || 'Selecionar horário'}
-                </Text>
-                <Ionicons name="time" size={20} color="#666" />
-              </TouchableOpacity>
+              {hasTravel && (
+                <>
+                  <Text style={styles.inputLabel}>Viagem - Início</Text>
+                  <TouchableOpacity style={styles.selectButton} onPress={() => openTimePicker('travelStart')}>
+                    <Text style={travelStart ? styles.selectTextSelected : styles.selectText}>
+                      {travelStart || 'Selecionar horário'}
+                    </Text>
+                    <Ionicons name="time" size={20} color="#666" />
+                  </TouchableOpacity>
+
+                  <Text style={styles.inputLabel}>Viagem - Fim</Text>
+                  <TouchableOpacity style={styles.selectButton} onPress={() => openTimePicker('travelEnd')}>
+                    <Text style={travelEnd ? styles.selectTextSelected : styles.selectText}>
+                      {travelEnd || 'Selecionar horário'}
+                    </Text>
+                    <Ionicons name="time" size={20} color="#666" />
+                  </TouchableOpacity>
+                </>
+              )}
 
               <View style={styles.modalButtons}>
                 <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setEmployeeModalVisible(false)}>
@@ -634,6 +647,8 @@ const styles = StyleSheet.create({
   modalItemSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
   modalItemDetail: { fontSize: 12, color: '#999', marginTop: 2 },
   modalItemService: { fontSize: 12, color: '#444', marginTop: 2, fontStyle: 'italic' },
+  travelCheckRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 8 },
+  travelCheckText: { fontSize: 16, color: '#212121' },
   modalCloseButton: { backgroundColor: '#f5f5f5', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   modalCloseButtonText: { fontSize: 16, fontWeight: '600', color: '#666' },
   inputLabel: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8, marginTop: 12 },

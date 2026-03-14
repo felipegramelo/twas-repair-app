@@ -767,30 +767,39 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             page_height - 2*border_margin
         )
         
-        # === HEADER (inside border, top area) ===
-        header_top = page_height - border_margin - 0.2*cm
-        header_bottom = header_top - 2.0*cm
+        # === HEADER BOX (inside border, top area) ===
+        header_top = page_height - border_margin - 0.4*cm
+        header_height = 1.8*cm
+        header_bottom = header_top - header_height
         
-        # Header horizontal line below header
+        # Draw header box
         canvas_obj.setLineWidth(0.5)
-        canvas_obj.line(content_left, header_bottom, page_width - content_right, header_bottom)
+        canvas_obj.rect(content_left, header_bottom, page_width - content_left - content_right, header_height)
         
         # Logo (left side)
         if logo_image:
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left, header_bottom + 0.15*cm, width=3.2*cm, height=1.5*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left + 0.2*cm, header_bottom + 0.15*cm, width=3.0*cm, height=1.4*cm, preserveAspectRatio=True)
+        
+        # Vertical line after logo
+        logo_right = content_left + 3.5*cm
+        canvas_obj.line(logo_right, header_bottom, logo_right, header_top)
         
         # Title (center)
         canvas_obj.setFont("Helvetica-Bold", 12)
-        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.1*cm, "RELATÓRIO DE HORAS")
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.0*cm, "RELATÓRIO DE HORAS")
         canvas_obj.setFont("Helvetica-Bold", 10)
-        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.4*cm, "TIME SHEET")
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.35*cm, "TIME SHEET")
+        
+        # Vertical line before right details
+        details_left = page_width - content_right - 5.5*cm
+        canvas_obj.line(details_left, header_bottom, details_left, header_top)
         
         # Right side - Client/OS details
-        right_x = page_width - content_right
-        detail_y = header_top - 0.3*cm
+        right_x = page_width - content_right - 0.2*cm
+        detail_y = header_top - 0.35*cm
         canvas_obj.setFont("Helvetica-Bold", 6.5)
         canvas_obj.drawRightString(right_x, detail_y, f"Cliente: {ts['client']}")
         detail_y -= 0.35*cm
@@ -801,14 +810,16 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         canvas_obj.setFont("Helvetica", 6.5)
         canvas_obj.drawRightString(right_x, detail_y, f"{current_date}  |  Rev.: 0")
         
-        # === FOOTER (inside border, bottom area) ===
-        footer_top = border_margin + 1.5*cm
+        # === FOOTER BOX (inside border, bottom area) ===
+        footer_bottom = border_margin + 0.4*cm
+        footer_height = 1.4*cm
+        footer_top = footer_bottom + footer_height
         
-        # Footer horizontal line above footer
+        # Draw footer box
         canvas_obj.setLineWidth(0.5)
-        canvas_obj.line(content_left, footer_top, page_width - content_right, footer_top)
+        canvas_obj.rect(content_left, footer_bottom, page_width - content_left - content_right, footer_height)
         
-        # Company info
+        # Company info centered in footer box
         center_x = page_width / 2
         y = footer_top - 0.25*cm
         canvas_obj.setFont("Helvetica-Bold", 5.5)
@@ -816,7 +827,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         y -= 0.25*cm
         canvas_obj.setFont("Helvetica", 5.5)
         canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N° 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24.466-180")
-        y -= 0.25*cm
+        y -= 0.22*cm
         canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com  |  www.twasrepair.com")
         y -= 0.25*cm
         canvas_obj.setFont("Helvetica-BoldOblique", 6)

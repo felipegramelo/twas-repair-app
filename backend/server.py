@@ -717,49 +717,24 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Create PDF with A4 page size - OPTIMIZED FOR SINGLE PAGE
+    # Create PDF with A4 page size
     buffer = io.BytesIO()
-    
-    # A4 dimensions: 21cm x 29.7cm
     page_width, page_height = A4
-    doc = SimpleDocTemplate(
-        buffer, 
-        pagesize=A4, 
-        rightMargin=1.5*cm,  
-        leftMargin=1.5*cm, 
-        topMargin=1.2*cm,  
-        bottomMargin=0.5*cm  # Reduced to give more space for observations
-    )
     
-    # Available width for content (A4 width - margins)
-    content_width = page_width - 3*cm  # 18cm
+    # Border margins (distance from page edge)
+    border_margin = 0.7*cm
     
-    elements = []
-    styles = getSampleStyleSheet()
+    # Content margins (inside the border)
+    content_left = border_margin + 0.5*cm
+    content_right = border_margin + 0.5*cm
+    content_top = border_margin + 2.5*cm  # Space for header drawn on canvas
+    content_bottom = border_margin + 1.8*cm  # Space for footer drawn on canvas
     
-    # Custom styles - REDUCED FONT SIZES
-    header_style = ParagraphStyle(
-        'HeaderStyle',
-        parent=styles['Normal'],
-        fontSize=12,  # Reduced from 14
-        textColor=colors.black,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold',
-        spaceAfter=3  # Reduced from 6
-    )
+    content_width = page_width - content_left - content_right
     
-    small_header_style = ParagraphStyle(
-        'SmallHeaderStyle',
-        parent=styles['Normal'],
-        fontSize=8,  # Reduced from 9
-        textColor=colors.black,
-        alignment=TA_RIGHT,
-        fontName='Helvetica'
-    )
-    
-    # Logo and header - REDUCED SIZE
+    # Preload logo
     logo_path = ROOT_DIR / "../logo.bmp"
-    logo_cell = ""
+    logo_image = None
     if logo_path.exists():
         try:
             pil_img = PILImage.open(logo_path)
@@ -768,37 +743,114 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             temp_logo = io.BytesIO()
             pil_img.save(temp_logo, format='JPEG')
             temp_logo.seek(0)
-            logo_cell = RLImage(temp_logo, width=3.5*cm, height=1.7*cm)  # Reduced from 4.5x2.2
+            logo_image = temp_logo
         except Exception as e:
             logging.error(f"Error loading logo: {e}")
-            logo_cell = ""
     
-    # Current date and revision
     from datetime import datetime as dt
     current_date = dt.now().strftime("%d/%m/%Y")
-    date_rev_text = f"{current_date}<br/>Rev.: 2"
     
-    # Header table - ALIGNED to content_width
-    header_data = [
-        [
-            logo_cell,
-            Paragraph("RELATÓRIO DE HORAS<br/>TIME SHEET", header_style),
-            Paragraph(date_rev_text, small_header_style)
-        ]
-    ]
+    # Calculate total pages
+    entries_per_page = 12
+    total_entries = len(ts["entries"])
+    total_pages = (total_entries + entries_per_page - 1) // entries_per_page if total_entries > 0 else 1
     
-    header_table = Table(header_data, colWidths=[5*cm, 7*cm, 5*cm])
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
-        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-    ]))
+    def draw_page_template(canvas_obj, doc_obj, page_num):
+        canvas_obj.saveState()
+        
+        # === PAGE BORDER ===
+        canvas_obj.setStrokeColor(colors.black)
+        canvas_obj.setLineWidth(1.5)
+        canvas_obj.rect(
+            border_margin, border_margin,
+            page_width - 2*border_margin,
+            page_height - 2*border_margin
+        )
+        
+        # === HEADER (inside border, top area) ===
+        header_top = page_height - border_margin - 0.2*cm
+        header_bottom = header_top - 2.0*cm
+        
+        # Header horizontal line below header
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.line(border_margin, header_bottom, page_width - border_margin, header_bottom)
+        
+        # Logo (left side)
+        if logo_image:
+            logo_image.seek(0)
+            from reportlab.lib.utils import ImageReader
+            img_reader = ImageReader(logo_image)
+            canvas_obj.drawImage(img_reader, border_margin + 0.4*cm, header_bottom + 0.15*cm, width=3.2*cm, height=1.5*cm, preserveAspectRatio=True)
+        
+        # Title (center)
+        canvas_obj.setFont("Helvetica-Bold", 12)
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.1*cm, "RELATÓRIO DE HORAS")
+        canvas_obj.setFont("Helvetica-Bold", 10)
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.4*cm, "TIME SHEET")
+        
+        # Right side - Client/OS details
+        right_x = page_width - border_margin - 0.4*cm
+        detail_y = header_top - 0.3*cm
+        canvas_obj.setFont("Helvetica-Bold", 6.5)
+        canvas_obj.drawRightString(right_x, detail_y, f"Cliente: {ts['client']}")
+        detail_y -= 0.35*cm
+        canvas_obj.drawRightString(right_x, detail_y, f"Embarcação: {ts['location']}")
+        detail_y -= 0.35*cm
+        canvas_obj.drawRightString(right_x, detail_y, f"OS: {ts['os_number']}")
+        detail_y -= 0.35*cm
+        canvas_obj.setFont("Helvetica", 6.5)
+        canvas_obj.drawRightString(right_x, detail_y, f"{current_date}  |  Rev.: 0")
+        
+        # === FOOTER (inside border, bottom area) ===
+        footer_top = border_margin + 1.5*cm
+        
+        # Footer horizontal line above footer
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.line(border_margin, footer_top, page_width - border_margin, footer_top)
+        
+        # Company info
+        center_x = page_width / 2
+        y = footer_top - 0.25*cm
+        canvas_obj.setFont("Helvetica-Bold", 5.5)
+        canvas_obj.drawCentredString(center_x, y, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA - CNPJ: 31.839.501/0001-90")
+        y -= 0.25*cm
+        canvas_obj.setFont("Helvetica", 5.5)
+        canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N° 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24.466-180")
+        y -= 0.25*cm
+        canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com  |  www.twasrepair.com")
+        y -= 0.25*cm
+        canvas_obj.setFont("Helvetica-BoldOblique", 6)
+        canvas_obj.drawCentredString(center_x, y, "TOGETHER WE ARE STRONGER")
+        y -= 0.2*cm
+        canvas_obj.setFont("Helvetica", 5.5)
+        canvas_obj.drawCentredString(center_x, y, f"Página {page_num} de {total_pages}")
+        
+        canvas_obj.restoreState()
     
-    elements.append(header_table)
-    elements.append(Spacer(1, 0.2*cm))  # Reduced from 0.5
+    # Page counter for callbacks
+    page_counter = [0]
     
-    # Service Order Info - 2x2 grid - ALIGNED to content_width
+    def on_first_page(canvas_obj, doc_obj):
+        page_counter[0] = 1
+        draw_page_template(canvas_obj, doc_obj, 1)
+    
+    def on_later_pages(canvas_obj, doc_obj):
+        page_counter[0] += 1
+        draw_page_template(canvas_obj, doc_obj, page_counter[0])
+    
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=content_right,
+        leftMargin=content_left,
+        topMargin=content_top,
+        bottomMargin=content_bottom
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Service Order Info table
     info_data = [
         [
             Paragraph("<b>Serviços / Jobs:</b>", styles['Normal']),
@@ -818,36 +870,28 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         ]
     ]
     
-    info_table = Table(info_data, colWidths=[9*cm, 9*cm])  # Adjusted for 18cm width
+    half_width = content_width / 2
+    info_table = Table(info_data, colWidths=[half_width, half_width])
     info_table.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),  # Reduced
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0.2*cm),  # Reduced
-        ('TOPPADDING', (0, 0), (-1, -1), 0.1*cm),  # Reduced
+        ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0.2*cm),
+        ('TOPPADDING', (0, 0), (-1, -1), 0.1*cm),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0.2*cm),
     ]))
     
     elements.append(info_table)
-    elements.append(Spacer(1, 0.2*cm))  # Reduced from 0.4
+    elements.append(Spacer(1, 0.2*cm))
     
-    # Main timesheet table - ALIGNED to content_width (18cm)
-    # Column widths adjusted for A4 (total = 18cm)
-    col_widths = [2.2*cm, 2.2*cm, 2.2*cm, 2*cm, 5*cm, 2.2*cm, 2.2*cm]
+    # Column widths for entries table
+    col_widths_raw = [2.2, 2.2, 2.2, 2.0, 5.0, 2.2, 2.2]
+    total_raw = sum(col_widths_raw)
+    col_widths = [(w / total_raw) * content_width for w in col_widths_raw]
     
-    # Entries per page calculation (12 entries fit in single A4 page)
-    entries_per_page = 12  # Reduced from 15 to fit everything in one page
-    total_entries = len(ts["entries"])
-    total_pages = (total_entries + entries_per_page - 1) // entries_per_page if total_entries > 0 else 1
-    
-    # Process entries in chunks (pages)
     for page_num in range(total_pages):
-        # If not first page, add page break
         if page_num > 0:
             elements.append(PageBreak())
-            # Add header again on new page
-            elements.append(header_table)
-            elements.append(Spacer(1, 0.15*cm))
             elements.append(info_table)
             elements.append(Spacer(1, 0.15*cm))
         
@@ -855,16 +899,15 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         table_data = [
             [
                 Paragraph("<b>Data<br/>Date</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
-                Paragraph("<b>Em Serviço<br/>In Service<br/>Início<br/>Start</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
-                Paragraph("<b>Em Serviço<br/>In Service<br/>Final<br/>Final</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
-                Paragraph("<b>Função<br/>Function</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
-                Paragraph("<b>Nome<br/>Name</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
-                Paragraph("<b>Em Viagem<br/>In Travel<br/>Início<br/>Start</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
-                Paragraph("<b>Em Viagem<br/>In Travel<br/>Final<br/>Final</b>", ParagraphStyle('centered', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+                Paragraph("<b>Em Serviço<br/>In Service<br/>Início<br/>Start</b>", ParagraphStyle('centered2', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+                Paragraph("<b>Em Serviço<br/>In Service<br/>Final<br/>Final</b>", ParagraphStyle('centered3', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+                Paragraph("<b>Função<br/>Function</b>", ParagraphStyle('centered4', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
+                Paragraph("<b>Nome<br/>Name</b>", ParagraphStyle('centered5', parent=styles['Normal'], alignment=TA_CENTER, fontSize=8)),
+                Paragraph("<b>Em Viagem<br/>In Travel<br/>Início<br/>Start</b>", ParagraphStyle('centered6', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
+                Paragraph("<b>Em Viagem<br/>In Travel<br/>Final<br/>Final</b>", ParagraphStyle('centered7', parent=styles['Normal'], alignment=TA_CENTER, fontSize=7)),
             ]
         ]
         
-        # Add entries for this page
         start_idx = page_num * entries_per_page
         end_idx = min(start_idx + entries_per_page, total_entries)
         
@@ -880,8 +923,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
                 entry.get("travel_end", "")
             ])
         
-        # Add empty rows to fill page (minimum 15 rows per page)
-        current_rows = len(table_data) - 1  # Exclude header
+        current_rows = len(table_data) - 1
         while current_rows < entries_per_page:
             table_data.append(["", "", "", "", "", "", ""])
             current_rows += 1
@@ -901,26 +943,23 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         elements.append(entries_table)
         elements.append(Spacer(1, 0.1*cm))
         
-        # Legend title
+        # Legend
         legend_title = Paragraph("<b>Legenda / Caption</b>", ParagraphStyle(f'legend_title_{page_num}', parent=styles['Normal'], fontSize=8))
         elements.append(legend_title)
         elements.append(Spacer(1, 0.05*cm))
         
-        # Legend - 6 columns in a single row
         legend_cell_style = ParagraphStyle(f'legend_cell_{page_num}', parent=styles['Normal'], fontSize=6, alignment=TA_CENTER, leading=8)
+        legend_col_w = content_width / 6
+        legend_data = [[
+            Paragraph("Engenheiro (E)<br/>Engineer (E)", legend_cell_style),
+            Paragraph("Encarregado (EN)<br/>Foreman (EN)", legend_cell_style),
+            Paragraph("Supervisor (Sup)<br/>Supervisor (Sup)", legend_cell_style),
+            Paragraph("Técnico (T)<br/>Technician (T)", legend_cell_style),
+            Paragraph("Mecânico (M)<br/>Mechanic (M)", legend_cell_style),
+            Paragraph("Téc. Seg. (TS)<br/>Safety Tech (ST)", legend_cell_style),
+        ]]
         
-        legend_data = [
-            [
-                Paragraph("Engenheiro (E)<br/>Engineer (E)", legend_cell_style),
-                Paragraph("Encarregado (EN)<br/>Foreman (EN)", legend_cell_style),
-                Paragraph("Supervisor (Sup)<br/>Supervisor (Sup)", legend_cell_style),
-                Paragraph("Técnico (T)<br/>Technician (T)", legend_cell_style),
-                Paragraph("Mecânico (M)<br/>Mechanic (M)", legend_cell_style),
-                Paragraph("Téc. Seg. (TS)<br/>Safety Tech (ST)", legend_cell_style),
-            ],
-        ]
-        
-        legend_table = Table(legend_data, colWidths=[3*cm]*6, rowHeights=[0.7*cm])
+        legend_table = Table(legend_data, colWidths=[legend_col_w]*6, rowHeights=[0.7*cm])
         legend_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -933,11 +972,12 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         elements.append(legend_table)
         elements.append(Spacer(1, 0.1*cm))
         
-        # Client Approval section
+        # Client Approval
         approval_title = Paragraph("<b>Aprovação do Cliente / Client Approval</b>", ParagraphStyle(f'approval_title_{page_num}', parent=styles['Normal'], fontSize=9))
         elements.append(approval_title)
         elements.append(Spacer(1, 0.1*cm))
         
+        third_width = content_width / 3
         approval_data = [
             [
                 Paragraph("<b>Nome / Name</b>", ParagraphStyle(f'appr_h_{page_num}', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER)),
@@ -947,7 +987,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             ["", "", ""]
         ]
         
-        approval_table = Table(approval_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 0.9*cm])
+        approval_table = Table(approval_data, colWidths=[third_width]*3, rowHeights=[0.5*cm, 0.9*cm])
         approval_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -959,17 +999,15 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         elements.append(approval_table)
         elements.append(Spacer(1, 0.1*cm))
         
-        # Observations section - single box sized for 8 lines
+        # Observations
         obs_title = Paragraph("<b>Observações / Remarks:</b>", ParagraphStyle(f'obs_title_{page_num}', parent=styles['Normal'], fontSize=9))
         elements.append(obs_title)
         elements.append(Spacer(1, 0.05*cm))
         
         obs_content = (ts.get("observations", "") or "") if page_num == 0 else ""
-        obs_data = [
-            [Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]
-        ]
+        obs_data = [[Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]]
         
-        obs_table = Table(obs_data, colWidths=[18*cm], rowHeights=[3.5*cm])
+        obs_table = Table(obs_data, colWidths=[content_width], rowHeights=[2.5*cm])
         obs_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -980,7 +1018,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         elements.append(obs_table)
         elements.append(Spacer(1, 0.1*cm))
         
-        # TWAS Approval section with signature in Nome column
+        # TWAS Approval with signature
         sig_name_style = ParagraphStyle(f'sig_nm_{page_num}', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER)
         twas_data = [
             [
@@ -995,7 +1033,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             ]
         ]
         
-        twas_table = Table(twas_data, colWidths=[6*cm, 6*cm, 6*cm], rowHeights=[0.5*cm, 1.2*cm])
+        twas_table = Table(twas_data, colWidths=[third_width]*3, rowHeights=[0.5*cm, 1.2*cm])
         twas_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
@@ -1010,19 +1048,9 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         ]))
         
         elements.append(twas_table)
-        elements.append(Spacer(1, 0.15*cm))
-        
-        # Footer with company info
-        footer_style = ParagraphStyle(f'footer_{page_num}', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER)
-        footer_text = "<b>TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA - CNPJ: 31.839.501/0001-90</b><br/>"
-        footer_text += "Travessa Frederico Marques, N° 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24466-180.<br/>"
-        footer_text += "www.twasrepair.com<br/>"
-        footer_text += f"Página {page_num + 1} de {total_pages}"
-        footer = Paragraph(footer_text, footer_style)
-        elements.append(footer)
     
-    # Build PDF
-    doc.build(elements)
+    # Build PDF with page template callbacks
+    doc.build(elements, onFirstPage=on_first_page, onLaterPages=on_later_pages)
     buffer.seek(0)
     
     return StreamingResponse(

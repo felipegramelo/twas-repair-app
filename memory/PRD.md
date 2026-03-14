@@ -40,8 +40,12 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 - [x] Layout do card reorganizado: O.S. + icones no topo, detalhes abaixo (supervisor + admin) - 28/02/2026
 - [x] Alterar Senha - Tela para admin alterar propria senha - 03/03/2026
 - [x] Gerenciar Administradores - CRUD completo de admins - 03/03/2026
-- [x] **Bug fix**: Ordenacao de datas corrigida (DD/MM/YYYY convertido para YYYY-MM-DD) - 06/03/2026
-- [x] **Servico no picker de O.S.** - Exibe servico em italico no modal de selecao (create + edit) - 06/03/2026
+- [x] Bug fix: Ordenacao de datas corrigida (DD/MM/YYYY → YYYY-MM-DD) - 06/03/2026
+- [x] Servico no picker de O.S. em italico - 06/03/2026
+- [x] **PDF com borda de pagina, cabecalho e rodape do relatorio de servico** - 14/03/2026
+  - Borda retangular ao redor do conteudo
+  - Cabecalho: Logo + titulo + dados cliente/OS (igual relatorio de servico)
+  - Rodape: empresa, endereco, email, site, TOGETHER WE ARE STRONGER, pagina
 
 ## Modelos de Dados
 - **Employee**: name
@@ -60,8 +64,8 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 ├── frontend/
 │   ├── services/api.ts
 │   ├── app/
-│   │   ├── admin/        # dashboard, supervisors, employees, service-orders, timesheets, admins, change-password
-│   │   └── supervisor/   # dashboard, create-timesheet, edit-timesheet
+│   │   ├── admin/
+│   │   └── supervisor/
 │   ├── contexts/AuthContext.tsx
 │   ├── types/index.ts
 │   └── .env

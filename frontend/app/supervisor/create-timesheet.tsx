@@ -478,7 +478,6 @@ export default function CreateTimesheetScreen() {
                 <Ionicons name="time" size={20} color="#1a237e" />
               </TouchableOpacity>
 
-              <Text style={styles.inputLabel}>Viagem - Início</Text>
               <TouchableOpacity style={styles.travelCheckRow} onPress={() => { setHasTravel(!hasTravel); if (hasTravel) { setTravelStart(''); setTravelEnd(''); } }} data-testid="has-travel-checkbox">
                 <Ionicons name={hasTravel ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
                 <Text style={styles.travelCheckText}>Tem viagem?</Text>

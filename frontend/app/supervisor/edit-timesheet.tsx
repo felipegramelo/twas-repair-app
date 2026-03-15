@@ -229,7 +229,7 @@ export default function EditTimesheetScreen() {
               <Text style={s.label}>Observações</Text>
               <Text style={{ fontSize: 12, color: observations.length >= 1200 ? '#d32f2f' : '#999' }}>{observations.length}/1200 ({observations.split('\n').length}/9 linhas)</Text>
             </View>
-            <TextInput style={[s.input, s.textArea]} placeholder="Observações (opcional)" value={observations} onChangeText={(text) => { const lines = text.split('\n'); if (lines.length > 9) text = lines.slice(0, 9).join('\n'); if (text.length > 1200) text = text.substring(0, 1200); setObservations(text); }} multiline numberOfLines={9} blurOnSubmit={false} />
+            <TextInput style={[s.input, s.textArea]} placeholder="Observações (opcional)" value={observations} onChangeText={(text) => { const lines = text.split('\n'); let trimmed = false; if (lines.length > 9) { text = lines.slice(0, 9).join('\n'); trimmed = true; } if (text.length > 1200) { text = text.substring(0, 1200); trimmed = true; } setObservations(text); if (trimmed) { if (Platform.OS === 'web') window.alert('Limite atingido: máximo de 1200 caracteres ou 9 linhas.'); else Alert.alert('Limite atingido', 'Máximo de 1200 caracteres ou 9 linhas.'); } }} multiline numberOfLines={9} blurOnSubmit={false} />
           </View>
           <TouchableOpacity style={[s.saveButton, saving && s.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.saveButtonText}>Atualizar Timesheet</Text>}

@@ -406,9 +406,9 @@ export default function CreateTimesheetScreen() {
           <View style={styles.section}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={styles.label}>Observações</Text>
-              <Text style={{ fontSize: 12, color: observations.length >= 1200 ? '#d32f2f' : '#999' }}>{observations.length}/1200 ({observations.split('\n').length}/9 linhas)</Text>
+              <Text style={{ fontSize: 12, color: observations.length >= 1200 ? '#d32f2f' : '#999' }}>{observations.length}/1200 ({observations.split(/\r\n|\r|\n/).length}/9 linhas)</Text>
             </View>
-            <TextInput style={[styles.input, styles.textArea]} placeholder="Adicione observações (opcional)" value={observations} onChangeText={(text) => { const lines = text.split('\n'); let trimmed = false; if (lines.length > 9) { text = lines.slice(0, 9).join('\n'); trimmed = true; } if (text.length > 1200) { text = text.substring(0, 1200); trimmed = true; } setObservations(text); if (trimmed) { if (Platform.OS === 'web') window.alert('Limite atingido: máximo de 1200 caracteres ou 9 linhas.'); else Alert.alert('Limite atingido', 'Máximo de 1200 caracteres ou 9 linhas.'); } }} multiline numberOfLines={9} blurOnSubmit={false} />
+            <TextInput style={[styles.input, styles.textArea]} placeholder="Adicione observações (opcional)" value={observations} onChangeText={(text) => { const lines = text.split(/\r\n|\r|\n/); let trimmed = false; if (lines.length > 9) { text = lines.slice(0, 9).join('\n'); trimmed = true; } if (text.length > 1200) { text = text.substring(0, 1200); trimmed = true; } setObservations(text); if (trimmed) { if (Platform.OS === 'web') window.alert('Limite atingido: máximo de 1200 caracteres ou 9 linhas.'); else Alert.alert('Limite atingido', 'Máximo de 1200 caracteres ou 9 linhas.'); } }} multiline numberOfLines={9} blurOnSubmit={false} />
           </View>
 
           <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>

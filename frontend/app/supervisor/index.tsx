@@ -29,16 +29,16 @@ function getDateRangeText(entries: Timesheet['entries']): string {
   return `Timesheet do dia ${first} até ${last}`;
 }
 
-type TabType = 'timesheets' | 'service_reports' | 'daily_reports';
+type UnifiedItem = 
+  | { kind: 'timesheet'; data: Timesheet }
+  | { kind: 'report'; data: Report };
 
 export default function SupervisorDashboard() {
   const { user, signOut, ensureReportAuth } = useAuth();
   const router = useRouter();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
-  const [serviceReports, setServiceReports] = useState<Report[]>([]);
-  const [dailyReports, setDailyReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('timesheets');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -56,8 +56,7 @@ export default function SupervisorDashboard() {
     try {
       await ensureReportAuth();
       const allReports = await reportsAPI.getAll();
-      setServiceReports(allReports.filter(r => r.report_type === 'service'));
-      setDailyReports(allReports.filter(r => r.report_type === 'daily'));
+      setReports(allReports);
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
     }
@@ -222,11 +221,7 @@ export default function SupervisorDashboard() {
   const deleteReport = async (report: Report) => {
     try {
       await reportsAPI.delete(report.id);
-      if (report.report_type === 'service') {
-        setServiceReports(prev => prev.filter(r => r.id !== report.id));
-      } else {
-        setDailyReports(prev => prev.filter(r => r.id !== report.id));
-      }
+      setReports(prev => prev.filter(r => r.id !== report.id));
       Alert.alert('Sucesso', 'Relatório excluído com sucesso!');
     } catch (error) {
       Alert.alert('Erro', 'Erro ao excluir relatório');
@@ -267,96 +262,104 @@ export default function SupervisorDashboard() {
     }
   };
 
-  const renderTimesheet = ({ item }: { item: Timesheet }) => (
+  const getReportTypeLabel = (type: string) => {
+    return type === 'service' ? 'Rel. Serviço' : 'Rel. Diário';
+  };
+
+  const getReportTypeColor = (type: string) => {
+    return type === 'service' ? '#1565c0' : '#2e7d32';
+  };
+
+  // Build unified list
+  const unifiedItems: UnifiedItem[] = [
+    ...timesheets.map(t => ({ kind: 'timesheet' as const, data: t })),
+    ...reports.map(r => ({ kind: 'report' as const, data: r })),
+  ];
+
+  const renderTimesheetCard = (item: Timesheet) => (
     <TouchableOpacity
-      style={styles.tsCard}
-      data-testid={`timesheet-card-${item.id}`}
+      style={styles.card}
       onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
       activeOpacity={0.7}
     >
-      <View style={styles.tsTopRow}>
-        <View style={styles.tsBadge}>
-          <Text style={styles.tsBadgeText}>{item.os_number}</Text>
+      <View style={styles.topRow}>
+        <View style={styles.badgeRow}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{item.os_number}</Text>
+          </View>
+          <View style={[styles.typeBadge, { backgroundColor: '#e8eaf6' }]}>
+            <Ionicons name="time-outline" size={12} color="#1a237e" />
+            <Text style={[styles.typeBadgeText, { color: '#1a237e' }]}>Timesheet</Text>
+          </View>
         </View>
-        <View style={styles.tsActions}>
-          <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.tsActionButton} data-testid={`open-pdf-btn-${item.id}`}>
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionBtn}>
             <Ionicons name="document-text-outline" size={20} color="#1a237e" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)} style={styles.tsActionButton} data-testid={`edit-btn-${item.id}`}>
+          <TouchableOpacity onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)} style={styles.actionBtn}>
             <Ionicons name="pencil" size={20} color="#1a237e" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.tsActionButton} data-testid={`download-pdf-btn-${item.id}`}>
+          <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.actionBtn}>
             <Ionicons name="download-outline" size={20} color="#1a237e" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDeleteTimesheet(item)} style={styles.tsActionButton} data-testid={`delete-btn-${item.id}`}>
+          <TouchableOpacity onPress={() => handleDeleteTimesheet(item)} style={styles.actionBtn}>
             <Ionicons name="trash-outline" size={20} color="#d32f2f" />
           </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.tsCardInfo}>
-        <Text style={styles.tsCardTitle}>{item.client}</Text>
-        <Text style={styles.tsCardSubtitle}>{item.location}</Text>
-        <Text style={styles.tsCardService} numberOfLines={1} data-testid={`timesheet-service-${item.id}`}>{item.service}</Text>
-        <Text style={styles.tsCardMeta}>{item.entries.length} entrada(s)</Text>
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardTitle}>{item.client}</Text>
+        <Text style={styles.cardSubtitle}>{item.location}</Text>
+        <Text style={styles.cardService} numberOfLines={1}>{item.service}</Text>
+        <Text style={styles.cardMeta}>{item.entries.length} entrada(s)</Text>
         {item.entries.length > 0 && (
-          <Text style={styles.tsDateRange} data-testid={`timesheet-date-range-${item.id}`}>{getDateRangeText(item.entries)}</Text>
+          <Text style={styles.dateRange}>{getDateRangeText(item.entries)}</Text>
         )}
       </View>
     </TouchableOpacity>
   );
 
-  const renderReport = ({ item }: { item: Report }) => (
-    <View style={styles.tsCard} data-testid={`report-card-${item.id}`}>
-      <View style={styles.tsTopRow}>
-        <View style={styles.tsBadge}>
-          <Text style={styles.tsBadgeText}>{item.service_order_number}</Text>
+  const renderReportCard = (item: Report) => (
+    <View style={styles.card}>
+      <View style={styles.topRow}>
+        <View style={styles.badgeRow}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{item.service_order_number}</Text>
+          </View>
+          <View style={[styles.typeBadge, { backgroundColor: getReportTypeColor(item.report_type) + '15' }]}>
+            <Ionicons name={item.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(item.report_type)} />
+            <Text style={[styles.typeBadgeText, { color: getReportTypeColor(item.report_type) }]}>{getReportTypeLabel(item.report_type)}</Text>
+          </View>
         </View>
-        <View style={styles.tsActions}>
-          <TouchableOpacity onPress={() => handleOpenReportPDF(item)} style={styles.tsActionButton} data-testid={`report-pdf-btn-${item.id}`}>
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => handleOpenReportPDF(item)} style={styles.actionBtn}>
             <Ionicons name="document-text-outline" size={20} color="#1a237e" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDownloadReportPDF(item)} style={styles.tsActionButton} data-testid={`report-download-btn-${item.id}`}>
+          <TouchableOpacity onPress={() => handleDownloadReportPDF(item)} style={styles.actionBtn}>
             <Ionicons name="download-outline" size={20} color="#1a237e" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDeleteReport(item)} style={styles.tsActionButton} data-testid={`report-delete-btn-${item.id}`}>
+          <TouchableOpacity onPress={() => handleDeleteReport(item)} style={styles.actionBtn}>
             <Ionicons name="trash-outline" size={20} color="#d32f2f" />
           </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.tsCardInfo}>
-        <Text style={styles.tsCardTitle}>{item.client}</Text>
-        <Text style={styles.tsCardSubtitle}>{item.vessel} - {item.equipment}</Text>
-        <Text style={styles.tsCardService} numberOfLines={1}>{item.supervisor_name}</Text>
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardTitle}>{item.client}</Text>
+        <Text style={styles.cardSubtitle}>{item.vessel} - {item.equipment}</Text>
+        <Text style={styles.cardService} numberOfLines={1}>{item.supervisor_name}</Text>
         <View style={styles.statusRow}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
             <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{getStatusLabel(item.status)}</Text>
           </View>
-          <Text style={styles.tsCardMeta}>{formatDate(item.created_at)}</Text>
+          <Text style={styles.cardMeta}>{formatDate(item.created_at)}</Text>
         </View>
       </View>
     </View>
   );
 
-  const tabs: { key: TabType; label: string; icon: string }[] = [
-    { key: 'timesheets', label: 'Timesheets', icon: 'time-outline' },
-    { key: 'service_reports', label: 'Rel. Serviço', icon: 'construct-outline' },
-    { key: 'daily_reports', label: 'Rel. Diário', icon: 'calendar-outline' },
-  ];
-
-  const getCurrentData = () => {
-    switch (activeTab) {
-      case 'timesheets': return timesheets;
-      case 'service_reports': return serviceReports;
-      case 'daily_reports': return dailyReports;
-    }
-  };
-
-  const getEmptyMessage = () => {
-    switch (activeTab) {
-      case 'timesheets': return 'Nenhum timesheet criado ainda';
-      case 'service_reports': return 'Nenhum relatório de serviço encontrado';
-      case 'daily_reports': return 'Nenhum relatório diário encontrado';
-    }
+  const renderItem = ({ item }: { item: UnifiedItem }) => {
+    if (item.kind === 'timesheet') return renderTimesheetCard(item.data);
+    return renderReportCard(item.data);
   };
 
   return (
@@ -367,65 +370,48 @@ export default function SupervisorDashboard() {
             <Text style={styles.title}>TWAS REPAIR</Text>
             <Text style={styles.subtitle}>Bem-vindo, {user?.name}</Text>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} data-testid="logout-btn">
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Ionicons name="log-out-outline" size={24} color="#d32f2f" />
           </TouchableOpacity>
-        </View>
-
-        {/* Tab Bar */}
-        <View style={styles.tabBar} data-testid="tab-bar">
-          {tabs.map(tab => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-              onPress={() => setActiveTab(tab.key)}
-              data-testid={`tab-${tab.key}`}
-            >
-              <Ionicons name={tab.icon as any} size={18} color={activeTab === tab.key ? '#1a237e' : '#999'} />
-              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
         {/* Create Button */}
         <TouchableOpacity
           style={styles.createButton}
           onPress={() => setShowCreateModal(true)}
-          data-testid="create-new-btn"
         >
           <Ionicons name="add-circle" size={24} color="#fff" />
           <Text style={styles.createButtonText}>Criar Novo</Text>
         </TouchableOpacity>
 
-        {/* Content */}
+        {/* Unified List */}
         <View style={styles.section}>
           {loading ? (
             <ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 24 }} />
-          ) : getCurrentData().length > 0 ? (
+          ) : unifiedItems.length > 0 ? (
             <FlatList
-              data={getCurrentData() as any[]}
-              renderItem={activeTab === 'timesheets' ? renderTimesheet : renderReport}
-              keyExtractor={(item) => item.id}
+              data={unifiedItems}
+              renderItem={renderItem}
+              keyExtractor={(item) => `${item.kind}-${item.data.id}`}
               scrollEnabled={false}
             />
           ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="folder-open-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>{getEmptyMessage()}</Text>
+              <Text style={styles.emptyText}>Nenhum registro criado ainda</Text>
             </View>
           )}
         </View>
       </ScrollView>
 
       {/* Create Modal */}
-      <Modal visible={showCreateModal} transparent animationType="fade" data-testid="create-modal">
+      <Modal visible={showCreateModal} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowCreateModal(false)}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>O que deseja criar?</Text>
             <TouchableOpacity
               style={styles.modalOption}
               onPress={() => handleCreateOption('timesheet')}
-              data-testid="create-timesheet-option"
             >
               <Ionicons name="time-outline" size={28} color="#1a237e" />
               <View style={styles.modalOptionText}>
@@ -437,9 +423,8 @@ export default function SupervisorDashboard() {
             <TouchableOpacity
               style={styles.modalOption}
               onPress={() => handleCreateOption('service_report')}
-              data-testid="create-service-report-option"
             >
-              <Ionicons name="construct-outline" size={28} color="#1a237e" />
+              <Ionicons name="construct-outline" size={28} color="#1565c0" />
               <View style={styles.modalOptionText}>
                 <Text style={styles.modalOptionTitle}>Relatório de Serviço</Text>
                 <Text style={styles.modalOptionDesc}>Relatório técnico do serviço</Text>
@@ -449,9 +434,8 @@ export default function SupervisorDashboard() {
             <TouchableOpacity
               style={styles.modalOption}
               onPress={() => handleCreateOption('daily_report')}
-              data-testid="create-daily-report-option"
             >
-              <Ionicons name="calendar-outline" size={28} color="#1a237e" />
+              <Ionicons name="calendar-outline" size={28} color="#2e7d32" />
               <View style={styles.modalOptionText}>
                 <Text style={styles.modalOptionTitle}>Relatório Diário</Text>
                 <Text style={styles.modalOptionDesc}>Relatório das atividades diárias</Text>
@@ -461,7 +445,6 @@ export default function SupervisorDashboard() {
             <TouchableOpacity
               style={styles.modalCancel}
               onPress={() => setShowCreateModal(false)}
-              data-testid="create-modal-cancel"
             >
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
@@ -479,26 +462,24 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: 'bold', color: '#1a237e' },
   subtitle: { fontSize: 16, color: '#666', marginTop: 4 },
   logoutButton: { padding: 8 },
-  tabBar: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, padding: 4 },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 4 },
-  tabActive: { backgroundColor: '#e3f2fd' },
-  tabText: { fontSize: 12, color: '#999', fontWeight: '500' },
-  tabTextActive: { color: '#1a237e', fontWeight: '600' },
   createButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, marginBottom: 16 },
   createButtonText: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
   section: { marginBottom: 24 },
-  tsCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
-  tsTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  tsActions: { flexDirection: 'row', gap: 4 },
-  tsActionButton: { padding: 8 },
-  tsBadge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 12 },
-  tsBadgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
-  tsCardInfo: { paddingLeft: 2 },
-  tsCardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
-  tsCardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
-  tsCardService: { fontSize: 13, color: '#444', marginTop: 2, fontStyle: 'italic' },
-  tsCardMeta: { fontSize: 12, color: '#999', marginTop: 4 },
-  tsDateRange: { fontSize: 12, color: '#1a237e', marginTop: 4, fontWeight: '500' },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  typeBadgeText: { fontSize: 11, fontWeight: '600' },
+  actions: { flexDirection: 'row', gap: 4 },
+  actionBtn: { padding: 8 },
+  cardInfo: { paddingLeft: 2 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
+  cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
+  cardService: { fontSize: 13, color: '#444', marginTop: 2, fontStyle: 'italic' },
+  cardMeta: { fontSize: 12, color: '#999', marginTop: 4 },
+  dateRange: { fontSize: 12, color: '#1a237e', marginTop: 4, fontWeight: '500' },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
   statusText: { fontSize: 11, fontWeight: '600' },

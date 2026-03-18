@@ -1,6 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Query, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +12,8 @@ import jwt
 import os
 import logging
 import httpx
+import requests
+import uuid
 from pathlib import Path
 from bson import ObjectId
 from reportlab.lib.pagesizes import A4
@@ -41,6 +43,40 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Security
 security = HTTPBearer()
+
+# Object Storage
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "twas-repair"
+_storage_key = None
+
+def init_storage():
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def get_object(path: str):
+    key = init_storage()
+    resp = requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key}, timeout=60
+    )
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
 
 # Create the main app
 app = FastAPI()
@@ -1206,6 +1242,7 @@ async def get_reports(user: dict = Depends(get_current_user)):
             "periodo_fim": doc.get("periodo_fim", ""),
             "executado_por": doc.get("executado_por", ""),
             "sections": doc.get("sections", []),
+            "cover_photo": doc.get("cover_photo", ""),
             "status": doc.get("status", "draft"),
             "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
             "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
@@ -1231,6 +1268,7 @@ async def get_report_by_id(report_id: str, user: dict = Depends(get_current_user
         "periodo_fim": doc.get("periodo_fim", ""),
         "executado_por": doc.get("executado_por", ""),
         "sections": doc.get("sections", []),
+        "cover_photo": doc.get("cover_photo", ""),
         "status": doc.get("status", "draft"),
         "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
         "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
@@ -1257,6 +1295,189 @@ async def delete_report(report_id: str, user: dict = Depends(get_current_user)):
     result = await db.reports.delete_one({"_id": ObjectId(report_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    return {"success": True}
+
+
+# ==================== DUPLICATE REPORT ====================
+
+class DuplicateReportRequest(BaseModel):
+    os_id: Optional[str] = None
+    periodo_inicio: Optional[str] = None
+    periodo_fim: Optional[str] = None
+    executado_por: Optional[str] = None
+
+@api_router.post("/reports/{report_id}/duplicate")
+async def duplicate_report(report_id: str, dup: DuplicateReportRequest, user: dict = Depends(get_current_user)):
+    original = await db.reports.find_one({"_id": ObjectId(report_id)})
+    if not original:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+
+    # If a new OS is provided, fetch its data
+    if dup.os_id and dup.os_id != original.get("os_id"):
+        os_data = await db.service_orders.find_one({"_id": ObjectId(dup.os_id)})
+        if not os_data:
+            raise HTTPException(status_code=404, detail="Ordem de Serviço não encontrada")
+        os_number = os_data["os_number"]
+        client = os_data["client"]
+        location = os_data["location"]
+        service = os_data["service"]
+        os_id = dup.os_id
+    else:
+        os_id = original["os_id"]
+        os_number = original["os_number"]
+        client = original["client"]
+        location = original["location"]
+        service = original["service"]
+
+    # Deep copy sections, clearing photos
+    import copy
+    sections = copy.deepcopy(original.get("sections", []))
+
+    now = datetime.utcnow()
+    new_report = {
+        "report_type": original["report_type"],
+        "os_id": os_id,
+        "os_number": os_number,
+        "client": client,
+        "location": location,
+        "service": service,
+        "supervisor_id": str(user["_id"]),
+        "supervisor_name": user["name"],
+        "periodo_inicio": dup.periodo_inicio or original.get("periodo_inicio", ""),
+        "periodo_fim": dup.periodo_fim or original.get("periodo_fim", ""),
+        "executado_por": dup.executado_por or original.get("executado_por", ""),
+        "cover_photo": "",
+        "sections": sections,
+        "status": "draft",
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = await db.reports.insert_one(new_report)
+    return {
+        "id": str(result.inserted_id),
+        "report_type": new_report["report_type"],
+        "os_number": new_report["os_number"],
+        "client": new_report["client"],
+        "status": "draft",
+    }
+
+
+# ==================== PHOTO UPLOAD ====================
+
+MIME_TYPES = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+    "gif": "image/gif", "webp": "image/webp",
+}
+
+@api_router.post("/reports/{report_id}/upload-photo")
+async def upload_report_photo(
+    report_id: str,
+    file: UploadFile = File(...),
+    section_key: str = Query(default="cover"),
+    user: dict = Depends(get_current_user)
+):
+    report = await db.reports.find_one({"_id": ObjectId(report_id)})
+    if not report:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
+    if ext not in MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Formato não suportado. Use jpg, png, gif ou webp.")
+
+    content_type = MIME_TYPES.get(ext, "image/jpeg")
+    data = await file.read()
+
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Arquivo muito grande. Máximo 10MB.")
+
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/reports/{report_id}/{section_key}/{file_id}.{ext}"
+
+    try:
+        result = put_object(storage_path, data, content_type)
+    except Exception as e:
+        logging.error(f"Upload error: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao fazer upload da imagem")
+
+    # Store file reference
+    await db.report_photos.insert_one({
+        "report_id": report_id,
+        "section_key": section_key,
+        "storage_path": result["path"],
+        "original_filename": file.filename,
+        "content_type": content_type,
+        "size": result.get("size", len(data)),
+        "is_deleted": False,
+        "created_at": datetime.utcnow(),
+    })
+
+    # If it's a cover photo, update the report
+    if section_key == "cover":
+        await db.reports.update_one(
+            {"_id": ObjectId(report_id)},
+            {"$set": {"cover_photo": result["path"]}}
+        )
+
+    return {
+        "storage_path": result["path"],
+        "section_key": section_key,
+        "filename": file.filename,
+    }
+
+
+@api_router.get("/photos/{path:path}")
+async def get_photo(path: str, auth: str = Query(None), authorization: str = Header(None)):
+    # Auth via query param or header
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+    elif auth:
+        token = auth
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        data, content_type = get_object(path)
+        return Response(content=data, media_type=content_type)
+    except Exception as e:
+        logging.error(f"Photo download error: {e}")
+        raise HTTPException(status_code=404, detail="Foto não encontrada")
+
+
+@api_router.get("/reports/{report_id}/photos")
+async def get_report_photos(report_id: str, user: dict = Depends(get_current_user)):
+    photos = []
+    cursor = db.report_photos.find({"report_id": report_id, "is_deleted": False})
+    async for doc in cursor:
+        photos.append({
+            "id": str(doc["_id"]),
+            "section_key": doc["section_key"],
+            "storage_path": doc["storage_path"],
+            "original_filename": doc["original_filename"],
+            "content_type": doc.get("content_type", "image/jpeg"),
+        })
+    return {"photos": photos}
+
+
+@api_router.delete("/reports/{report_id}/photos/{photo_id}")
+async def delete_report_photo(report_id: str, photo_id: str, user: dict = Depends(get_current_user)):
+    result = await db.report_photos.update_one(
+        {"_id": ObjectId(photo_id), "report_id": report_id},
+        {"$set": {"is_deleted": True}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Foto não encontrada")
+    # If it was a cover photo, clear it
+    photo = await db.report_photos.find_one({"_id": ObjectId(photo_id)})
+    if photo and photo.get("section_key") == "cover":
+        await db.reports.update_one(
+            {"_id": ObjectId(report_id)},
+            {"$set": {"cover_photo": ""}}
+        )
     return {"success": True}
 
 @api_router.get("/reports/{report_id}/pdf")
@@ -1516,6 +1737,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        init_storage()
+        logging.info("Object storage initialized")
+    except Exception as e:
+        logging.error(f"Storage init failed (will retry on first upload): {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Platform, Modal, Switch } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Platform, Modal, Switch, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI } from '../../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Section {
   key: string;
@@ -13,6 +14,16 @@ interface Section {
   enabled: boolean;
   subsections: Section[];
 }
+
+interface Photo {
+  id: string;
+  section_key: string;
+  storage_path: string;
+  original_filename: string;
+}
+
+// Sections that should NOT have photo upload
+const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations'];
 
 export default function EditReportScreen() {
   const router = useRouter();
@@ -27,17 +38,29 @@ export default function EditReportScreen() {
   const [showSectionsModal, setShowSectionsModal] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [addingSectionTitle, setAddingSectionTitle] = useState('');
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [token, setToken] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentUploadSection, setCurrentUploadSection] = useState('cover');
 
-  useEffect(() => { loadReport(); }, []);
+  useEffect(() => {
+    loadReport();
+    AsyncStorage.getItem('token').then(t => t && setToken(t));
+  }, []);
 
   const loadReport = async () => {
     try {
-      const data = await reportAPI.getById(id!);
+      const [data, photosData] = await Promise.all([
+        reportAPI.getById(id!),
+        reportAPI.getPhotos(id!),
+      ]);
       setReport(data);
       setPeriodoInicio(data.periodo_inicio || '');
       setPeriodoFim(data.periodo_fim || '');
       setExecutadoPor(data.executado_por || '');
       setSections(data.sections || []);
+      setPhotos(photosData);
     } catch (error) {
       Alert.alert('Erro', 'Erro ao carregar relatório');
     } finally {
@@ -73,6 +96,44 @@ export default function EditReportScreen() {
       }
     } catch { if (Platform.OS === 'web') window.alert('Erro ao gerar PDF'); }
   };
+
+  const triggerFileUpload = (sectionKey: string) => {
+    setCurrentUploadSection(sectionKey);
+    if (Platform.OS === 'web' && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileSelected = async (event: any) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(currentUploadSection);
+    try {
+      const result = await reportAPI.uploadPhoto(id!, file, currentUploadSection, file.name);
+      const updatedPhotos = await reportAPI.getPhotos(id!);
+      setPhotos(updatedPhotos);
+      if (Platform.OS === 'web') window.alert('Foto enviada com sucesso!');
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert('Erro ao enviar foto: ' + (error.message || ''));
+    } finally {
+      setUploading(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (Platform.OS === 'web' && !window.confirm('Excluir esta foto?')) return;
+    try {
+      await reportAPI.deletePhoto(id!, photoId);
+      setPhotos(prev => prev.filter(p => p.id !== photoId));
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao excluir foto'); }
+  };
+
+  const getPhotoUrl = (storagePath: string) => reportAPI.getPhotoUrl(storagePath, token);
+
+  const getPhotosForSection = (sectionKey: string) => photos.filter(p => p.section_key === sectionKey);
+
+  const canHavePhotos = (sectionKey: string) => !NO_PHOTO_SECTIONS.includes(sectionKey);
 
   const toggleSection = (sectionKey: string) => {
     setSections(prev => prev.map(s => {
@@ -133,6 +194,52 @@ export default function EditReportScreen() {
     setter(formatted);
   };
 
+  const renderPhotoSection = (sectionKey: string) => {
+    if (!canHavePhotos(sectionKey)) return null;
+    const sectionPhotos = getPhotosForSection(sectionKey);
+    return (
+      <View style={styles.photoArea}>
+        <View style={styles.photoHeader}>
+          <Ionicons name="camera-outline" size={16} color="#1a237e" />
+          <Text style={styles.photoHeaderText}>Fotos ({sectionPhotos.length})</Text>
+        </View>
+        {sectionPhotos.length > 0 && (
+          <View style={styles.photoGrid}>
+            {sectionPhotos.map(photo => (
+              <View key={photo.id} style={styles.photoItem}>
+                {token ? (
+                  <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={styles.photoImage} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.photoImage, styles.photoPlaceholder]}>
+                    <Ionicons name="image-outline" size={24} color="#999" />
+                  </View>
+                )}
+                <TouchableOpacity style={styles.photoDeleteBtn} onPress={() => handleDeletePhoto(photo.id)}>
+                  <Ionicons name="close-circle" size={20} color="#d32f2f" />
+                </TouchableOpacity>
+                <Text style={styles.photoName} numberOfLines={1}>{photo.original_filename}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+        <TouchableOpacity
+          style={styles.uploadBtn}
+          onPress={() => triggerFileUpload(sectionKey)}
+          disabled={uploading === sectionKey}
+        >
+          {uploading === sectionKey ? (
+            <ActivityIndicator size="small" color="#1a237e" />
+          ) : (
+            <>
+              <Ionicons name="cloud-upload-outline" size={18} color="#1a237e" />
+              <Text style={styles.uploadBtnText}>Adicionar Foto</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   if (loading) {
     return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 100 }} /></SafeAreaView>;
   }
@@ -142,124 +249,189 @@ export default function EditReportScreen() {
   }
 
   const isService = report.report_type === 'service';
+  const coverPhotos = getPhotosForSection('cover');
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#1a237e" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {isService ? 'Editar Rel. Serviço' : 'Editar Rel. Diário'}
-          </Text>
-          <TouchableOpacity onPress={handleOpenPDF} style={styles.pdfButton}>
-            <Ionicons name="document-text-outline" size={22} color="#1a237e" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Info Card */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoBadge}>
-            <Text style={styles.infoBadgeText}>{report.os_number}</Text>
-          </View>
-          <Text style={styles.infoClient}>{report.client}</Text>
-          <Text style={styles.infoLocation}>{report.location} - {report.service}</Text>
-        </View>
-
-        {/* Período */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Período e Informações</Text>
-          <View style={styles.dateRow}>
-            <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Data Início</Text>
-              <TextInput style={styles.dateInput} value={periodoInicio} onChangeText={(t) => formatDateInput(t, setPeriodoInicio)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
-            </View>
-            <View style={styles.dateField}>
-              <Text style={styles.dateLabel}>Data Fim</Text>
-              <TextInput style={styles.dateInput} value={periodoFim} onChangeText={(t) => formatDateInput(t, setPeriodoFim)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
-            </View>
-          </View>
-          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Executado Por</Text>
-          <TextInput style={styles.input} value={executadoPor} onChangeText={setExecutadoPor} placeholder="Ex: TWAS REPAIR" />
-        </View>
-
-        {/* Sections Management Button */}
-        <TouchableOpacity style={styles.manageSectionsBtn} onPress={() => setShowSectionsModal(true)}>
-          <Ionicons name="settings-outline" size={20} color="#1a237e" />
-          <Text style={styles.manageSectionsBtnText}>Gerenciar Seções</Text>
-          <Ionicons name="chevron-forward" size={18} color="#999" />
-        </TouchableOpacity>
-
-        {/* Enabled Sections */}
-        {sections.filter(s => s.enabled).map(sec => (
-          <View key={sec.key} style={styles.section}>
-            <TouchableOpacity onPress={() => setEditingSection(editingSection === sec.key ? null : sec.key)}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionNumber}>{sec.number}.</Text>
-                <Text style={styles.sectionTitle}>{sec.title}</Text>
-                <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
-              </View>
+      {/* Hidden file input for web */}
+      {Platform.OS === 'web' && (
+        <input
+          ref={fileInputRef as any}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleFileSelected}
+        />
+      )}
+      <View style={styles.innerContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
+          {/* Header */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#1a237e" />
             </TouchableOpacity>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {isService ? 'Editar Rel. Serviço' : 'Editar Rel. Diário'}
+            </Text>
+            <TouchableOpacity onPress={handleOpenPDF} style={styles.pdfButton} data-testid="open-pdf-btn">
+              <Ionicons name="document-text-outline" size={22} color="#1a237e" />
+            </TouchableOpacity>
+          </View>
 
-            {editingSection === sec.key && (
-              <View style={styles.sectionContent}>
-                {/* Main section doesn't need text for section 4 (service description) */}
-                {sec.key !== 'service_description' && sec.key !== 'daily_activities' && (
-                  <TextInput
-                    style={styles.textarea}
-                    value={sec.content}
-                    onChangeText={(t) => updateSectionContent(sec.key, t)}
-                    placeholder={`Texto para ${sec.title}...`}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                )}
+          {/* Info Card */}
+          <View style={styles.infoCard}>
+            <View style={styles.infoBadge}>
+              <Text style={styles.infoBadgeText}>{report.os_number}</Text>
+            </View>
+            <Text style={styles.infoClient}>{report.client}</Text>
+            <Text style={styles.infoLocation}>{report.location} - {report.service}</Text>
+          </View>
 
-                {/* Subsections */}
-                {sec.subsections.filter(sub => sub.enabled).map(sub => (
-                  <View key={sub.key} style={styles.subsectionBlock}>
-                    <Text style={styles.subsectionTitle}>{sub.number}. {sub.title}</Text>
-                    <TextInput
-                      style={styles.textarea}
-                      value={sub.content}
-                      onChangeText={(t) => updateSectionContent(sub.key, t)}
-                      placeholder={`Texto para ${sub.title}...`}
-                      multiline
-                      textAlignVertical="top"
-                    />
-                    {/* Sub-subsections */}
-                    {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => (
-                      <View key={ss.key} style={styles.subsubBlock}>
-                        <Text style={styles.subsubTitle}>{ss.number}. {ss.title}</Text>
-                        <TextInput
-                          style={styles.textarea}
-                          value={ss.content}
-                          onChangeText={(t) => updateSectionContent(ss.key, t)}
-                          placeholder={`Texto para ${ss.title}...`}
-                          multiline
-                          textAlignVertical="top"
-                        />
+          {/* Cover Photo */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Foto de Capa</Text>
+            {coverPhotos.length > 0 ? (
+              <View style={styles.coverPhotoContainer}>
+                {coverPhotos.map(photo => (
+                  <View key={photo.id} style={styles.coverPhotoWrapper}>
+                    {token ? (
+                      <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={styles.coverPhoto} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.coverPhoto, styles.photoPlaceholder]}>
+                        <Ionicons name="image-outline" size={40} color="#999" />
                       </View>
-                    ))}
+                    )}
+                    <TouchableOpacity style={styles.coverDeleteBtn} onPress={() => handleDeletePhoto(photo.id)}>
+                      <Ionicons name="trash-outline" size={16} color="#fff" />
+                    </TouchableOpacity>
                   </View>
                 ))}
               </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.coverUploadArea}
+                onPress={() => triggerFileUpload('cover')}
+                disabled={uploading === 'cover'}
+                data-testid="upload-cover-photo-btn"
+              >
+                {uploading === 'cover' ? (
+                  <ActivityIndicator size="large" color="#1a237e" />
+                ) : (
+                  <>
+                    <Ionicons name="camera-outline" size={40} color="#bbb" />
+                    <Text style={styles.coverUploadText}>Toque para adicionar foto de capa</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+            {coverPhotos.length > 0 && (
+              <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
+                {uploading === 'cover' ? <ActivityIndicator size="small" color="#1a237e" /> : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#1a237e" />
+                    <Text style={styles.uploadBtnText}>Trocar Foto</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             )}
           </View>
-        ))}
 
-        {/* Save Button */}
-        <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : (
-            <>
-              <Ionicons name="save" size={22} color="#fff" />
-              <Text style={styles.saveButtonText}>Salvar Relatório</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
+          {/* Período */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Período e Informações</Text>
+            <View style={styles.dateRow}>
+              <View style={styles.dateField}>
+                <Text style={styles.dateLabel}>Data Início</Text>
+                <TextInput style={styles.dateInput} value={periodoInicio} onChangeText={(t) => formatDateInput(t, setPeriodoInicio)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+              </View>
+              <View style={styles.dateField}>
+                <Text style={styles.dateLabel}>Data Fim</Text>
+                <TextInput style={styles.dateInput} value={periodoFim} onChangeText={(t) => formatDateInput(t, setPeriodoFim)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+              </View>
+            </View>
+            <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Executado Por</Text>
+            <TextInput style={styles.input} value={executadoPor} onChangeText={setExecutadoPor} placeholder="Ex: TWAS REPAIR" />
+          </View>
+
+          {/* Sections Management Button */}
+          <TouchableOpacity style={styles.manageSectionsBtn} onPress={() => setShowSectionsModal(true)} data-testid="manage-sections-btn">
+            <Ionicons name="settings-outline" size={20} color="#1a237e" />
+            <Text style={styles.manageSectionsBtnText}>Gerenciar Seções</Text>
+            <Ionicons name="chevron-forward" size={18} color="#999" />
+          </TouchableOpacity>
+
+          {/* Enabled Sections */}
+          {sections.filter(s => s.enabled).map(sec => (
+            <View key={sec.key} style={styles.section}>
+              <TouchableOpacity onPress={() => setEditingSection(editingSection === sec.key ? null : sec.key)}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionNumber}>{sec.number}.</Text>
+                  <Text style={styles.sectionTitle}>{sec.title}</Text>
+                  <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
+                </View>
+              </TouchableOpacity>
+
+              {editingSection === sec.key && (
+                <View style={styles.sectionContent}>
+                  {sec.key !== 'service_description' && sec.key !== 'daily_activities' && (
+                    <TextInput
+                      style={styles.textarea}
+                      value={sec.content}
+                      onChangeText={(t) => updateSectionContent(sec.key, t)}
+                      placeholder={`Texto para ${sec.title}...`}
+                      multiline
+                      textAlignVertical="top"
+                    />
+                  )}
+
+                  {/* Photo upload for this section */}
+                  {renderPhotoSection(sec.key)}
+
+                  {/* Subsections */}
+                  {sec.subsections.filter(sub => sub.enabled).map(sub => (
+                    <View key={sub.key} style={styles.subsectionBlock}>
+                      <Text style={styles.subsectionTitle}>{sub.number}. {sub.title}</Text>
+                      <TextInput
+                        style={styles.textarea}
+                        value={sub.content}
+                        onChangeText={(t) => updateSectionContent(sub.key, t)}
+                        placeholder={`Texto para ${sub.title}...`}
+                        multiline
+                        textAlignVertical="top"
+                      />
+                      {renderPhotoSection(sub.key)}
+                      {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => (
+                        <View key={ss.key} style={styles.subsubBlock}>
+                          <Text style={styles.subsubTitle}>{ss.number}. {ss.title}</Text>
+                          <TextInput
+                            style={styles.textarea}
+                            value={ss.content}
+                            onChangeText={(t) => updateSectionContent(ss.key, t)}
+                            placeholder={`Texto para ${ss.title}...`}
+                            multiline
+                            textAlignVertical="top"
+                          />
+                          {renderPhotoSection(ss.key)}
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          ))}
+
+          {/* Save Button */}
+          <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving} data-testid="save-report-btn">
+            {saving ? <ActivityIndicator color="#fff" /> : (
+              <>
+                <Ionicons name="save" size={22} color="#fff" />
+                <Text style={styles.saveButtonText}>Salvar Relatório</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
       {/* Sections Management Modal */}
       <Modal visible={showSectionsModal} transparent animationType="slide">
@@ -292,7 +464,6 @@ export default function EditReportScreen() {
                 </View>
               ))}
 
-              {/* Add Custom Section */}
               <View style={styles.addSectionRow}>
                 <TextInput style={styles.addSectionInput} value={addingSectionTitle} onChangeText={setAddingSectionTitle} placeholder="Nova seção personalizada..." />
                 <TouchableOpacity style={styles.addSectionBtn} onPress={addCustomSection}>
@@ -313,7 +484,8 @@ export default function EditReportScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-  scrollContent: { padding: 16 },
+  innerContainer: { flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}) } as any,
+  scrollContent: { padding: 16, paddingBottom: 32 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
   backButton: { padding: 8 },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a237e', flex: 1 },
@@ -344,6 +516,25 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8, marginBottom: 32 },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  // Cover Photo
+  coverPhotoContainer: { marginTop: 8 },
+  coverPhotoWrapper: { position: 'relative', marginBottom: 8 },
+  coverPhoto: { width: '100%', height: 200, borderRadius: 8 } as any,
+  coverDeleteBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(211,47,47,0.85)', borderRadius: 16, padding: 6 },
+  coverUploadArea: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#e0e0e0', borderStyle: 'dashed', borderRadius: 12, padding: 32, marginTop: 8, backgroundColor: '#fafafa' } as any,
+  coverUploadText: { fontSize: 14, color: '#999', marginTop: 8 },
+  // Photo in sections
+  photoArea: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
+  photoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  photoHeaderText: { fontSize: 13, fontWeight: '600', color: '#1a237e' },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  photoItem: { width: 100, position: 'relative' },
+  photoImage: { width: 100, height: 80, borderRadius: 6 },
+  photoPlaceholder: { backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center' },
+  photoDeleteBtn: { position: 'absolute', top: -6, right: -6 },
+  photoName: { fontSize: 10, color: '#999', marginTop: 2 },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#e3f2fd', borderRadius: 8, alignSelf: 'flex-start', marginTop: 8 },
+  uploadBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },

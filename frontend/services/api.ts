@@ -183,11 +183,35 @@ export const reportAPI = {
     const response = await api.delete(`/reports/${id}`);
     return response.data;
   },
+  duplicate: async (id: string, data: { os_id?: string; periodo_inicio?: string; periodo_fim?: string; executado_por?: string }) => {
+    const response = await api.post(`/reports/${id}/duplicate`, data);
+    return response.data;
+  },
   downloadPDF: async (id: string): Promise<Blob> => {
     const response = await api.get(`/reports/${id}/pdf?t=${Date.now()}`, {
       responseType: 'blob',
       headers: { 'Cache-Control': 'no-cache' },
     });
     return response.data;
+  },
+  uploadPhoto: async (reportId: string, file: File | Blob, sectionKey: string = 'cover', filename?: string) => {
+    const formData = new FormData();
+    formData.append('file', file, filename || 'photo.jpg');
+    const response = await api.post(`/reports/${reportId}/upload-photo?section_key=${sectionKey}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+  getPhotos: async (reportId: string) => {
+    const response = await api.get(`/reports/${reportId}/photos`);
+    return response.data.photos || [];
+  },
+  deletePhoto: async (reportId: string, photoId: string) => {
+    const response = await api.delete(`/reports/${reportId}/photos/${photoId}`);
+    return response.data;
+  },
+  getPhotoUrl: (storagePath: string, token: string) => {
+    const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+    return `${baseUrl}/photos/${storagePath}?auth=${token}`;
   },
 };

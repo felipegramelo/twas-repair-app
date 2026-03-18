@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform, Modal, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { timesheetAPI, reportAPI } from '../../services/api';
-import { Timesheet, Report } from '../../types';
+import { timesheetAPI, reportAPI, serviceOrderAPI } from '../../services/api';
+import { Timesheet, Report, ServiceOrder } from '../../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { Picker } from '@react-native-picker/picker';
 
 function getDateRangeText(entries: Timesheet['entries']): string {
   if (!entries || entries.length === 0) return '';
@@ -28,7 +29,7 @@ function getDateRangeText(entries: Timesheet['entries']): string {
   return `Timesheet do dia ${first} até ${last}`;
 }
 
-type UnifiedItem = 
+type UnifiedItem =
   | { kind: 'timesheet'; data: Timesheet }
   | { kind: 'report'; data: Report };
 
@@ -39,24 +40,29 @@ export default function SupervisorDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicatingReport, setDuplicatingReport] = useState<Report | null>(null);
+  const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
+  const [dupOsId, setDupOsId] = useState('');
+  const [dupPeriodoInicio, setDupPeriodoInicio] = useState('');
+  const [dupPeriodoFim, setDupPeriodoFim] = useState('');
+  const [duplicating, setDuplicating] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const tsData = await timesheetAPI.getAll();
+      const [tsData, allReports, osData] = await Promise.all([
+        timesheetAPI.getAll().catch(() => []),
+        reportAPI.getAll().catch(() => []),
+        serviceOrderAPI.getAll().catch(() => []),
+      ]);
       setTimesheets(tsData);
-    } catch (error) {
-      console.error('Erro ao carregar timesheets:', error);
-    }
-    try {
-      const allReports = await reportAPI.getAll();
       setReports(allReports);
+      setServiceOrders(osData);
     } catch (error) {
-      console.error('Erro ao carregar relatórios:', error);
+      console.error('Erro ao carregar dados:', error);
     }
     setLoading(false);
   };
@@ -83,17 +89,11 @@ export default function SupervisorDashboard() {
         );
         if (result.status === 200) {
           const isAvailable = await Sharing.isAvailableAsync();
-          if (isAvailable) {
-            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
-          } else {
-            Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
-          }
-        } else {
-          Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
-        }
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
+        } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
       }
     } catch (error: any) {
-      console.error('Erro ao abrir PDF:', error);
       if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
       else Alert.alert('Erro', 'Erro ao abrir PDF: ' + (error.message || ''));
     }
@@ -111,32 +111,9 @@ export default function SupervisorDashboard() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        window.alert('PDF baixado com sucesso!');
-      } else {
-        const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
-        const fileName = `timesheet_${timesheet.os_number || 'ts'}_${Date.now()}.pdf`;
-        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-        const result = await FileSystem.downloadAsync(
-          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
-          fileUri,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (result.status === 200) {
-          const isAvailable = await Sharing.isAvailableAsync();
-          if (isAvailable) {
-            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Salvar PDF' });
-          } else {
-            Alert.alert('Sucesso', 'PDF salvo com sucesso!');
-          }
-        } else {
-          Alert.alert('Erro', 'Erro ao baixar PDF. Status: ' + result.status);
-        }
       }
     } catch (error: any) {
-      console.error('Erro ao baixar PDF:', error);
       if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');
-      else Alert.alert('Erro', 'Erro ao baixar PDF: ' + (error.message || ''));
     }
   };
 
@@ -146,14 +123,8 @@ export default function SupervisorDashboard() {
         const blob = await reportAPI.downloadPDF(report.id);
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
-      } else {
-        Alert.alert('Info', 'PDF disponível apenas na versão web por enquanto.');
       }
-    } catch (error: any) {
-      console.error('Erro ao abrir PDF do relatório:', error);
-      if (Platform.OS === 'web') window.alert('Erro ao abrir PDF do relatório');
-      else Alert.alert('Erro', 'Erro ao abrir PDF');
-    }
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao abrir PDF do relatório'); }
   };
 
   const handleDownloadReportPDF = async (report: Report) => {
@@ -168,15 +139,8 @@ export default function SupervisorDashboard() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        window.alert('PDF baixado com sucesso!');
-      } else {
-        Alert.alert('Info', 'Download disponível apenas na versão web por enquanto.');
       }
-    } catch (error: any) {
-      console.error('Erro ao baixar PDF do relatório:', error);
-      if (Platform.OS === 'web') window.alert('Erro ao baixar PDF do relatório');
-      else Alert.alert('Erro', 'Erro ao baixar PDF');
-    }
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao baixar PDF do relatório'); }
   };
 
   const handleDeleteTimesheet = (timesheet: Timesheet) => {
@@ -196,20 +160,15 @@ export default function SupervisorDashboard() {
     try {
       await timesheetAPI.delete(id);
       setTimesheets(prev => prev.filter(t => t.id !== id));
-      Alert.alert('Sucesso', 'Timesheet excluído com sucesso!');
-    } catch (error) {
-      Alert.alert('Erro', 'Erro ao excluir timesheet');
-    }
+    } catch { Alert.alert('Erro', 'Erro ao excluir timesheet'); }
   };
 
   const handleDeleteReport = (report: Report) => {
     const label = report.report_type === 'service' ? 'relatório de serviço' : 'relatório diário';
     if (Platform.OS === 'web') {
-      if (window.confirm(`Excluir ${label} ${report.os_number} - ${report.client}?`)) {
-        deleteReport(report);
-      }
+      if (window.confirm(`Excluir ${label} ${report.os_number} - ${report.client}?`)) deleteReport(report);
     } else {
-      Alert.alert('Confirmar Exclusão', `Excluir ${label} ${report.os_number} - ${report.client}?`, [
+      Alert.alert('Confirmar Exclusão', `Excluir ${label}?`, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Excluir', style: 'destructive', onPress: () => deleteReport(report) },
       ]);
@@ -220,201 +179,165 @@ export default function SupervisorDashboard() {
     try {
       await reportAPI.delete(report.id);
       setReports(prev => prev.filter(r => r.id !== report.id));
-      Alert.alert('Sucesso', 'Relatório excluído com sucesso!');
-    } catch (error) {
-      Alert.alert('Erro', 'Erro ao excluir relatório');
+    } catch { Alert.alert('Erro', 'Erro ao excluir relatório'); }
+  };
+
+  const handleDuplicate = (report: Report) => {
+    setDuplicatingReport(report);
+    setDupOsId(report.os_id);
+    setDupPeriodoInicio(report.periodo_inicio || '');
+    setDupPeriodoFim(report.periodo_fim || '');
+    setShowDuplicateModal(true);
+  };
+
+  const confirmDuplicate = async () => {
+    if (!duplicatingReport) return;
+    setDuplicating(true);
+    try {
+      await reportAPI.duplicate(duplicatingReport.id, {
+        os_id: dupOsId,
+        periodo_inicio: dupPeriodoInicio,
+        periodo_fim: dupPeriodoFim,
+      });
+      setShowDuplicateModal(false);
+      if (Platform.OS === 'web') window.alert('Relatório duplicado com sucesso!');
+      else Alert.alert('Sucesso', 'Relatório duplicado com sucesso!');
+      loadData();
+    } catch (error: any) {
+      Alert.alert('Erro', 'Erro ao duplicar: ' + (error.message || ''));
+    } finally {
+      setDuplicating(false);
     }
   };
 
   const handleCreateOption = (option: 'timesheet' | 'service_report' | 'daily_report') => {
     setShowCreateModal(false);
-    if (option === 'timesheet') {
-      router.push('/supervisor/create-timesheet');
-    } else {
-      router.push(`/supervisor/create-report?type=${option === 'service_report' ? 'service' : 'daily'}`);
-    }
+    if (option === 'timesheet') router.push('/supervisor/create-timesheet');
+    else router.push(`/supervisor/create-report?type=${option === 'service_report' ? 'service' : 'daily'}`);
   };
 
   const formatDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('pt-BR');
-    } catch { return dateStr; }
+    try { return new Date(dateStr).toLocaleDateString('pt-BR'); } catch { return dateStr; }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'draft': return 'Rascunho';
-      case 'completed': return 'Concluído';
-      case 'approved': return 'Aprovado';
-      default: return status;
-    }
+  const formatDateInput = (text: string, setter: (v: string) => void) => {
+    const cleaned = text.replace(/\D/g, '');
+    let formatted = cleaned;
+    if (cleaned.length >= 3 && cleaned.length <= 4) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+    else if (cleaned.length >= 5) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
+    setter(formatted);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return '#ff9800';
-      case 'completed': return '#4caf50';
-      case 'approved': return '#2196f3';
-      default: return '#999';
-    }
-  };
+  const getStatusLabel = (s: string) => s === 'draft' ? 'Rascunho' : s === 'completed' ? 'Concluído' : s === 'approved' ? 'Aprovado' : s;
+  const getStatusColor = (s: string) => s === 'draft' ? '#ff9800' : s === 'completed' ? '#4caf50' : s === 'approved' ? '#2196f3' : '#999';
+  const getReportTypeLabel = (t: string) => t === 'service' ? 'Rel. Serviço' : 'Rel. Diário';
+  const getReportTypeColor = (t: string) => t === 'service' ? '#1565c0' : '#2e7d32';
 
-  const getReportTypeLabel = (type: string) => {
-    return type === 'service' ? 'Rel. Serviço' : 'Rel. Diário';
-  };
-
-  const getReportTypeColor = (type: string) => {
-    return type === 'service' ? '#1565c0' : '#2e7d32';
-  };
-
-  // Build unified list
   const unifiedItems: UnifiedItem[] = [
     ...timesheets.map(t => ({ kind: 'timesheet' as const, data: t })),
     ...reports.map(r => ({ kind: 'report' as const, data: r })),
   ];
 
-  const renderTimesheetCard = (item: Timesheet) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.topRow}>
-        <View style={styles.badgeRow}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.os_number}</Text>
-          </View>
-          <View style={[styles.typeBadge, { backgroundColor: '#e8eaf6' }]}>
-            <Ionicons name="time-outline" size={12} color="#1a237e" />
-            <Text style={[styles.typeBadgeText, { color: '#1a237e' }]}>Timesheet</Text>
-          </View>
-        </View>
-        <View style={styles.actions}>
-          <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionBtn}>
-            <Ionicons name="document-text-outline" size={20} color="#1a237e" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push(`/supervisor/edit-timesheet?id=${item.id}`)} style={styles.actionBtn}>
-            <Ionicons name="pencil" size={20} color="#1a237e" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.actionBtn}>
-            <Ionicons name="download-outline" size={20} color="#1a237e" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDeleteTimesheet(item)} style={styles.actionBtn}>
-            <Ionicons name="trash-outline" size={20} color="#d32f2f" />
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardTitle}>{item.client}</Text>
-        <Text style={styles.cardSubtitle}>{item.location}</Text>
-        <Text style={styles.cardService} numberOfLines={1}>{item.service}</Text>
-        <Text style={styles.cardMeta}>{item.entries.length} entrada(s)</Text>
-        {item.entries.length > 0 && (
-          <Text style={styles.dateRange}>{getDateRangeText(item.entries)}</Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderReportCard = (item: Report) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push(`/supervisor/edit-report?id=${item.id}`)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.topRow}>
-        <View style={styles.badgeRow}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.os_number}</Text>
-          </View>
-          <View style={[styles.typeBadge, { backgroundColor: getReportTypeColor(item.report_type) + '15' }]}>
-            <Ionicons name={item.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(item.report_type)} />
-            <Text style={[styles.typeBadgeText, { color: getReportTypeColor(item.report_type) }]}>{getReportTypeLabel(item.report_type)}</Text>
-          </View>
-        </View>
-        <View style={styles.actions}>
-          <TouchableOpacity onPress={() => handleOpenReportPDF(item)} style={styles.actionBtn}>
-            <Ionicons name="document-text-outline" size={20} color="#1a237e" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDownloadReportPDF(item)} style={styles.actionBtn}>
-            <Ionicons name="download-outline" size={20} color="#1a237e" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDeleteReport(item)} style={styles.actionBtn}>
-            <Ionicons name="trash-outline" size={20} color="#d32f2f" />
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardTitle}>{item.client}</Text>
-        <Text style={styles.cardSubtitle}>{item.location} - {item.service}</Text>
-        <Text style={styles.cardService} numberOfLines={1}>{item.supervisor_name}</Text>
-        <View style={styles.statusRow}>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{getStatusLabel(item.status)}</Text>
-          </View>
-          <Text style={styles.cardMeta}>{formatDate(item.created_at)}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderItem = ({ item }: { item: UnifiedItem }) => {
-    if (item.kind === 'timesheet') return renderTimesheetCard(item.data);
-    return renderReportCard(item.data);
-  };
-
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>TWAS REPAIR</Text>
-            <Text style={styles.subtitle}>Bem-vindo, {user?.name}</Text>
+      <View style={styles.innerContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>TWAS REPAIR</Text>
+              <Text style={styles.subtitle}>Bem-vindo, {user?.name}</Text>
+            </View>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} data-testid="logout-btn">
+              <Ionicons name="log-out-outline" size={24} color="#d32f2f" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={24} color="#d32f2f" />
+
+          <TouchableOpacity style={styles.createButton} onPress={() => setShowCreateModal(true)} data-testid="create-new-btn">
+            <Ionicons name="add-circle" size={24} color="#fff" />
+            <Text style={styles.createButtonText}>Criar Novo</Text>
           </TouchableOpacity>
-        </View>
 
-        {/* Create Button */}
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => setShowCreateModal(true)}
-        >
-          <Ionicons name="add-circle" size={24} color="#fff" />
-          <Text style={styles.createButtonText}>Criar Novo</Text>
-        </TouchableOpacity>
-
-        {/* Unified List */}
-        <View style={styles.section}>
           {loading ? (
             <ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 24 }} />
           ) : unifiedItems.length > 0 ? (
-            <FlatList
-              data={unifiedItems}
-              renderItem={renderItem}
-              keyExtractor={(item) => `${item.kind}-${item.data.id}`}
-              scrollEnabled={false}
-            />
+            unifiedItems.map((item) => {
+              if (item.kind === 'timesheet') {
+                const ts = item.data;
+                return (
+                  <TouchableOpacity key={`ts-${ts.id}`} style={styles.card} onPress={() => router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} activeOpacity={0.7} data-testid={`timesheet-card-${ts.id}`}>
+                    <View style={styles.topRow}>
+                      <View style={styles.badgeRow}>
+                        <View style={styles.badge}><Text style={styles.badgeText}>{ts.os_number}</Text></View>
+                        <View style={[styles.typeBadge, { backgroundColor: '#e8eaf6' }]}>
+                          <Ionicons name="time-outline" size={12} color="#1a237e" />
+                          <Text style={[styles.typeBadgeText, { color: '#1a237e' }]}>Timesheet</Text>
+                        </View>
+                      </View>
+                      <View style={styles.actions}>
+                        <TouchableOpacity onPress={() => handleOpenPDF(ts)} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={() => router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDownloadPDF(ts)} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteTimesheet(ts)} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
+                      </View>
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardTitle}>{ts.client}</Text>
+                      <Text style={styles.cardSubtitle}>{ts.location}</Text>
+                      <Text style={styles.cardService} numberOfLines={1}>{ts.service}</Text>
+                      <Text style={styles.cardMeta}>{ts.entries.length} entrada(s)</Text>
+                      {ts.entries.length > 0 && <Text style={styles.dateRange}>{getDateRangeText(ts.entries)}</Text>}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }
+              const rpt = item.data;
+              return (
+                <TouchableOpacity key={`rpt-${rpt.id}`} style={styles.card} onPress={() => router.push(`/supervisor/edit-report?id=${rpt.id}`)} activeOpacity={0.7} data-testid={`report-card-${rpt.id}`}>
+                  <View style={styles.topRow}>
+                    <View style={styles.badgeRow}>
+                      <View style={styles.badge}><Text style={styles.badgeText}>{rpt.os_number}</Text></View>
+                      <View style={[styles.typeBadge, { backgroundColor: getReportTypeColor(rpt.report_type) + '15' }]}>
+                        <Ionicons name={rpt.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(rpt.report_type)} />
+                        <Text style={[styles.typeBadgeText, { color: getReportTypeColor(rpt.report_type) }]}>{getReportTypeLabel(rpt.report_type)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.actions}>
+                      <TouchableOpacity onPress={() => handleOpenReportPDF(rpt)} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => router.push(`/supervisor/edit-report?id=${rpt.id}`)} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDuplicate(rpt)} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDownloadReportPDF(rpt)} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDeleteReport(rpt)} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.cardTitle}>{rpt.client}</Text>
+                    <Text style={styles.cardSubtitle}>{rpt.location} - {rpt.service}</Text>
+                    <Text style={styles.cardService} numberOfLines={1}>{rpt.supervisor_name}</Text>
+                    <View style={styles.statusRow}>
+                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(rpt.status) + '20' }]}>
+                        <Text style={[styles.statusText, { color: getStatusColor(rpt.status) }]}>{getStatusLabel(rpt.status)}</Text>
+                      </View>
+                      <Text style={styles.cardMeta}>{formatDate(rpt.created_at)}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="folder-open-outline" size={48} color="#ccc" />
               <Text style={styles.emptyText}>Nenhum registro criado ainda</Text>
             </View>
           )}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* Create Modal */}
       <Modal visible={showCreateModal} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowCreateModal(false)}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>O que deseja criar?</Text>
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleCreateOption('timesheet')}
-            >
+            <TouchableOpacity style={styles.modalOption} onPress={() => handleCreateOption('timesheet')} data-testid="create-timesheet-option">
               <Ionicons name="time-outline" size={28} color="#1a237e" />
               <View style={styles.modalOptionText}>
                 <Text style={styles.modalOptionTitle}>Timesheet</Text>
@@ -422,10 +345,7 @@ export default function SupervisorDashboard() {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleCreateOption('service_report')}
-            >
+            <TouchableOpacity style={styles.modalOption} onPress={() => handleCreateOption('service_report')} data-testid="create-service-report-option">
               <Ionicons name="construct-outline" size={28} color="#1565c0" />
               <View style={styles.modalOptionText}>
                 <Text style={styles.modalOptionTitle}>Relatório de Serviço</Text>
@@ -433,10 +353,7 @@ export default function SupervisorDashboard() {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleCreateOption('daily_report')}
-            >
+            <TouchableOpacity style={styles.modalOption} onPress={() => handleCreateOption('daily_report')} data-testid="create-daily-report-option">
               <Ionicons name="calendar-outline" size={28} color="#2e7d32" />
               <View style={styles.modalOptionText}>
                 <Text style={styles.modalOptionTitle}>Relatório Diário</Text>
@@ -444,14 +361,57 @@ export default function SupervisorDashboard() {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => setShowCreateModal(false)}
-            >
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setShowCreateModal(false)}>
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Duplicate Modal */}
+      <Modal visible={showDuplicateModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.duplicateModalContent}>
+            <Text style={styles.modalTitle}>Duplicar Relatório</Text>
+            {duplicatingReport && (
+              <Text style={styles.dupInfo}>
+                Original: {duplicatingReport.os_number} - {duplicatingReport.client}
+              </Text>
+            )}
+            <Text style={styles.dupLabel}>Ordem de Serviço</Text>
+            <View style={styles.pickerContainer}>
+              <Picker selectedValue={dupOsId} onValueChange={setDupOsId} style={styles.picker}>
+                {serviceOrders.map(os => (
+                  <Picker.Item key={os.id} label={`${os.os_number} - ${os.client}`} value={os.id} />
+                ))}
+              </Picker>
+            </View>
+            <Text style={styles.dupLabel}>Período</Text>
+            <View style={styles.dateRow}>
+              <View style={styles.dateField}>
+                <Text style={styles.dateLabel}>Início</Text>
+                <TextInput style={styles.dateInput} value={dupPeriodoInicio} onChangeText={(t) => formatDateInput(t, setDupPeriodoInicio)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+              </View>
+              <View style={styles.dateField}>
+                <Text style={styles.dateLabel}>Fim</Text>
+                <TextInput style={styles.dateInput} value={dupPeriodoFim} onChangeText={(t) => formatDateInput(t, setDupPeriodoFim)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+              </View>
+            </View>
+            <View style={styles.dupActions}>
+              <TouchableOpacity style={styles.dupCancelBtn} onPress={() => setShowDuplicateModal(false)}>
+                <Text style={styles.dupCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.dupConfirmBtn, duplicating && { opacity: 0.6 }]} onPress={confirmDuplicate} disabled={duplicating} data-testid="confirm-duplicate-btn">
+                {duplicating ? <ActivityIndicator color="#fff" size="small" /> : (
+                  <>
+                    <Ionicons name="copy-outline" size={18} color="#fff" />
+                    <Text style={styles.dupConfirmText}>Duplicar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -459,23 +419,23 @@ export default function SupervisorDashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-  scrollContent: { padding: 16 },
+  innerContainer: { flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}) } as any,
+  scrollContent: { padding: 16, paddingBottom: 32 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   title: { fontSize: 28, fontWeight: 'bold', color: '#1a237e' },
   subtitle: { fontSize: 16, color: '#666', marginTop: 4 },
   logoutButton: { padding: 8 },
   createButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, marginBottom: 16 },
   createButtonText: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
-  section: { marginBottom: 24 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.1)', elevation: 2 } as any,
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, ...(Platform.OS === 'web' ? { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } : { elevation: 2 }) } as any,
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
   typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   typeBadgeText: { fontSize: 11, fontWeight: '600' },
-  actions: { flexDirection: 'row', gap: 4 },
-  actionBtn: { padding: 8 },
+  actions: { flexDirection: 'row', gap: 2 },
+  actionBtn: { padding: 6 },
   cardInfo: { paddingLeft: 2 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
@@ -487,6 +447,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '600' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48 },
   emptyText: { fontSize: 14, color: '#999', marginTop: 12 },
+  // Create Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a237e', marginBottom: 20, textAlign: 'center' },
@@ -496,4 +457,19 @@ const styles = StyleSheet.create({
   modalOptionDesc: { fontSize: 12, color: '#666', marginTop: 2 },
   modalCancel: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
   modalCancelText: { fontSize: 16, color: '#999', fontWeight: '500' },
+  // Duplicate Modal
+  duplicateModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 440 },
+  dupInfo: { fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 16 },
+  dupLabel: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8, marginTop: 12 },
+  pickerContainer: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', overflow: 'hidden' },
+  picker: { height: 50 },
+  dateRow: { flexDirection: 'row', gap: 12 },
+  dateField: { flex: 1 },
+  dateLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
+  dateInput: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, textAlign: 'center' },
+  dupActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  dupCancelBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#e0e0e0' },
+  dupCancelText: { fontSize: 16, color: '#666', fontWeight: '500' },
+  dupConfirmBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#1a237e', flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  dupConfirmText: { fontSize: 16, color: '#fff', fontWeight: '600' },
 });

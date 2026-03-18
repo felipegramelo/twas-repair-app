@@ -805,9 +805,9 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     # Border margins (distance from page edge)
     border_margin = 0.7*cm
     
-    # Content margins (inside the border)
-    content_left = border_margin + 0.5*cm
-    content_right = border_margin + 0.5*cm
+    # Content margins (inside the border) - aligned with header/footer
+    content_left = border_margin + 0.8*cm
+    content_right = border_margin + 0.8*cm
     content_top = border_margin + 2.5*cm  # Space for header drawn on canvas
     content_bottom = border_margin + 1.8*cm  # Space for footer drawn on canvas
     
@@ -1489,8 +1489,8 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     buffer = io.BytesIO()
     page_width, page_height = A4
     border_margin = 0.7*cm
-    content_left = border_margin + 0.5*cm
-    content_right = border_margin + 0.5*cm
+    content_left = border_margin + 0.8*cm
+    content_right = border_margin + 0.8*cm
     content_width = page_width - content_left - content_right
     
     # Preload logo

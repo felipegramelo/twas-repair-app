@@ -51,6 +51,15 @@ export interface Timesheet {
 }
 
 // Report types (local API)
+export interface ReportSection {
+  key: string;
+  number: string;
+  title: string;
+  content: string;
+  enabled: boolean;
+  subsections: ReportSection[];
+}
+
 export interface Report {
   id: string;
   report_type: 'daily' | 'service';
@@ -61,8 +70,10 @@ export interface Report {
   service: string;
   supervisor_id: string;
   supervisor_name: string;
-  periodo: string;
+  periodo_inicio: string;
+  periodo_fim: string;
   executado_por: string;
+  sections: ReportSection[];
   status: string;
   created_at: string;
   updated_at: string;

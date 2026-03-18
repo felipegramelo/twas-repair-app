@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Platform, Modal, Switch } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI } from '../../services/api';
+
+interface Section {
+  key: string;
+  number: string;
+  title: string;
+  content: string;
+  enabled: boolean;
+  subsections: Section[];
+}
 
 export default function EditReportScreen() {
   const router = useRouter();
@@ -11,33 +20,25 @@ export default function EditReportScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [report, setReport] = useState<any>(null);
-
-  // Editable fields
-  const [periodo, setPeriodo] = useState('');
+  const [sections, setSections] = useState<Section[]>([]);
+  const [periodoInicio, setPeriodoInicio] = useState('');
+  const [periodoFim, setPeriodoFim] = useState('');
   const [executadoPor, setExecutadoPor] = useState('');
-  const [introduction, setIntroduction] = useState('');
-  const [equipmentDesc, setEquipmentDesc] = useState('');
-  const [objective, setObjective] = useState('');
-  const [serviceDescription, setServiceDescription] = useState('');
-  const [observations, setObservations] = useState('');
+  const [showSectionsModal, setShowSectionsModal] = useState(false);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [addingSectionTitle, setAddingSectionTitle] = useState('');
 
-  useEffect(() => {
-    loadReport();
-  }, []);
+  useEffect(() => { loadReport(); }, []);
 
   const loadReport = async () => {
     try {
       const data = await reportAPI.getById(id!);
       setReport(data);
-      setPeriodo(data.periodo || '');
+      setPeriodoInicio(data.periodo_inicio || '');
+      setPeriodoFim(data.periodo_fim || '');
       setExecutadoPor(data.executado_por || '');
-      setIntroduction(data.introduction || '');
-      setEquipmentDesc(data.equipment_desc || '');
-      setObjective(data.objective || '');
-      setServiceDescription(data.service_description || '');
-      setObservations(data.observations || '');
+      setSections(data.sections || []);
     } catch (error) {
-      console.error('Erro ao carregar relatório:', error);
       Alert.alert('Erro', 'Erro ao carregar relatório');
     } finally {
       setLoading(false);
@@ -48,22 +49,15 @@ export default function EditReportScreen() {
     setSaving(true);
     try {
       await reportAPI.update(id!, {
-        periodo,
+        periodo_inicio: periodoInicio,
+        periodo_fim: periodoFim,
         executado_por: executadoPor,
-        introduction,
-        equipment_desc: equipmentDesc,
-        objective,
-        service_description: serviceDescription,
-        observations,
+        sections,
       });
-      if (Platform.OS === 'web') {
-        window.alert('Relatório salvo com sucesso!');
-      } else {
-        Alert.alert('Sucesso', 'Relatório salvo com sucesso!');
-      }
+      if (Platform.OS === 'web') window.alert('Relatório salvo com sucesso!');
+      else Alert.alert('Sucesso', 'Relatório salvo com sucesso!');
       router.push('/supervisor');
     } catch (error: any) {
-      console.error('Erro ao salvar:', error);
       Alert.alert('Erro', 'Erro ao salvar: ' + (error.message || ''));
     } finally {
       setSaving(false);
@@ -77,25 +71,74 @@ export default function EditReportScreen() {
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
       }
-    } catch (error) {
-      if (Platform.OS === 'web') window.alert('Erro ao gerar PDF');
-    }
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao gerar PDF'); }
+  };
+
+  const toggleSection = (sectionKey: string) => {
+    setSections(prev => prev.map(s => {
+      if (s.key === sectionKey) return { ...s, enabled: !s.enabled };
+      return {
+        ...s,
+        subsections: s.subsections.map(sub => {
+          if (sub.key === sectionKey) return { ...sub, enabled: !sub.enabled };
+          return {
+            ...sub,
+            subsections: (sub.subsections || []).map(ss =>
+              ss.key === sectionKey ? { ...ss, enabled: !ss.enabled } : ss
+            ),
+          };
+        }),
+      };
+    }));
+  };
+
+  const updateSectionContent = (sectionKey: string, content: string) => {
+    setSections(prev => prev.map(s => {
+      if (s.key === sectionKey) return { ...s, content };
+      return {
+        ...s,
+        subsections: s.subsections.map(sub => {
+          if (sub.key === sectionKey) return { ...sub, content };
+          return {
+            ...sub,
+            subsections: (sub.subsections || []).map(ss =>
+              ss.key === sectionKey ? { ...ss, content } : ss
+            ),
+          };
+        }),
+      };
+    }));
+  };
+
+  const addCustomSection = () => {
+    if (!addingSectionTitle.trim()) return;
+    const nextNum = String(sections.length + 1);
+    const newSection: Section = {
+      key: `custom_${Date.now()}`,
+      number: nextNum,
+      title: addingSectionTitle.trim().toUpperCase(),
+      content: '',
+      enabled: true,
+      subsections: [],
+    };
+    setSections(prev => [...prev, newSection]);
+    setAddingSectionTitle('');
+  };
+
+  const formatDateInput = (text: string, setter: (v: string) => void) => {
+    const cleaned = text.replace(/\D/g, '');
+    let formatted = cleaned;
+    if (cleaned.length >= 3 && cleaned.length <= 4) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+    else if (cleaned.length >= 5) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
+    setter(formatted);
   };
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 100 }} />
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 100 }} /></SafeAreaView>;
   }
 
   if (!report) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Text style={{ padding: 20, textAlign: 'center' }}>Relatório não encontrado</Text>
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={styles.container}><Text style={{ padding: 20, textAlign: 'center' }}>Relatório não encontrado</Text></SafeAreaView>;
   }
 
   const isService = report.report_type === 'service';
@@ -103,11 +146,12 @@ export default function EditReportScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#1a237e" />
           </TouchableOpacity>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
             {isService ? 'Editar Rel. Serviço' : 'Editar Rel. Diário'}
           </Text>
           <TouchableOpacity onPress={handleOpenPDF} style={styles.pdfButton}>
@@ -115,7 +159,7 @@ export default function EditReportScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Report Info (read-only) */}
+        {/* Info Card */}
         <View style={styles.infoCard}>
           <View style={styles.infoBadge}>
             <Text style={styles.infoBadgeText}>{report.os_number}</Text>
@@ -124,97 +168,91 @@ export default function EditReportScreen() {
           <Text style={styles.infoLocation}>{report.location} - {report.service}</Text>
         </View>
 
-        {/* Editable Fields */}
+        {/* Período */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informações Gerais</Text>
-
-          <Text style={styles.label}>Período</Text>
-          <TextInput
-            style={styles.input}
-            value={periodo}
-            onChangeText={setPeriodo}
-            placeholder="Ex: 10/01 a 15/01/2026"
-          />
-
-          <Text style={styles.label}>Executado Por</Text>
-          <TextInput
-            style={styles.input}
-            value={executadoPor}
-            onChangeText={setExecutadoPor}
-            placeholder="Ex: TWAS REPAIR"
-          />
+          <Text style={styles.sectionTitle}>Período e Informações</Text>
+          <View style={styles.dateRow}>
+            <View style={styles.dateField}>
+              <Text style={styles.dateLabel}>Data Início</Text>
+              <TextInput style={styles.dateInput} value={periodoInicio} onChangeText={(t) => formatDateInput(t, setPeriodoInicio)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+            </View>
+            <View style={styles.dateField}>
+              <Text style={styles.dateLabel}>Data Fim</Text>
+              <TextInput style={styles.dateInput} value={periodoFim} onChangeText={(t) => formatDateInput(t, setPeriodoFim)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+            </View>
+          </View>
+          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Executado Por</Text>
+          <TextInput style={styles.input} value={executadoPor} onChangeText={setExecutadoPor} placeholder="Ex: TWAS REPAIR" />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Introdução</Text>
-          <TextInput
-            style={styles.textarea}
-            value={introduction}
-            onChangeText={setIntroduction}
-            placeholder="Descreva a introdução do relatório..."
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
+        {/* Sections Management Button */}
+        <TouchableOpacity style={styles.manageSectionsBtn} onPress={() => setShowSectionsModal(true)}>
+          <Ionicons name="settings-outline" size={20} color="#1a237e" />
+          <Text style={styles.manageSectionsBtnText}>Gerenciar Seções</Text>
+          <Ionicons name="chevron-forward" size={18} color="#999" />
+        </TouchableOpacity>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Equipamentos</Text>
-          <TextInput
-            style={styles.textarea}
-            value={equipmentDesc}
-            onChangeText={setEquipmentDesc}
-            placeholder="Descreva os equipamentos utilizados..."
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
+        {/* Enabled Sections */}
+        {sections.filter(s => s.enabled).map(sec => (
+          <View key={sec.key} style={styles.section}>
+            <TouchableOpacity onPress={() => setEditingSection(editingSection === sec.key ? null : sec.key)}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionNumber}>{sec.number}.</Text>
+                <Text style={styles.sectionTitle}>{sec.title}</Text>
+                <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
+              </View>
+            </TouchableOpacity>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Objetivo</Text>
-          <TextInput
-            style={styles.textarea}
-            value={objective}
-            onChangeText={setObjective}
-            placeholder="Descreva o objetivo do serviço..."
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
+            {editingSection === sec.key && (
+              <View style={styles.sectionContent}>
+                {/* Main section doesn't need text for section 4 (service description) */}
+                {sec.key !== 'service_description' && sec.key !== 'daily_activities' && (
+                  <TextInput
+                    style={styles.textarea}
+                    value={sec.content}
+                    onChangeText={(t) => updateSectionContent(sec.key, t)}
+                    placeholder={`Texto para ${sec.title}...`}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {isService ? '4. Descrição dos Serviços' : '4. Descrição das Atividades'}
-          </Text>
-          <TextInput
-            style={[styles.textarea, { minHeight: 150 }]}
-            value={serviceDescription}
-            onChangeText={setServiceDescription}
-            placeholder={isService ? "Descreva os serviços realizados..." : "Descreva as atividades diárias..."}
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
+                {/* Subsections */}
+                {sec.subsections.filter(sub => sub.enabled).map(sub => (
+                  <View key={sub.key} style={styles.subsectionBlock}>
+                    <Text style={styles.subsectionTitle}>{sub.number}. {sub.title}</Text>
+                    <TextInput
+                      style={styles.textarea}
+                      value={sub.content}
+                      onChangeText={(t) => updateSectionContent(sub.key, t)}
+                      placeholder={`Texto para ${sub.title}...`}
+                      multiline
+                      textAlignVertical="top"
+                    />
+                    {/* Sub-subsections */}
+                    {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => (
+                      <View key={ss.key} style={styles.subsubBlock}>
+                        <Text style={styles.subsubTitle}>{ss.number}. {ss.title}</Text>
+                        <TextInput
+                          style={styles.textarea}
+                          value={ss.content}
+                          onChangeText={(t) => updateSectionContent(ss.key, t)}
+                          placeholder={`Texto para ${ss.title}...`}
+                          multiline
+                          textAlignVertical="top"
+                        />
+                      </View>
+                    ))}
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        ))}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>5. Observações</Text>
-          <TextInput
-            style={styles.textarea}
-            value={observations}
-            onChangeText={setObservations}
-            placeholder="Adicione observações relevantes..."
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
+        {/* Save Button */}
+        <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : (
             <>
               <Ionicons name="save" size={22} color="#fff" />
               <Text style={styles.saveButtonText}>Salvar Relatório</Text>
@@ -222,6 +260,53 @@ export default function EditReportScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Sections Management Modal */}
+      <Modal visible={showSectionsModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Gerenciar Seções</Text>
+            <Text style={styles.modalSubtitle}>Ative ou desative as seções do relatório</Text>
+
+            <ScrollView style={styles.modalScroll}>
+              {sections.map(sec => (
+                <View key={sec.key}>
+                  <View style={styles.toggleRow}>
+                    <Switch value={sec.enabled} onValueChange={() => toggleSection(sec.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={sec.enabled ? '#1a237e' : '#999'} />
+                    <Text style={[styles.toggleText, !sec.enabled && styles.toggleTextDisabled]}>{sec.number}. {sec.title}</Text>
+                  </View>
+                  {sec.enabled && sec.subsections.map(sub => (
+                    <View key={sub.key}>
+                      <View style={[styles.toggleRow, { paddingLeft: 32 }]}>
+                        <Switch value={sub.enabled} onValueChange={() => toggleSection(sub.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={sub.enabled ? '#1a237e' : '#999'} />
+                        <Text style={[styles.toggleText, styles.toggleSubText, !sub.enabled && styles.toggleTextDisabled]}>{sub.number}. {sub.title}</Text>
+                      </View>
+                      {sub.enabled && (sub.subsections || []).map((ss: Section) => (
+                        <View key={ss.key} style={[styles.toggleRow, { paddingLeft: 56 }]}>
+                          <Switch value={ss.enabled} onValueChange={() => toggleSection(ss.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={ss.enabled ? '#1a237e' : '#999'} />
+                          <Text style={[styles.toggleText, styles.toggleSubSubText, !ss.enabled && styles.toggleTextDisabled]}>{ss.number}. {ss.title}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              ))}
+
+              {/* Add Custom Section */}
+              <View style={styles.addSectionRow}>
+                <TextInput style={styles.addSectionInput} value={addingSectionTitle} onChangeText={setAddingSectionTitle} placeholder="Nova seção personalizada..." />
+                <TouchableOpacity style={styles.addSectionBtn} onPress={addCustomSection}>
+                  <Ionicons name="add-circle" size={28} color="#1a237e" />
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowSectionsModal(false)}>
+              <Text style={styles.modalCloseBtnText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -231,19 +316,48 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
   backButton: { padding: 8 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#1a237e', flex: 1 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a237e', flex: 1 },
   pdfButton: { padding: 8 },
-  infoCard: { backgroundColor: '#e3f2fd', borderRadius: 12, padding: 16, marginBottom: 16 },
+  infoCard: { backgroundColor: '#e3f2fd', borderRadius: 12, padding: 16, marginBottom: 12 },
   infoBadge: { backgroundColor: '#1a237e', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6, marginBottom: 8 },
   infoBadgeText: { color: '#fff', fontWeight: '600', fontSize: 12 },
   infoClient: { fontSize: 16, fontWeight: '600', color: '#1a237e' },
   infoLocation: { fontSize: 13, color: '#555', marginTop: 4 },
-  section: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a237e', marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 8 },
+  section: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionNumber: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1a237e', flex: 1 },
+  sectionContent: { marginTop: 12 },
+  subsectionBlock: { marginTop: 12, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#e3f2fd' },
+  subsectionTitle: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
+  subsubBlock: { marginTop: 8, paddingLeft: 12 },
+  subsubTitle: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 4 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 },
   input: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, color: '#333' },
-  textarea: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, color: '#333', minHeight: 100 },
+  textarea: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 80 },
+  dateRow: { flexDirection: 'row', gap: 12 },
+  dateField: { flex: 1 },
+  dateLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
+  dateInput: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, textAlign: 'center' },
+  manageSectionsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, gap: 8 },
+  manageSectionsBtnText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a237e' },
   saveButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8, marginBottom: 32 },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a237e', textAlign: 'center' },
+  modalSubtitle: { fontSize: 13, color: '#666', textAlign: 'center', marginTop: 4, marginBottom: 16 },
+  modalScroll: { maxHeight: 400 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 12 },
+  toggleText: { fontSize: 14, fontWeight: '600', color: '#333', flex: 1 },
+  toggleSubText: { fontSize: 13, fontWeight: '500' },
+  toggleSubSubText: { fontSize: 12, fontWeight: '400' },
+  toggleTextDisabled: { color: '#aaa', textDecorationLine: 'line-through' },
+  addSectionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 8 },
+  addSectionInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 10, fontSize: 14 },
+  addSectionBtn: { padding: 4 },
+  modalCloseBtn: { backgroundColor: '#1a237e', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  modalCloseBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,47 +16,56 @@ export default function CreateReportScreen() {
 
   const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
   const [selectedOS, setSelectedOS] = useState('');
+  const [periodoInicio, setPeriodoInicio] = useState('');
+  const [periodoFim, setPeriodoFim] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       const osData = await serviceOrderAPI.getAll();
       setServiceOrders(osData);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      Alert.alert('Erro', 'Erro ao carregar dados. Verifique sua conexão.');
+      Alert.alert('Erro', 'Erro ao carregar dados.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreate = async () => {
-    if (!selectedOS) {
-      Alert.alert('Erro', 'Selecione uma Ordem de Serviço');
-      return;
-    }
+    if (!selectedOS) { Alert.alert('Erro', 'Selecione uma Ordem de Serviço'); return; }
+    if (!periodoInicio || !periodoFim) { Alert.alert('Erro', 'Selecione o período (data início e fim)'); return; }
 
     setCreating(true);
     try {
       await reportAPI.create({
         report_type: reportType,
         os_id: selectedOS,
-        periodo: '',
+        periodo_inicio: periodoInicio,
+        periodo_fim: periodoFim,
         executado_por: user?.name || '',
       });
       Alert.alert('Sucesso', `${reportType === 'service' ? 'Relatório de Serviço' : 'Relatório Diário'} criado com sucesso!`);
-      router.back();
+      router.push('/supervisor');
     } catch (error: any) {
-      console.error('Erro ao criar relatório:', error);
       Alert.alert('Erro', 'Erro ao criar relatório: ' + (error.response?.data?.detail || error.message || ''));
     } finally {
       setCreating(false);
     }
+  };
+
+  // Format date input as DD/MM/YYYY
+  const formatDateInput = (text: string, setter: (v: string) => void) => {
+    const cleaned = text.replace(/\D/g, '');
+    let formatted = cleaned;
+    if (cleaned.length >= 3 && cleaned.length <= 4) {
+      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+    } else if (cleaned.length >= 5) {
+      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
+    }
+    setter(formatted);
   };
 
   if (loading) {
@@ -82,18 +91,10 @@ export default function CreateReportScreen() {
         <View style={styles.formSection}>
           <Text style={styles.label}>Ordem de Serviço *</Text>
           <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={selectedOS}
-              onValueChange={setSelectedOS}
-              style={styles.picker}
-            >
+            <Picker selectedValue={selectedOS} onValueChange={setSelectedOS} style={styles.picker}>
               <Picker.Item label="Selecione uma O.S..." value="" />
               {serviceOrders.map(os => (
-                <Picker.Item
-                  key={os.id}
-                  label={`${os.os_number} - ${os.client} - ${os.service}`}
-                  value={os.id}
-                />
+                <Picker.Item key={os.id} label={`${os.os_number} - ${os.client} - ${os.service}`} value={os.id} />
               ))}
             </Picker>
           </View>
@@ -110,6 +111,32 @@ export default function CreateReportScreen() {
             );
           })()}
 
+          <Text style={[styles.label, { marginTop: 20 }]}>Período *</Text>
+          <View style={styles.dateRow}>
+            <View style={styles.dateField}>
+              <Text style={styles.dateLabel}>Data Início</Text>
+              <TextInput
+                style={styles.dateInput}
+                value={periodoInicio}
+                onChangeText={(t) => formatDateInput(t, setPeriodoInicio)}
+                placeholder="DD/MM/AAAA"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+            <View style={styles.dateField}>
+              <Text style={styles.dateLabel}>Data Fim</Text>
+              <TextInput
+                style={styles.dateInput}
+                value={periodoFim}
+                onChangeText={(t) => formatDateInput(t, setPeriodoFim)}
+                placeholder="DD/MM/AAAA"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+          </View>
+
           <Text style={[styles.label, { marginTop: 20 }]}>Supervisor</Text>
           <View style={styles.supervisorInfo}>
             <Ionicons name="person-circle-outline" size={24} color="#1a237e" />
@@ -118,25 +145,15 @@ export default function CreateReportScreen() {
 
           <Text style={[styles.label, { marginTop: 20 }]}>Tipo de Relatório</Text>
           <View style={styles.typeIndicator}>
-            <Ionicons
-              name={reportType === 'service' ? 'construct-outline' : 'calendar-outline'}
-              size={20}
-              color={reportType === 'service' ? '#1565c0' : '#2e7d32'}
-            />
+            <Ionicons name={reportType === 'service' ? 'construct-outline' : 'calendar-outline'} size={20} color={reportType === 'service' ? '#1565c0' : '#2e7d32'} />
             <Text style={[styles.typeText, { color: reportType === 'service' ? '#1565c0' : '#2e7d32' }]}>
               {reportType === 'service' ? 'Relatório de Serviço' : 'Relatório Diário'}
             </Text>
           </View>
         </View>
 
-        <TouchableOpacity
-          style={[styles.createButton, creating && styles.createButtonDisabled]}
-          onPress={handleCreate}
-          disabled={creating}
-        >
-          {creating ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
+        <TouchableOpacity style={[styles.createButton, creating && styles.createButtonDisabled]} onPress={handleCreate} disabled={creating}>
+          {creating ? <ActivityIndicator color="#fff" /> : (
             <>
               <Ionicons name="checkmark-circle" size={24} color="#fff" />
               <Text style={styles.createButtonText}>Criar Relatório</Text>
@@ -161,6 +178,10 @@ const styles = StyleSheet.create({
   infoCard: { backgroundColor: '#e3f2fd', borderRadius: 8, padding: 12, marginTop: 12 },
   infoLabel: { fontSize: 13, color: '#666', marginBottom: 4 },
   infoValue: { fontWeight: '600', color: '#1a237e' },
+  dateRow: { flexDirection: 'row', gap: 12 },
+  dateField: { flex: 1 },
+  dateLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
+  dateInput: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, textAlign: 'center' },
   supervisorInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   supervisorName: { fontSize: 15, fontWeight: '500', color: '#333' },
   typeIndicator: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },

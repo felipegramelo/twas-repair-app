@@ -194,18 +194,25 @@ class TimesheetCreate(BaseModel):
 class ReportCreate(BaseModel):
     report_type: str  # "service" or "daily"
     os_id: str
-    periodo: Optional[str] = ""
+    periodo_inicio: Optional[str] = ""
+    periodo_fim: Optional[str] = ""
     executado_por: Optional[str] = ""
 
 
+class ReportSectionData(BaseModel):
+    key: str
+    number: str
+    title: str
+    content: Optional[str] = ""
+    enabled: bool = True
+    subsections: Optional[List[dict]] = []
+
+
 class ReportUpdate(BaseModel):
-    periodo: Optional[str] = None
+    periodo_inicio: Optional[str] = None
+    periodo_fim: Optional[str] = None
     executado_por: Optional[str] = None
-    introduction: Optional[str] = None
-    equipment_desc: Optional[str] = None
-    objective: Optional[str] = None
-    service_description: Optional[str] = None
-    observations: Optional[str] = None
+    sections: Optional[List[dict]] = None
     status: Optional[str] = None
 
 
@@ -1109,6 +1116,43 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
 
 # ==================== REPORT ENDPOINTS ====================
 
+def get_default_service_sections():
+    return [
+        {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": "", "enabled": True, "subsections": []},
+        {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": "", "enabled": True, "subsections": []},
+        {"key": "objective", "number": "3", "title": "OBJETIVO", "content": "", "enabled": True, "subsections": []},
+        {"key": "service_description", "number": "4", "title": "DESCRIÇÃO DOS SERVIÇOS", "content": "", "enabled": True, "subsections": [
+            {"key": "disassembly", "number": "4.1", "title": "DESMONTAGEM", "content": "", "enabled": True, "subsections": [
+                {"key": "disassembly_photos", "number": "4.1.1", "title": "FOTOS", "content": "", "enabled": True}
+            ]},
+            {"key": "assembly", "number": "4.2", "title": "MONTAGEM", "content": "", "enabled": True, "subsections": [
+                {"key": "assembly_photos", "number": "4.2.1", "title": "FOTOS", "content": "", "enabled": True}
+            ]},
+        ]},
+        {"key": "ndt", "number": "5", "title": "RELATÓRIO DE ENSAIO NÃO DESTRUTIVO", "content": "", "enabled": False, "subsections": [
+            {"key": "propeller_shaft", "number": "5.1", "title": "PROPELLER SHAFT", "content": "", "enabled": True},
+            {"key": "pinion_shaft", "number": "5.2", "title": "PINION SHAFT", "content": "", "enabled": True},
+            {"key": "input_shaft", "number": "5.3", "title": "INPUT SHAFT", "content": "", "enabled": True},
+            {"key": "coupling", "number": "5.4", "title": "COUPLING", "content": "", "enabled": True},
+            {"key": "swivel_pinion", "number": "5.5", "title": "SWIVEL PINION SHAFT", "content": "", "enabled": True},
+            {"key": "propeller", "number": "5.6", "title": "PROPELLER", "content": "", "enabled": True},
+            {"key": "reduction_gear", "number": "5.7", "title": "REDUCTION GEAR", "content": "", "enabled": True},
+        ]},
+        {"key": "pressure_test", "number": "6", "title": "TESTE DE PRESSÃO", "content": "", "enabled": False, "subsections": []},
+        {"key": "certificates", "number": "7", "title": "CERTIFICADOS", "content": "", "enabled": False, "subsections": []},
+        {"key": "client_eval", "number": "8", "title": "AVALIAÇÃO DO CLIENTE", "content": "", "enabled": False, "subsections": []},
+    ]
+
+def get_default_daily_sections():
+    return [
+        {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": "", "enabled": True, "subsections": []},
+        {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": "", "enabled": True, "subsections": []},
+        {"key": "objective", "number": "3", "title": "OBJETIVO", "content": "", "enabled": True, "subsections": []},
+        {"key": "daily_activities", "number": "4", "title": "DESCRIÇÃO DAS ATIVIDADES DIÁRIAS", "content": "", "enabled": True, "subsections": []},
+        {"key": "observations", "number": "5", "title": "OBSERVAÇÕES", "content": "", "enabled": True, "subsections": []},
+    ]
+
+
 @api_router.post("/reports")
 async def create_report(report: ReportCreate, user: dict = Depends(get_current_user)):
     os_data = await db.service_orders.find_one({"_id": ObjectId(report.os_id)})
@@ -1116,6 +1160,7 @@ async def create_report(report: ReportCreate, user: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="Ordem de Serviço não encontrada")
     
     now = datetime.utcnow()
+    default_sections = get_default_service_sections() if report.report_type == "service" else get_default_daily_sections()
     report_doc = {
         "report_type": report.report_type,
         "os_id": report.os_id,
@@ -1125,13 +1170,10 @@ async def create_report(report: ReportCreate, user: dict = Depends(get_current_u
         "service": os_data["service"],
         "supervisor_id": str(user["_id"]),
         "supervisor_name": user["name"],
-        "periodo": report.periodo or "",
+        "periodo_inicio": report.periodo_inicio or "",
+        "periodo_fim": report.periodo_fim or "",
         "executado_por": report.executado_por or user["name"],
-        "introduction": "",
-        "equipment_desc": "",
-        "objective": "",
-        "service_description": "",
-        "observations": "",
+        "sections": default_sections,
         "status": "draft",
         "created_at": now,
         "updated_at": now,
@@ -1160,13 +1202,10 @@ async def get_reports(user: dict = Depends(get_current_user)):
             "service": doc.get("service", ""),
             "supervisor_id": doc.get("supervisor_id", ""),
             "supervisor_name": doc.get("supervisor_name", ""),
-            "periodo": doc.get("periodo", ""),
+            "periodo_inicio": doc.get("periodo_inicio", doc.get("periodo", "")),
+            "periodo_fim": doc.get("periodo_fim", ""),
             "executado_por": doc.get("executado_por", ""),
-            "introduction": doc.get("introduction", ""),
-            "equipment_desc": doc.get("equipment_desc", ""),
-            "objective": doc.get("objective", ""),
-            "service_description": doc.get("service_description", ""),
-            "observations": doc.get("observations", ""),
+            "sections": doc.get("sections", []),
             "status": doc.get("status", "draft"),
             "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
             "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
@@ -1188,13 +1227,10 @@ async def get_report_by_id(report_id: str, user: dict = Depends(get_current_user
         "service": doc.get("service", ""),
         "supervisor_id": doc.get("supervisor_id", ""),
         "supervisor_name": doc.get("supervisor_name", ""),
-        "periodo": doc.get("periodo", ""),
+        "periodo_inicio": doc.get("periodo_inicio", doc.get("periodo", "")),
+        "periodo_fim": doc.get("periodo_fim", ""),
         "executado_por": doc.get("executado_por", ""),
-        "introduction": doc.get("introduction", ""),
-        "equipment_desc": doc.get("equipment_desc", ""),
-        "objective": doc.get("objective", ""),
-        "service_description": doc.get("service_description", ""),
-        "observations": doc.get("observations", ""),
+        "sections": doc.get("sections", []),
         "status": doc.get("status", "draft"),
         "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
         "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
@@ -1207,7 +1243,7 @@ async def update_report(report_id: str, update: ReportUpdate, user: dict = Depen
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     
     update_data = {}
-    for field in ["periodo", "executado_por", "introduction", "equipment_desc", "objective", "service_description", "observations", "status"]:
+    for field in ["periodo_inicio", "periodo_fim", "executado_por", "sections", "status"]:
         value = getattr(update, field, None)
         if value is not None:
             update_data[field] = value
@@ -1230,66 +1266,127 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=3.2*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
-    width, height = A4
-    styles = getSampleStyleSheet()
+    page_width, page_height = A4
+    border_margin = 0.7*cm
+    content_left = border_margin + 0.5*cm
+    content_right = border_margin + 0.5*cm
+    content_width = page_width - content_left - content_right
     
-    # Custom styles
-    title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a237e'), alignment=TA_CENTER, spaceAfter=6)
-    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a237e'), spaceBefore=12, spaceAfter=6, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4)
-    small_style = ParagraphStyle('Small', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666666'))
-    label_style = ParagraphStyle('Label', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), fontName='Helvetica-Bold')
-    value_style = ParagraphStyle('Value', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
-    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.HexColor('#333333'))
+    # Preload logo
+    logo_path = ROOT_DIR / "../logo.bmp"
+    logo_image = None
+    if logo_path.exists():
+        try:
+            pil_img = PILImage.open(logo_path)
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            temp_logo = io.BytesIO()
+            pil_img.save(temp_logo, format='JPEG')
+            temp_logo.seek(0)
+            logo_image = temp_logo
+        except Exception as e:
+            logging.error(f"Error loading logo: {e}")
     
     is_service = report.get("report_type") == "service"
     report_title = "RELATÓRIO TÉCNICO" if is_service else "RELATÓRIO DIÁRIO"
+    periodo_inicio = report.get("periodo_inicio", "")
+    periodo_fim = report.get("periodo_fim", "")
+    periodo_str = f"{periodo_inicio} a {periodo_fim}" if periodo_inicio and periodo_fim else periodo_inicio or periodo_fim or ""
     
-    def draw_header_footer(canvas, doc_obj):
-        canvas.saveState()
-        # Full page border
-        canvas.setStrokeColor(colors.HexColor('#1a237e'))
-        canvas.setLineWidth(1.5)
-        canvas.rect(1*cm, 1*cm, width - 2*cm, height - 2*cm)
+    from datetime import datetime as dt
+    current_date = dt.now().strftime("%d/%m/%Y")
+    
+    page_counter = [0]
+    
+    def draw_report_page(canvas_obj, doc_obj, page_num):
+        canvas_obj.saveState()
         
-        # Header box
-        hdr_y = height - 3*cm
-        canvas.setFillColor(colors.HexColor('#1a237e'))
-        canvas.rect(1*cm, hdr_y, width - 2*cm, 2*cm, fill=1)
+        # === PAGE BORDER ===
+        canvas_obj.setStrokeColor(colors.black)
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(border_margin, border_margin, page_width - 2*border_margin, page_height - 2*border_margin)
         
-        # Header text
-        canvas.setFillColor(colors.white)
-        canvas.setFont('Helvetica-Bold', 14)
-        canvas.drawString(1.5*cm, hdr_y + 1.2*cm, "TWAS REPAIR")
-        canvas.setFont('Helvetica', 8)
-        canvas.drawString(1.5*cm, hdr_y + 0.5*cm, "Serviços Navais e Industriais LTDA")
+        # === HEADER BOX ===
+        header_top = page_height - border_margin - 0.4*cm
+        header_height = 1.8*cm
+        header_bottom = header_top - header_height
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(content_left, header_bottom, page_width - content_left - content_right, header_height)
         
-        # Report type on right
-        canvas.setFont('Helvetica-Bold', 12)
-        canvas.drawRightString(width - 1.5*cm, hdr_y + 1.2*cm, report_title)
-        canvas.setFont('Helvetica', 8)
-        canvas.drawRightString(width - 1.5*cm, hdr_y + 0.5*cm, f"OS: {report.get('os_number', '')}")
+        # Logo
+        if logo_image:
+            logo_image.seek(0)
+            from reportlab.lib.utils import ImageReader
+            img_reader = ImageReader(logo_image)
+            canvas_obj.drawImage(img_reader, content_left + 0.2*cm, header_bottom + 0.1*cm, width=3.8*cm, height=1.6*cm, preserveAspectRatio=True)
         
-        # Footer box
-        ftr_y = 1*cm
-        canvas.setFillColor(colors.HexColor('#1a237e'))
-        canvas.rect(1*cm, ftr_y, width - 2*cm, 1.5*cm, fill=1)
+        # Title
+        canvas_obj.setFont("Helvetica-Bold", 12)
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.0*cm, report_title)
+        canvas_obj.setFont("Helvetica-Bold", 10)
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.35*cm, f"OS: {report.get('os_number', '')}")
         
-        canvas.setFillColor(colors.white)
-        canvas.setFont('Helvetica', 6)
-        canvas.drawCentredString(width/2, ftr_y + 1.0*cm, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA")
-        canvas.drawCentredString(width/2, ftr_y + 0.6*cm, "Travessa Frederico Marques, N 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24.466-180.")
-        canvas.drawCentredString(width/2, ftr_y + 0.3*cm, "twas@twasrepair.com - www.twasrepair.com")
-        canvas.setFont('Helvetica-Bold', 7)
-        canvas.drawCentredString(width/2, ftr_y + 0.05*cm, "TOGETHER WE ARE STRONGER")
+        # Right side details
+        right_x = page_width - content_right - 0.2*cm
+        detail_y = header_top - 0.35*cm
+        canvas_obj.setFont("Helvetica-Bold", 6.5)
+        canvas_obj.drawRightString(right_x, detail_y, f"Cliente: {report.get('client', '')}")
+        detail_y -= 0.35*cm
+        canvas_obj.drawRightString(right_x, detail_y, f"Embarcação: {report.get('location', '')}")
+        detail_y -= 0.35*cm
+        canvas_obj.drawRightString(right_x, detail_y, f"OS: {report.get('os_number', '')}")
+        detail_y -= 0.35*cm
+        canvas_obj.setFont("Helvetica", 6.5)
+        canvas_obj.drawRightString(right_x, detail_y, f"{current_date}  |  Rev.: 0")
         
-        # Page number
-        canvas.setFont('Helvetica', 7)
-        canvas.setFillColor(colors.white)
-        canvas.drawRightString(width - 1.5*cm, ftr_y + 0.05*cm, f"{doc_obj.page}")
+        # === FOOTER BOX ===
+        footer_bottom = border_margin + 0.4*cm
+        footer_height = 1.4*cm
+        footer_top = footer_bottom + footer_height
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(content_left, footer_bottom, page_width - content_left - content_right, footer_height)
         
-        canvas.restoreState()
+        center_x = page_width / 2
+        y = footer_top - 0.25*cm
+        canvas_obj.setFont("Helvetica-Bold", 5.5)
+        canvas_obj.drawCentredString(center_x, y, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA - CNPJ: 31.839.501/0001-90")
+        y -= 0.25*cm
+        canvas_obj.setFont("Helvetica", 5.5)
+        canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N\u00b0 84, Boa Vista, S\u00e3o Gon\u00e7alo, Rio de Janeiro - CEP.: 24.466-180")
+        y -= 0.22*cm
+        canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com  |  www.twasrepair.com")
+        y -= 0.25*cm
+        canvas_obj.setFont("Helvetica-BoldOblique", 6)
+        canvas_obj.drawCentredString(center_x, y, "TOGETHER WE ARE STRONGER")
+        y -= 0.2*cm
+        canvas_obj.setFont("Helvetica", 5.5)
+        canvas_obj.drawCentredString(center_x, y, f"P\u00e1gina {page_num}")
+        
+        canvas_obj.restoreState()
+    
+    def on_first_page(c, d):
+        page_counter[0] = 1
+        draw_report_page(c, d, 1)
+    
+    def on_later_pages(c, d):
+        page_counter[0] += 1
+        draw_report_page(c, d, page_counter[0])
+    
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        topMargin=border_margin + 2.5*cm,
+        bottomMargin=border_margin + 1.8*cm,
+        leftMargin=content_left,
+        rightMargin=content_right,
+    )
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1a237e'), alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
+    section_style = ParagraphStyle('RSec', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a237e'), spaceBefore=14, spaceAfter=6, fontName='Helvetica-Bold')
+    subsec_style = ParagraphStyle('RSubSec', parent=styles['Heading3'], fontSize=11, spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4)
+    label_style = ParagraphStyle('RLabel', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), fontName='Helvetica-Bold')
+    value_style = ParagraphStyle('RValue', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
     
     elements = []
     
@@ -1301,22 +1398,22 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     # Info table
     info_data = [
         [Paragraph("<b>CLIENTE:</b>", label_style), Paragraph(report.get("client", ""), value_style)],
-        [Paragraph("<b>LOCAL / EMBARCAÇÃO:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
+        [Paragraph("<b>EMBARCAÇÃO / LOCAL:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
         [Paragraph("<b>ORDEM DE SERVIÇO:</b>", label_style), Paragraph(report.get("os_number", ""), value_style)],
         [Paragraph("<b>SERVIÇO:</b>", label_style), Paragraph(report.get("service", ""), value_style)],
         [Paragraph("<b>EXECUTADO POR:</b>", label_style), Paragraph(report.get("executado_por", report.get("supervisor_name", "")), value_style)],
-        [Paragraph("<b>LOCAL:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
-        [Paragraph("<b>PERÍODO:</b>", label_style), Paragraph(report.get("periodo", ""), value_style)],
+        [Paragraph("<b>PERÍODO:</b>", label_style), Paragraph(periodo_str, value_style)],
         [Paragraph("<b>SUPERVISOR:</b>", label_style), Paragraph(report.get("supervisor_name", ""), value_style)],
     ]
-    
-    info_table = Table(info_data, colWidths=[5*cm, 12*cm])
+    info_table = Table(info_data, colWidths=[5*cm, content_width - 5*cm])
     info_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f5f5f5')),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f0f0f0')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cccccc')),
     ]))
     elements.append(info_table)
     
@@ -1325,98 +1422,58 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     elements.append(Paragraph("SUMÁRIO", title_style))
     elements.append(Spacer(1, 0.5*cm))
     
-    if is_service:
-        toc_items = [
-            "1. INTRODUÇÃO",
-            "2. EQUIPAMENTOS",
-            "3. OBJETIVO",
-            "4. DESCRIÇÃO DOS SERVIÇOS",
-            "    4.1. DESMONTAGEM",
-            "        4.1.1. FOTOS",
-            "    4.2. MONTAGEM",
-            "        4.2.1. FOTOS",
-            "5. RELATÓRIO DE ENSAIO NÃO DESTRUTIVO",
-            "    5.1. CERTIFICADOS",
-        ]
-    else:
-        toc_items = [
-            "1. INTRODUÇÃO",
-            "2. EQUIPAMENTOS",
-            "3. OBJETIVO",
-            "4. DESCRIÇÃO DAS ATIVIDADES DIÁRIAS",
-            "5. OBSERVAÇÕES",
-        ]
+    sections = report.get("sections", [])
     
-    for item in toc_items:
-        elements.append(Paragraph(item, body_style))
+    def build_toc_entries(sec_list, result=None):
+        if result is None:
+            result = []
+        for sec in sec_list:
+            if sec.get("enabled", True):
+                indent = "    " * (len(sec["number"].split(".")) - 1)
+                result.append(f"{indent}{sec['number']}. {sec['title']}")
+                for sub in sec.get("subsections", []):
+                    if sub.get("enabled", True):
+                        sub_indent = "    " * len(sub["number"].split("."))
+                        result.append(f"{sub_indent}{sub['number']}. {sub['title']}")
+                        for subsub in sub.get("subsections", []):
+                            if subsub.get("enabled", True):
+                                ss_indent = "    " * len(subsub["number"].split("."))
+                                result.append(f"{ss_indent}{subsub['number']}. {subsub['title']}")
+        return result
+    
+    toc_entries = build_toc_entries(sections)
+    for entry in toc_entries:
+        elements.append(Paragraph(entry, body_style))
     
     # ===== CONTENT PAGES =====
     elements.append(PageBreak())
     
-    # Use editable content or fall back to defaults
-    intro_text = report.get("introduction", "")
-    if not intro_text:
-        intro_text = (f"Este relatório descreve os serviços realizados pela TWAS REPAIR na embarcação/local "
-            f"<b>{report.get('location', '')}</b> para o cliente <b>{report.get('client', '')}</b>, "
-            f"conforme Ordem de Serviço <b>{report.get('os_number', '')}</b>.")
+    def render_section(sec, elements_list):
+        if not sec.get("enabled", True):
+            return
+        level = len(sec["number"].split("."))
+        style = section_style if level == 1 else subsec_style
+        elements_list.append(Paragraph(f"{sec['number']}. {sec['title']}", style))
+        content = sec.get("content", "")
+        if content:
+            elements_list.append(Paragraph(content, body_style))
+        for sub in sec.get("subsections", []):
+            if sub.get("enabled", True):
+                sub_level = len(sub["number"].split("."))
+                sub_style = subsec_style
+                elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", sub_style))
+                sub_content = sub.get("content", "")
+                if sub_content:
+                    elements_list.append(Paragraph(sub_content, body_style))
+                for subsub in sub.get("subsections", []):
+                    if subsub.get("enabled", True):
+                        elements_list.append(Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style))
+                        ss_content = subsub.get("content", "")
+                        if ss_content:
+                            elements_list.append(Paragraph(ss_content, body_style))
     
-    equip_text = report.get("equipment_desc", "")
-    if not equip_text:
-        equip_text = f"Serviço: <b>{report.get('service', '')}</b>"
-    
-    obj_text = report.get("objective", "")
-    if not obj_text:
-        if is_service:
-            obj_text = (f"Realizar o serviço de <b>{report.get('service', '')}</b> conforme especificações técnicas "
-                f"e procedimentos internos da TWAS REPAIR.")
-        else:
-            obj_text = f"Registrar as atividades diárias realizadas durante o serviço de <b>{report.get('service', '')}</b>."
-    
-    svc_text = report.get("service_description", "")
-    obs_text = report.get("observations", "")
-    
-    elements.append(Paragraph("1. INTRODUÇÃO", section_style))
-    elements.append(Paragraph(intro_text, body_style))
-    elements.append(Spacer(1, 0.3*cm))
-    
-    elements.append(Paragraph("2. EQUIPAMENTOS", section_style))
-    elements.append(Paragraph(equip_text, body_style))
-    elements.append(Spacer(1, 0.3*cm))
-    
-    elements.append(Paragraph("3. OBJETIVO", section_style))
-    elements.append(Paragraph(obj_text, body_style))
-    elements.append(Spacer(1, 0.3*cm))
-    
-    if is_service:
-        elements.append(Paragraph("4. DESCRIÇÃO DOS SERVIÇOS", section_style))
-        if svc_text:
-            elements.append(Paragraph(svc_text, body_style))
-        else:
-            elements.append(Paragraph("4.1. DESMONTAGEM", ParagraphStyle('Sub', parent=body_style, fontSize=11, fontName='Helvetica-Bold', spaceBefore=8)))
-            elements.append(Paragraph("- Remoção do equipamento", body_style))
-            elements.append(Paragraph("- Inspeção visual", body_style))
-            elements.append(Spacer(1, 0.2*cm))
-            elements.append(Paragraph("4.2. MONTAGEM", ParagraphStyle('Sub2', parent=body_style, fontSize=11, fontName='Helvetica-Bold', spaceBefore=8)))
-            elements.append(Paragraph("- Montagem do equipamento", body_style))
-            elements.append(Paragraph("- Testes funcionais", body_style))
-        elements.append(Spacer(1, 0.3*cm))
-        elements.append(Paragraph("5. RELATÓRIO DE ENSAIO NÃO DESTRUTIVO", section_style))
-        if obs_text:
-            elements.append(Paragraph(obs_text, body_style))
-        else:
-            elements.append(Paragraph("Verificar certificados e ensaios aplicáveis.", body_style))
-    else:
-        elements.append(Paragraph("4. DESCRIÇÃO DAS ATIVIDADES DIÁRIAS", section_style))
-        if svc_text:
-            elements.append(Paragraph(svc_text, body_style))
-        else:
-            elements.append(Paragraph("Registrar as atividades realizadas no dia.", body_style))
-        elements.append(Spacer(1, 0.3*cm))
-        elements.append(Paragraph("5. OBSERVAÇÕES", section_style))
-        if obs_text:
-            elements.append(Paragraph(obs_text, body_style))
-        else:
-            elements.append(Paragraph("Adicionar observações relevantes.", body_style))
+    for sec in sections:
+        render_section(sec, elements)
     
     # Signature section
     elements.append(Spacer(1, 2*cm))
@@ -1429,7 +1486,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     sig_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
     elements.append(sig_table)
     
-    doc.build(elements, onFirstPage=draw_header_footer, onLaterPages=draw_header_footer)
+    doc.build(elements, onFirstPage=on_first_page, onLaterPages=on_later_pages)
     buffer.seek(0)
     
     return StreamingResponse(

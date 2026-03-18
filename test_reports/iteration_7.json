@@ -35,7 +35,7 @@
   "seed_data_creation": "None - used existing data from external API",
   "retest_needed": false,
   "main_agent_can_self_test": true,
-  "context_for_next_testing_agent": "All unified app features working correctly. External report API at https://service-report-hub-6.preview.emergentagent.com/api is live and returns 3 reports (2 daily, 1 service) for OS 2506-37. The ensureReportAuth() function in AuthContext handles re-authentication with stored credentials. Tab navigation in supervisor dashboard uses text-based selectors since data-testid may not work reliably in Expo Web.",
+  "context_for_next_testing_agent": "All unified app features working correctly. External report API at https://report-hub-local.preview.emergentagent.com/api is live and returns 3 reports (2 daily, 1 service) for OS 2506-37. The ensureReportAuth() function in AuthContext handles re-authentication with stored credentials. Tab navigation in supervisor dashboard uses text-based selectors since data-testid may not work reliably in Expo Web.",
   "tested_features": {
     "login_twas_repair_title": {
       "status": "PASSED",

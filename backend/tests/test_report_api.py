@@ -7,7 +7,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://twas-repair-unified.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://report-hub-local.preview.emergentagent.com')
 
 # Test credentials
 SUPERVISOR_EMAIL = "supervisor@twasrepair.com"
@@ -165,7 +165,7 @@ class TestReportCRUD:
         assert delete_response.status_code == 200
         
     def test_update_report_and_verify(self, supervisor_token):
-        """Test updating a report with editable fields"""
+        """Test updating a report with editable fields (sections-based API)"""
         headers = {"Authorization": f"Bearer {supervisor_token}"}
         
         # Get a service order ID
@@ -181,22 +181,26 @@ class TestReportCRUD:
         create_response = requests.post(f"{BASE_URL}/api/reports", json={
             "report_type": "daily",
             "os_id": os_id,
-            "periodo": "TEST_Initial",
+            "periodo_inicio": "01/01/2026",
+            "periodo_fim": "05/01/2026",
             "executado_por": "TEST_Initial_User"
         }, headers=headers)
         
         assert create_response.status_code == 200
         report_id = create_response.json()["id"]
         
-        # Update with editable fields
+        # Update with new period and sections content
         update_payload = {
-            "periodo": "TEST_Updated Period",
+            "periodo_inicio": "10/01/2026",
+            "periodo_fim": "15/01/2026",
             "executado_por": "TEST_Updated_User",
-            "introduction": "TEST_Introduction text",
-            "equipment_desc": "TEST_Equipment description",
-            "objective": "TEST_Objective text",
-            "service_description": "TEST_Service description",
-            "observations": "TEST_Observations"
+            "sections": [
+                {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": "TEST_Introduction text", "enabled": True, "subsections": []},
+                {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": "TEST_Equipment text", "enabled": True, "subsections": []},
+                {"key": "objective", "number": "3", "title": "OBJETIVO", "content": "TEST_Objective text", "enabled": True, "subsections": []},
+                {"key": "daily_activities", "number": "4", "title": "DESCRIÇÃO DAS ATIVIDADES DIÁRIAS", "content": "TEST_Activities", "enabled": True, "subsections": []},
+                {"key": "observations", "number": "5", "title": "OBSERVAÇÕES", "content": "TEST_Observations", "enabled": True, "subsections": []},
+            ]
         }
         
         update_response = requests.put(f"{BASE_URL}/api/reports/{report_id}", json=update_payload, headers=headers)
@@ -207,13 +211,15 @@ class TestReportCRUD:
         assert get_response.status_code == 200
         updated_report = get_response.json()
         
-        assert updated_report["periodo"] == "TEST_Updated Period"
+        assert updated_report["periodo_inicio"] == "10/01/2026"
+        assert updated_report["periodo_fim"] == "15/01/2026"
         assert updated_report["executado_por"] == "TEST_Updated_User"
-        assert updated_report["introduction"] == "TEST_Introduction text"
-        assert updated_report["equipment_desc"] == "TEST_Equipment description"
-        assert updated_report["objective"] == "TEST_Objective text"
-        assert updated_report["service_description"] == "TEST_Service description"
-        assert updated_report["observations"] == "TEST_Observations"
+        # Verify sections were updated
+        sections = updated_report.get("sections", [])
+        assert len(sections) >= 5
+        intro_section = next((s for s in sections if s["key"] == "introduction"), None)
+        assert intro_section is not None
+        assert intro_section["content"] == "TEST_Introduction text"
         
         # Cleanup
         requests.delete(f"{BASE_URL}/api/reports/{report_id}", headers=headers)

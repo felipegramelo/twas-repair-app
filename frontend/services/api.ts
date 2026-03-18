@@ -171,7 +171,7 @@ export const reportAPI = {
     const response = await api.get(`/reports/${id}`);
     return response.data;
   },
-  create: async (data: { report_type: string; os_id: string; periodo?: string; executado_por?: string }) => {
+  create: async (data: { report_type: string; os_id: string; periodo_inicio?: string; periodo_fim?: string; executado_por?: string }) => {
     const response = await api.post('/reports', data);
     return response.data;
   },

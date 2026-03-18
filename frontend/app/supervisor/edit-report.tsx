@@ -61,7 +61,7 @@ export default function EditReportScreen() {
       } else {
         Alert.alert('Sucesso', 'Relatório salvo com sucesso!');
       }
-      router.back();
+      router.push('/supervisor');
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
       Alert.alert('Erro', 'Erro ao salvar: ' + (error.message || ''));

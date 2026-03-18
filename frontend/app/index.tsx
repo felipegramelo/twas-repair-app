@@ -64,7 +64,6 @@ export default function LoginScreen() {
         <View style={styles.logoContainer}>
           <Ionicons name="time" size={64} color="#1a237e" />
           <Text style={styles.title}>TWAS REPAIR</Text>
-          <Text style={styles.subtitle}>TIMESHEET</Text>
         </View>
 
         <View style={styles.form}>

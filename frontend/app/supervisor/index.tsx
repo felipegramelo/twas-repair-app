@@ -274,10 +274,10 @@ export default function SupervisorDashboard() {
                         </View>
                       </View>
                       <View style={styles.actions}>
-                        <TouchableOpacity onPress={() => handleOpenPDF(ts)} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                        <TouchableOpacity onPress={() => router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDownloadPDF(ts)} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDeleteTimesheet(ts)} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenPDF(ts); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-timesheet?id=${ts.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadPDF(ts); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteTimesheet(ts); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
                       </View>
                     </View>
                     <View style={styles.cardInfo}>
@@ -302,11 +302,11 @@ export default function SupervisorDashboard() {
                       </View>
                     </View>
                     <View style={styles.actions}>
-                      <TouchableOpacity onPress={() => handleOpenReportPDF(rpt)} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => router.push(`/supervisor/edit-report?id=${rpt.id}`)} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDuplicate(rpt)} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDownloadReportPDF(rpt)} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDeleteReport(rpt)} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-report?id=${rpt.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteReport(rpt); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
                     </View>
                   </View>
                   <View style={styles.cardInfo}>

@@ -24,7 +24,7 @@ except ImportError:
     import PyPDF2
 
 # API Configuration  
-API_BASE_URL = "https://timesheet-tracker-58.preview.emergentagent.com/api"
+API_BASE_URL = "https://twas-repair-unified.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@twasrepair.com"
 ADMIN_PASSWORD = "admin123"
 SUPERVISOR_EMAIL = "supervisor@twasrepair.com"

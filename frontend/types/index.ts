@@ -49,3 +49,45 @@ export interface Timesheet {
   created_at: string;
   updated_at: string;
 }
+
+// Report types (external API)
+export interface ReportSection {
+  id: string;
+  section_type: string;
+  order: number;
+  data: Record<string, any>;
+  photos: any[];
+  created_at: string;
+}
+
+export interface Report {
+  id: string;
+  service_order_id: string;
+  service_order_number: string;
+  client: string;
+  vessel: string;
+  equipment: string;
+  supervisor_id: string;
+  supervisor_name: string;
+  status: string;
+  report_type: 'daily' | 'service';
+  sections: ReportSection[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExternalServiceOrder {
+  id: string;
+  order_number: string;
+  client: string;
+  vessel: string;
+  equipment: string;
+  status: string;
+}
+
+export interface ExternalSupervisor {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}

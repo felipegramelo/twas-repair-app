@@ -19,10 +19,10 @@ export default function AdminDashboard() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Painel Administrativo</Text>
+            <Text style={styles.title}>TWAS REPAIR</Text>
             <Text style={styles.subtitle}>Bem-vindo, {user?.name}</Text>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} data-testid="admin-logout-btn">
             <Ionicons name="log-out-outline" size={24} color="#d32f2f" />
           </TouchableOpacity>
         </View>
@@ -31,6 +31,7 @@ export default function AdminDashboard() {
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push('/admin/supervisors')}
+            data-testid="admin-supervisors-card"
           >
             <Ionicons name="person-circle" size={40} color="#1a237e" />
             <Text style={styles.cardTitle}>Supervisores</Text>
@@ -40,6 +41,7 @@ export default function AdminDashboard() {
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push('/admin/employees')}
+            data-testid="admin-employees-card"
           >
             <Ionicons name="people" size={40} color="#1a237e" />
             <Text style={styles.cardTitle}>Funcionários</Text>
@@ -49,6 +51,7 @@ export default function AdminDashboard() {
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push('/admin/service-orders')}
+            data-testid="admin-service-orders-card"
           >
             <Ionicons name="document-text" size={40} color="#1a237e" />
             <Text style={styles.cardTitle}>Ordens de Serviço</Text>
@@ -58,10 +61,31 @@ export default function AdminDashboard() {
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push('/admin/timesheets')}
+            data-testid="admin-timesheets-card"
           >
             <Ionicons name="time" size={40} color="#1a237e" />
             <Text style={styles.cardTitle}>Timesheets</Text>
             <Text style={styles.cardDescription}>Ver todos os timesheets</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push('/admin/service-reports')}
+            data-testid="admin-service-reports-card"
+          >
+            <Ionicons name="construct" size={40} color="#1a237e" />
+            <Text style={styles.cardTitle}>Relatórios de Serviço</Text>
+            <Text style={styles.cardDescription}>Ver relatórios técnicos</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push('/admin/daily-reports')}
+            data-testid="admin-daily-reports-card"
+          >
+            <Ionicons name="calendar" size={40} color="#1a237e" />
+            <Text style={styles.cardTitle}>Relatórios Diários</Text>
+            <Text style={styles.cardDescription}>Ver relatórios diários</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -90,35 +114,13 @@ export default function AdminDashboard() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  scrollContent: {
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a237e',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 4,
-  },
-  logoutButton: {
-    padding: 8,
-  },
-  cardsContainer: {
-    gap: 16,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  scrollContent: { padding: 16 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#1a237e' },
+  subtitle: { fontSize: 16, color: '#666', marginTop: 4 },
+  logoutButton: { padding: 8 },
+  cardsContainer: { gap: 16 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -130,15 +132,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1a237e',
-    marginTop: 12,
-  },
-  cardDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
+  cardTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginTop: 12 },
+  cardDescription: { fontSize: 14, color: '#666', marginTop: 4 },
 });

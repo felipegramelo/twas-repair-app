@@ -2,7 +2,7 @@
 
 ## 📋 Pré-requisitos
 
-- Acesso à URL: https://timesheet-tracker-58.preview.emergentagent.com
+- Acesso à URL: https://twas-repair-unified.preview.emergentagent.com
 - Credenciais fornecidas abaixo
 
 ## 🔐 Credenciais de Teste
@@ -20,7 +20,7 @@
 ## ✅ TESTE 1: Login e Autenticação
 
 ### 1.1 Testar Login de Administrador
-1. Acesse: https://timesheet-tracker-58.preview.emergentagent.com
+1. Acesse: https://twas-repair-unified.preview.emergentagent.com
 2. Preencha:
    - Email: `admin@twasrepair.com`
    - Senha: `admin123`

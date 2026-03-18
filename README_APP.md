@@ -111,8 +111,8 @@ O PDF é gerado automaticamente com:
 
 ## 🌐 URLs
 
-- **Frontend:** https://timesheet-tracker-58.preview.emergentagent.com
-- **Backend API:** https://timesheet-tracker-58.preview.emergentagent.com/api
+- **Frontend:** https://twas-repair-unified.preview.emergentagent.com
+- **Backend API:** https://twas-repair-unified.preview.emergentagent.com/api
 
 ## 📱 Acesso Mobile
 

@@ -4,8 +4,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { timesheetAPI } from '../../services/api';
-import { reportsAPI } from '../../services/reportsApi';
+import { timesheetAPI, reportAPI } from '../../services/api';
 import { Timesheet, Report } from '../../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -34,7 +33,7 @@ type UnifiedItem =
   | { kind: 'report'; data: Report };
 
 export default function SupervisorDashboard() {
-  const { user, signOut, ensureReportAuth } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
@@ -54,8 +53,7 @@ export default function SupervisorDashboard() {
       console.error('Erro ao carregar timesheets:', error);
     }
     try {
-      await ensureReportAuth();
-      const allReports = await reportsAPI.getAll();
+      const allReports = await reportAPI.getAll();
       setReports(allReports);
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
@@ -145,7 +143,7 @@ export default function SupervisorDashboard() {
   const handleOpenReportPDF = async (report: Report) => {
     try {
       if (Platform.OS === 'web') {
-        const blob = await reportsAPI.downloadPDF(report.id);
+        const blob = await reportAPI.downloadPDF(report.id);
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
       } else {
@@ -161,11 +159,11 @@ export default function SupervisorDashboard() {
   const handleDownloadReportPDF = async (report: Report) => {
     try {
       if (Platform.OS === 'web') {
-        const blob = await reportsAPI.downloadPDF(report.id);
+        const blob = await reportAPI.downloadPDF(report.id);
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `relatorio_${report.service_order_number}_${report.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        link.download = `relatorio_${report.os_number}_${report.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -207,11 +205,11 @@ export default function SupervisorDashboard() {
   const handleDeleteReport = (report: Report) => {
     const label = report.report_type === 'service' ? 'relatório de serviço' : 'relatório diário';
     if (Platform.OS === 'web') {
-      if (window.confirm(`Excluir ${label} ${report.service_order_number} - ${report.client}?`)) {
+      if (window.confirm(`Excluir ${label} ${report.os_number} - ${report.client}?`)) {
         deleteReport(report);
       }
     } else {
-      Alert.alert('Confirmar Exclusão', `Excluir ${label} ${report.service_order_number} - ${report.client}?`, [
+      Alert.alert('Confirmar Exclusão', `Excluir ${label} ${report.os_number} - ${report.client}?`, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Excluir', style: 'destructive', onPress: () => deleteReport(report) },
       ]);
@@ -220,7 +218,7 @@ export default function SupervisorDashboard() {
 
   const deleteReport = async (report: Report) => {
     try {
-      await reportsAPI.delete(report.id);
+      await reportAPI.delete(report.id);
       setReports(prev => prev.filter(r => r.id !== report.id));
       Alert.alert('Sucesso', 'Relatório excluído com sucesso!');
     } catch (error) {
@@ -324,7 +322,7 @@ export default function SupervisorDashboard() {
       <View style={styles.topRow}>
         <View style={styles.badgeRow}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.service_order_number}</Text>
+            <Text style={styles.badgeText}>{item.os_number}</Text>
           </View>
           <View style={[styles.typeBadge, { backgroundColor: getReportTypeColor(item.report_type) + '15' }]}>
             <Ionicons name={item.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(item.report_type)} />
@@ -345,7 +343,7 @@ export default function SupervisorDashboard() {
       </View>
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle}>{item.client}</Text>
-        <Text style={styles.cardSubtitle}>{item.vessel} - {item.equipment}</Text>
+        <Text style={styles.cardSubtitle}>{item.location} - {item.service}</Text>
         <Text style={styles.cardService} numberOfLines={1}>{item.supervisor_name}</Text>
         <View style={styles.statusRow}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>

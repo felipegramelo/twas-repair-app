@@ -11,6 +11,7 @@ from passlib.context import CryptContext
 import jwt
 import os
 import logging
+import httpx
 from pathlib import Path
 from bson import ObjectId
 from reportlab.lib.pagesizes import A4
@@ -186,6 +187,32 @@ class TimesheetCreate(BaseModel):
     entries: List[TimesheetEntry]
     observations: Optional[str] = ""
     supervisor_function: Optional[str] = "Supervisor"
+
+
+# ==================== REPORT MODELS ====================
+
+class ReportCreate(BaseModel):
+    report_type: str  # "service" or "daily"
+    os_id: str
+    periodo: Optional[str] = ""
+    executado_por: Optional[str] = ""
+
+
+class ReportResponse(BaseModel):
+    id: str
+    report_type: str
+    os_id: str
+    os_number: str
+    client: str
+    location: str
+    service: str
+    supervisor_id: str
+    supervisor_name: str
+    periodo: str
+    executado_por: str
+    status: str
+    created_at: str
+    updated_at: str
 
 
 # ==================== AUTH FUNCTIONS ====================
@@ -1065,6 +1092,263 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
+        }
+    )
+
+
+# ==================== REPORT ENDPOINTS ====================
+
+@api_router.post("/reports")
+async def create_report(report: ReportCreate, user: dict = Depends(get_current_user)):
+    os_data = await db.service_orders.find_one({"_id": ObjectId(report.os_id)})
+    if not os_data:
+        raise HTTPException(status_code=404, detail="Ordem de Serviço não encontrada")
+    
+    now = datetime.utcnow()
+    report_doc = {
+        "report_type": report.report_type,
+        "os_id": report.os_id,
+        "os_number": os_data["os_number"],
+        "client": os_data["client"],
+        "location": os_data["location"],
+        "service": os_data["service"],
+        "supervisor_id": str(user["_id"]),
+        "supervisor_name": user["name"],
+        "periodo": report.periodo or "",
+        "executado_por": report.executado_por or user["name"],
+        "status": "draft",
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = await db.reports.insert_one(report_doc)
+    return {
+        "id": str(result.inserted_id),
+        "report_type": report_doc["report_type"],
+        "os_number": report_doc["os_number"],
+        "client": report_doc["client"],
+        "status": "draft",
+    }
+
+@api_router.get("/reports")
+async def get_reports(user: dict = Depends(get_current_user)):
+    reports = []
+    cursor = db.reports.find().sort("created_at", -1)
+    async for doc in cursor:
+        reports.append({
+            "id": str(doc["_id"]),
+            "report_type": doc.get("report_type", "service"),
+            "os_id": doc.get("os_id", ""),
+            "os_number": doc.get("os_number", ""),
+            "client": doc.get("client", ""),
+            "location": doc.get("location", ""),
+            "service": doc.get("service", ""),
+            "supervisor_id": doc.get("supervisor_id", ""),
+            "supervisor_name": doc.get("supervisor_name", ""),
+            "periodo": doc.get("periodo", ""),
+            "executado_por": doc.get("executado_por", ""),
+            "status": doc.get("status", "draft"),
+            "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
+            "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
+        })
+    return {"reports": reports}
+
+@api_router.delete("/reports/{report_id}")
+async def delete_report(report_id: str, user: dict = Depends(get_current_user)):
+    result = await db.reports.delete_one({"_id": ObjectId(report_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    return {"success": True}
+
+@api_router.get("/reports/{report_id}/pdf")
+async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_user)):
+    report = await db.reports.find_one({"_id": ObjectId(report_id)})
+    if not report:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=3.2*cm, bottomMargin=2.5*cm, leftMargin=1.5*cm, rightMargin=1.5*cm)
+    width, height = A4
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a237e'), alignment=TA_CENTER, spaceAfter=6)
+    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a237e'), spaceBefore=12, spaceAfter=6, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4)
+    small_style = ParagraphStyle('Small', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666666'))
+    label_style = ParagraphStyle('Label', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), fontName='Helvetica-Bold')
+    value_style = ParagraphStyle('Value', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.HexColor('#333333'))
+    
+    is_service = report.get("report_type") == "service"
+    report_title = "RELATÓRIO TÉCNICO" if is_service else "RELATÓRIO DIÁRIO"
+    
+    def draw_header_footer(canvas, doc_obj):
+        canvas.saveState()
+        # Full page border
+        canvas.setStrokeColor(colors.HexColor('#1a237e'))
+        canvas.setLineWidth(1.5)
+        canvas.rect(1*cm, 1*cm, width - 2*cm, height - 2*cm)
+        
+        # Header box
+        hdr_y = height - 3*cm
+        canvas.setFillColor(colors.HexColor('#1a237e'))
+        canvas.rect(1*cm, hdr_y, width - 2*cm, 2*cm, fill=1)
+        
+        # Header text
+        canvas.setFillColor(colors.white)
+        canvas.setFont('Helvetica-Bold', 14)
+        canvas.drawString(1.5*cm, hdr_y + 1.2*cm, "TWAS REPAIR")
+        canvas.setFont('Helvetica', 8)
+        canvas.drawString(1.5*cm, hdr_y + 0.5*cm, "Serviços Navais e Industriais LTDA")
+        
+        # Report type on right
+        canvas.setFont('Helvetica-Bold', 12)
+        canvas.drawRightString(width - 1.5*cm, hdr_y + 1.2*cm, report_title)
+        canvas.setFont('Helvetica', 8)
+        canvas.drawRightString(width - 1.5*cm, hdr_y + 0.5*cm, f"OS: {report.get('os_number', '')}")
+        
+        # Footer box
+        ftr_y = 1*cm
+        canvas.setFillColor(colors.HexColor('#1a237e'))
+        canvas.rect(1*cm, ftr_y, width - 2*cm, 1.5*cm, fill=1)
+        
+        canvas.setFillColor(colors.white)
+        canvas.setFont('Helvetica', 6)
+        canvas.drawCentredString(width/2, ftr_y + 1.0*cm, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA")
+        canvas.drawCentredString(width/2, ftr_y + 0.6*cm, "Travessa Frederico Marques, N 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24.466-180.")
+        canvas.drawCentredString(width/2, ftr_y + 0.3*cm, "twas@twasrepair.com - www.twasrepair.com")
+        canvas.setFont('Helvetica-Bold', 7)
+        canvas.drawCentredString(width/2, ftr_y + 0.05*cm, "TOGETHER WE ARE STRONGER")
+        
+        # Page number
+        canvas.setFont('Helvetica', 7)
+        canvas.setFillColor(colors.white)
+        canvas.drawRightString(width - 1.5*cm, ftr_y + 0.05*cm, f"{doc_obj.page}")
+        
+        canvas.restoreState()
+    
+    elements = []
+    
+    # ===== COVER PAGE =====
+    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Paragraph(report_title, title_style))
+    elements.append(Spacer(1, 1*cm))
+    
+    # Info table
+    info_data = [
+        [Paragraph("<b>CLIENTE:</b>", label_style), Paragraph(report.get("client", ""), value_style)],
+        [Paragraph("<b>LOCAL / EMBARCAÇÃO:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
+        [Paragraph("<b>ORDEM DE SERVIÇO:</b>", label_style), Paragraph(report.get("os_number", ""), value_style)],
+        [Paragraph("<b>SERVIÇO:</b>", label_style), Paragraph(report.get("service", ""), value_style)],
+        [Paragraph("<b>EXECUTADO POR:</b>", label_style), Paragraph(report.get("executado_por", report.get("supervisor_name", "")), value_style)],
+        [Paragraph("<b>LOCAL:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
+        [Paragraph("<b>PERÍODO:</b>", label_style), Paragraph(report.get("periodo", ""), value_style)],
+        [Paragraph("<b>SUPERVISOR:</b>", label_style), Paragraph(report.get("supervisor_name", ""), value_style)],
+    ]
+    
+    info_table = Table(info_data, colWidths=[5*cm, 12*cm])
+    info_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f5f5f5')),
+    ]))
+    elements.append(info_table)
+    
+    # ===== SUMÁRIO PAGE =====
+    elements.append(PageBreak())
+    elements.append(Paragraph("SUMÁRIO", title_style))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    if is_service:
+        toc_items = [
+            "1. INTRODUÇÃO",
+            "2. EQUIPAMENTOS",
+            "3. OBJETIVO",
+            "4. DESCRIÇÃO DOS SERVIÇOS",
+            "    4.1. DESMONTAGEM",
+            "        4.1.1. FOTOS",
+            "    4.2. MONTAGEM",
+            "        4.2.1. FOTOS",
+            "5. RELATÓRIO DE ENSAIO NÃO DESTRUTIVO",
+            "    5.1. CERTIFICADOS",
+        ]
+    else:
+        toc_items = [
+            "1. INTRODUÇÃO",
+            "2. EQUIPAMENTOS",
+            "3. OBJETIVO",
+            "4. DESCRIÇÃO DAS ATIVIDADES DIÁRIAS",
+            "5. OBSERVAÇÕES",
+        ]
+    
+    for item in toc_items:
+        elements.append(Paragraph(item, body_style))
+    
+    # ===== CONTENT PAGES =====
+    elements.append(PageBreak())
+    
+    elements.append(Paragraph("1. INTRODUÇÃO", section_style))
+    elements.append(Paragraph(
+        f"Este relatório descreve os serviços realizados pela TWAS REPAIR na embarcação/local "
+        f"<b>{report.get('location', '')}</b> para o cliente <b>{report.get('client', '')}</b>, "
+        f"conforme Ordem de Serviço <b>{report.get('os_number', '')}</b>.", body_style))
+    elements.append(Spacer(1, 0.3*cm))
+    
+    elements.append(Paragraph("2. EQUIPAMENTOS", section_style))
+    elements.append(Paragraph(f"Serviço: <b>{report.get('service', '')}</b>", body_style))
+    elements.append(Spacer(1, 0.3*cm))
+    
+    elements.append(Paragraph("3. OBJETIVO", section_style))
+    if is_service:
+        elements.append(Paragraph(
+            f"Realizar o serviço de <b>{report.get('service', '')}</b> conforme especificações técnicas "
+            f"e procedimentos internos da TWAS REPAIR.", body_style))
+    else:
+        elements.append(Paragraph(
+            f"Registrar as atividades diárias realizadas durante o serviço de <b>{report.get('service', '')}</b>.", body_style))
+    elements.append(Spacer(1, 0.3*cm))
+    
+    if is_service:
+        elements.append(Paragraph("4. DESCRIÇÃO DOS SERVIÇOS", section_style))
+        elements.append(Paragraph("4.1. DESMONTAGEM", ParagraphStyle('Sub', parent=body_style, fontSize=11, fontName='Helvetica-Bold', spaceBefore=8)))
+        elements.append(Paragraph("- Remoção do equipamento", body_style))
+        elements.append(Paragraph("- Inspeção visual", body_style))
+        elements.append(Spacer(1, 0.2*cm))
+        elements.append(Paragraph("4.2. MONTAGEM", ParagraphStyle('Sub2', parent=body_style, fontSize=11, fontName='Helvetica-Bold', spaceBefore=8)))
+        elements.append(Paragraph("- Montagem do equipamento", body_style))
+        elements.append(Paragraph("- Testes funcionais", body_style))
+        elements.append(Spacer(1, 0.3*cm))
+        elements.append(Paragraph("5. RELATÓRIO DE ENSAIO NÃO DESTRUTIVO", section_style))
+        elements.append(Paragraph("Verificar certificados e ensaios aplicáveis.", body_style))
+    else:
+        elements.append(Paragraph("4. DESCRIÇÃO DAS ATIVIDADES DIÁRIAS", section_style))
+        elements.append(Paragraph("Registrar as atividades realizadas no dia.", body_style))
+        elements.append(Spacer(1, 0.3*cm))
+        elements.append(Paragraph("5. OBSERVAÇÕES", section_style))
+        elements.append(Paragraph("Adicionar observações relevantes.", body_style))
+    
+    # Signature section
+    elements.append(Spacer(1, 2*cm))
+    sig_data = [
+        [Paragraph("_" * 40, ParagraphStyle('SigLine', alignment=TA_CENTER, fontSize=10))],
+        [Paragraph(report.get("supervisor_name", ""), ParagraphStyle('SigName', alignment=TA_CENTER, fontSize=10, fontName='Helvetica-Bold'))],
+        [Paragraph("Supervisor", ParagraphStyle('SigRole', alignment=TA_CENTER, fontSize=9, textColor=colors.gray))],
+    ]
+    sig_table = Table(sig_data, colWidths=[8*cm])
+    sig_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+    elements.append(sig_table)
+    
+    doc.build(elements, onFirstPage=draw_header_footer, onLaterPages=draw_header_footer)
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=relatorio_{report.get('os_number', 'report')}.pdf",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
         }
     )
 

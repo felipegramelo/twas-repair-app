@@ -160,3 +160,26 @@ export const timesheetAPI = {
 };
 
 export default api;
+
+// Report API (local backend)
+export const reportAPI = {
+  getAll: async () => {
+    const response = await api.get('/reports');
+    return response.data.reports || [];
+  },
+  create: async (data: { report_type: string; os_id: string; periodo?: string; executado_por?: string }) => {
+    const response = await api.post('/reports', data);
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/reports/${id}`);
+    return response.data;
+  },
+  downloadPDF: async (id: string): Promise<Blob> => {
+    const response = await api.get(`/reports/${id}/pdf?t=${Date.now()}`, {
+      responseType: 'blob',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    return response.data;
+  },
+};

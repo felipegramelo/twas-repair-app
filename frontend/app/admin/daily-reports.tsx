@@ -3,64 +3,65 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList, Alert, 
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../contexts/AuthContext';
-import { reportsAPI } from '../../services/reportsApi';
-import { Report } from '../../types';
+import { reportAPI } from '../../services/api';
+
+interface ReportItem {
+  id: string;
+  report_type: string;
+  os_number: string;
+  client: string;
+  location: string;
+  service: string;
+  supervisor_name: string;
+  status: string;
+  created_at: string;
+}
 
 export default function DailyReportsScreen() {
   const router = useRouter();
-  const { ensureReportAuth } = useAuth();
-  const [reports, setReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadReports();
-  }, []);
+  useEffect(() => { loadReports(); }, []);
 
   const loadReports = async () => {
     try {
-      await ensureReportAuth();
-      const all = await reportsAPI.getAll();
-      setReports(all.filter(r => r.report_type === 'daily'));
+      const all = await reportAPI.getAll();
+      setReports(all.filter((r: ReportItem) => r.report_type === 'daily'));
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
-      Alert.alert('Erro', 'Erro ao carregar relatórios diários');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenPDF = async (report: Report) => {
+  const handleOpenPDF = async (report: ReportItem) => {
     try {
       if (Platform.OS === 'web') {
-        const blob = await reportsAPI.downloadPDF(report.id);
+        const blob = await reportAPI.downloadPDF(report.id);
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
-      } else {
-        Alert.alert('Info', 'PDF disponível apenas na versão web.');
-      }
+      } else { Alert.alert('Info', 'PDF disponível apenas na versão web.'); }
     } catch (error) {
-      if (Platform.OS === 'web') window.alert('Erro ao abrir PDF do relatório');
+      if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
       else Alert.alert('Erro', 'Erro ao abrir PDF');
     }
   };
 
-  const handleDownloadPDF = async (report: Report) => {
+  const handleDownloadPDF = async (report: ReportItem) => {
     try {
       if (Platform.OS === 'web') {
-        const blob = await reportsAPI.downloadPDF(report.id);
+        const blob = await reportAPI.downloadPDF(report.id);
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `relatorio_diario_${report.service_order_number}.pdf`;
+        link.download = `relatorio_diario_${report.os_number}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         window.alert('PDF baixado com sucesso!');
-      } else {
-        Alert.alert('Info', 'Download disponível apenas na versão web.');
-      }
+      } else { Alert.alert('Info', 'Download disponível apenas na versão web.'); }
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');
       else Alert.alert('Erro', 'Erro ao baixar PDF');
@@ -68,44 +69,33 @@ export default function DailyReportsScreen() {
   };
 
   const formatDate = (dateStr: string) => {
-    try { return new Date(dateStr).toLocaleDateString('pt-BR'); }
-    catch { return dateStr; }
+    try { return new Date(dateStr).toLocaleDateString('pt-BR'); } catch { return dateStr; }
   };
 
   const getStatusLabel = (s: string) => {
-    switch (s) { case 'draft': return 'Rascunho'; case 'completed': return 'Concluído'; case 'approved': return 'Aprovado'; default: return s; }
+    switch (s) { case 'draft': return 'Rascunho'; case 'completed': return 'Concluído'; default: return s; }
   };
   const getStatusColor = (s: string) => {
-    switch (s) { case 'draft': return '#ff9800'; case 'completed': return '#4caf50'; case 'approved': return '#2196f3'; default: return '#999'; }
+    switch (s) { case 'draft': return '#ff9800'; case 'completed': return '#4caf50'; default: return '#999'; }
   };
 
-  // Count daily entries in report sections
-  const getDailyEntryCount = (report: Report) => {
-    return report.sections.filter(s => s.section_type.startsWith('daily_entry_')).length;
-  };
-
-  const renderReport = ({ item }: { item: Report }) => (
-    <View style={styles.card} data-testid={`daily-report-card-${item.id}`}>
+  const renderReport = ({ item }: { item: ReportItem }) => (
+    <View style={styles.card}>
       <View style={styles.topRow}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{item.service_order_number}</Text>
-        </View>
+        <View style={styles.badge}><Text style={styles.badgeText}>{item.os_number}</Text></View>
         <View style={styles.actions}>
-          <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionBtn} data-testid={`dr-pdf-${item.id}`}>
+          <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionBtn}>
             <Ionicons name="document-text-outline" size={20} color="#1a237e" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.actionBtn} data-testid={`dr-download-${item.id}`}>
+          <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.actionBtn}>
             <Ionicons name="download-outline" size={20} color="#1a237e" />
           </TouchableOpacity>
         </View>
       </View>
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle}>{item.client}</Text>
-        <Text style={styles.cardSubtitle}>{item.vessel} - {item.equipment}</Text>
+        <Text style={styles.cardSubtitle}>{item.location} - {item.service}</Text>
         <Text style={styles.cardMeta}>{item.supervisor_name}</Text>
-        {getDailyEntryCount(item) > 0 && (
-          <Text style={styles.entryCount}>{getDailyEntryCount(item)} dia(s) registrado(s)</Text>
-        )}
         <View style={styles.statusRow}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
             <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{getStatusLabel(item.status)}</Text>
@@ -120,12 +110,11 @@ export default function DailyReportsScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} data-testid="back-btn">
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#1a237e" />
           </TouchableOpacity>
           <Text style={styles.title}>Relatórios Diários</Text>
         </View>
-
         {loading ? (
           <ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 48 }} />
         ) : reports.length > 0 ? (
@@ -157,7 +146,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
   cardMeta: { fontSize: 13, color: '#444', marginTop: 2, fontStyle: 'italic' },
-  entryCount: { fontSize: 12, color: '#1a237e', marginTop: 4, fontWeight: '500' },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
   statusText: { fontSize: 11, fontWeight: '600' },

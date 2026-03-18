@@ -4,13 +4,12 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { serviceOrderAPI } from '../../services/api';
-import { reportsAPI, externalSupervisorAPI } from '../../services/reportsApi';
+import { serviceOrderAPI, reportAPI } from '../../services/api';
 import { ServiceOrder } from '../../types';
 import { Picker } from '@react-native-picker/picker';
 
 export default function CreateReportScreen() {
-  const { user, ensureReportAuth } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const { type } = useLocalSearchParams<{ type: string }>();
   const reportType = (type === 'service' ? 'service' : 'daily') as 'daily' | 'service';
@@ -26,7 +25,6 @@ export default function CreateReportScreen() {
 
   const loadData = async () => {
     try {
-      await ensureReportAuth();
       const osData = await serviceOrderAPI.getAll();
       setServiceOrders(osData);
     } catch (error) {
@@ -43,34 +41,13 @@ export default function CreateReportScreen() {
       return;
     }
 
-    const os = serviceOrders.find(o => o.id === selectedOS);
-    if (!os) return;
-
     setCreating(true);
     try {
-      // Find matching supervisor on external API for compatibility
-      let supervisorId = user?.id || 'local';
-      let supervisorName = user?.name || 'Supervisor';
-      try {
-        const externalSups = await externalSupervisorAPI.getAll();
-        const match = externalSups.find(s => s.email === user?.email);
-        if (match) {
-          supervisorId = match.id;
-          supervisorName = match.name;
-        }
-      } catch (e) {
-        console.warn('Não foi possível buscar supervisores externos:', e);
-      }
-
-      await reportsAPI.create({
+      await reportAPI.create({
         report_type: reportType,
-        service_order_id: os.id,
-        service_order_number: os.os_number,
-        client: os.client,
-        vessel: os.location,
-        equipment: os.service,
-        supervisor_id: supervisorId,
-        supervisor_name: supervisorName,
+        os_id: selectedOS,
+        periodo: '',
+        executado_por: user?.name || '',
       });
       Alert.alert('Sucesso', `${reportType === 'service' ? 'Relatório de Serviço' : 'Relatório Diário'} criado com sucesso!`);
       router.back();

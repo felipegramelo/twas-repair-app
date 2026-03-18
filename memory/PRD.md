@@ -1,12 +1,13 @@
-# Timesheet Corporativo - TWAS Repair
+# TWAS REPAIR - Aplicativo Corporativo Unificado
 
 ## Problema Original
-Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de PDF seguindo modelo especifico.
+Unificar dois aplicativos separados - Timesheet Tracker e Service/Daily Report - em um único aplicativo corporativo "TWAS REPAIR", com geração de PDF, gerenciamento de timesheets e relatórios de serviço/diários.
 
 ## Stack
-- Frontend: Expo + React Native + expo-router
+- Frontend: Expo + React Native + expo-router + TypeScript
 - Backend: FastAPI + MongoDB + reportlab (PDF)
 - Auth: JWT
+- External API: Service Report Hub (https://service-report-hub-6.preview.emergentagent.com/api)
 
 ## Credenciais de Teste
 - Admin: admin@twasrepair.com / admin123
@@ -14,46 +15,54 @@ Aplicativo de timesheet corporativo usando Expo para mobile/web, com geracao de 
 
 ## Implementado
 - [x] CRUD completo: Employees, Service Orders, Users/Supervisors, Timesheets
-- [x] Autenticacao JWT com roles (admin/supervisor)
+- [x] Autenticação JWT com roles (admin/supervisor)
 - [x] Dashboards por role (Admin e Supervisor)
-- [x] Geracao de PDF com reportlab matching template (A4, 1 pagina)
+- [x] Geração de PDF com reportlab matching template (A4, 1 página)
 - [x] Download de PDF (web) com anti-cache
-- [x] Edicao de timesheet com calendario e seletor de horario
-- [x] Legenda do PDF: titulo + 6 colunas PT/EN
-- [x] Observacoes como titulo separado no PDF
-- [x] Botao de excluir com window.confirm na web
-- [x] Lista de timesheets atualiza automaticamente (useFocusEffect)
-- [x] Funcionarios vinculados a O.S. - Multi-select na tela admin de O.S.
-- [x] Calendario visual para selecao de data no timesheet
-- [x] Seletor de horario 30 em 30 min para inicio/fim de servico e viagem
-- [x] Filtro de funcionarios - Ao selecionar O.S., so mostra funcionarios vinculados
-- [x] Limite 12 entradas por timesheet - Frontend bloqueia adicao, backend valida POST/PUT
-- [x] Compatibilidade mobile (expo-file-system + expo-sharing para PDFs)
-- [x] Assinatura do supervisor no PDF com funcao editavel
-- [x] Acesso admin a PDFs (abrir/baixar)
-- [x] Ordenacao de entradas por data e nome
-- [x] Icones/logo do app personalizados
-- [x] Contador de caracteres (800) no campo de observacoes
-- [x] Multi-select checkbox para funcionarios na O.S. - 28/02/2026
-- [x] Intervalo de datas no dashboard do supervisor - 28/02/2026
-- [x] Servico visivel no card do timesheet (supervisor + admin) - 28/02/2026
-- [x] Layout do card reorganizado: O.S. + icones no topo, detalhes abaixo - 28/02/2026
-- [x] Alterar Senha - Tela para admin alterar propria senha - 03/03/2026
-- [x] Gerenciar Administradores - CRUD completo de admins - 03/03/2026
-- [x] Bug fix: Ordenacao de datas corrigida (DD/MM/YYYY convertido para YYYY-MM-DD) - 06/03/2026
-- [x] Servico no picker de O.S. em italico - 06/03/2026
-- [x] PDF com borda de pagina, cabecalho e rodape do relatorio de servico - 14/03/2026
-- [x] **PDF: borda fina (0.5pt), cabecalho/rodape alinhados com largura das tabelas** - 14/03/2026
-- [x] **Checkbox "Tem viagem?"** - Se desmarcado, viagem mostra "-" no PDF. Se marcado, pickers de horario aparecem - 14/03/2026
+- [x] Edição de timesheet com calendário e seletor de horário
+- [x] Legenda do PDF: título + 6 colunas PT/EN
+- [x] Observações como título separado no PDF
+- [x] Botão de excluir com window.confirm na web
+- [x] Lista de timesheets atualiza automaticamente
+- [x] Funcionários vinculados a O.S. - Multi-select na tela admin de O.S.
+- [x] Calendário visual para seleção de data no timesheet
+- [x] Seletor de horário 30 em 30 min
+- [x] Filtro de funcionários por O.S.
+- [x] Limite 12 entradas por timesheet
+- [x] Compatibilidade mobile (expo-file-system + expo-sharing)
+- [x] Assinatura do supervisor no PDF
+- [x] Acesso admin a PDFs
+- [x] Ordenação de entradas por data e nome
+- [x] Ícones/logo do app personalizados
+- [x] Contador de caracteres (1200) no campo de observações
+- [x] Multi-select checkbox para funcionários na O.S.
+- [x] Intervalo de datas no dashboard do supervisor
+- [x] Serviço visível no card do timesheet
+- [x] Layout do card reorganizado
+- [x] Alterar Senha - Tela para admin
+- [x] Gerenciar Administradores - CRUD completo
+- [x] Bug fix: Ordenação de datas corrigida
+- [x] PDF com borda de página, cabeçalho e rodapé
+- [x] Checkbox "Tem viagem?" com toggle no PDF
+- [x] **UNIFICAÇÃO: Título "TWAS REPAIR" no app** - 18/03/2026
+- [x] **UNIFICAÇÃO: Integração com API externa de relatórios** - 18/03/2026
+- [x] **UNIFICAÇÃO: Dashboard supervisor com 3 abas (Timesheets, Rel. Serviço, Rel. Diário)** - 18/03/2026
+- [x] **UNIFICAÇÃO: Modal "Criar Novo" com 3 opções** - 18/03/2026
+- [x] **UNIFICAÇÃO: Cards admin para Relatórios de Serviço e Diários** - 18/03/2026
+- [x] **UNIFICAÇÃO: Telas de listagem de relatórios (admin)** - 18/03/2026
+- [x] **UNIFICAÇÃO: Tela de criação de relatórios (supervisor)** - 18/03/2026
+- [x] **UNIFICAÇÃO: Autenticação dual (timesheet API + report API)** - 18/03/2026
+- [x] **UNIFICAÇÃO: Download/visualização PDF de relatórios** - 18/03/2026
 
 ## Modelos de Dados
 - **Employee**: name
 - **Service Order**: os_number, client, location, service, employees[{employee_id, function}]
 - **Timesheet**: os_id, os_number, client, location, service, entries[{date, employee_id, employee_name, employee_function, service_start, service_end, travel_start, travel_end}], observations, supervisor_id, supervisor_name, supervisor_function
 - **User**: email, password_hash, role (admin/supervisor), name
+- **Report** (external): id, service_order_id, service_order_number, client, vessel, equipment, supervisor_id, supervisor_name, status, report_type (daily/service), sections[], created_at, updated_at
 
 ## Backlog / Futuro
-- [ ] Refatorar: centralizar funcoes de PDF entre supervisor e admin
-- [ ] Refatorar: dividir server.py em modulos
-- [ ] Preparacao EAS Build para app stores
-- [ ] Modo offline com sincronizacao automatica
+- [ ] Refatorar: centralizar funções de PDF entre supervisor e admin
+- [ ] Refatorar: dividir server.py em módulos
+- [ ] Preparação EAS Build para app stores
+- [ ] Modo offline com sincronização automática

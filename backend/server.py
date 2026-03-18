@@ -198,6 +198,17 @@ class ReportCreate(BaseModel):
     executado_por: Optional[str] = ""
 
 
+class ReportUpdate(BaseModel):
+    periodo: Optional[str] = None
+    executado_por: Optional[str] = None
+    introduction: Optional[str] = None
+    equipment_desc: Optional[str] = None
+    objective: Optional[str] = None
+    service_description: Optional[str] = None
+    observations: Optional[str] = None
+    status: Optional[str] = None
+
+
 class ReportResponse(BaseModel):
     id: str
     report_type: str
@@ -1116,6 +1127,11 @@ async def create_report(report: ReportCreate, user: dict = Depends(get_current_u
         "supervisor_name": user["name"],
         "periodo": report.periodo or "",
         "executado_por": report.executado_por or user["name"],
+        "introduction": "",
+        "equipment_desc": "",
+        "objective": "",
+        "service_description": "",
+        "observations": "",
         "status": "draft",
         "created_at": now,
         "updated_at": now,
@@ -1146,11 +1162,59 @@ async def get_reports(user: dict = Depends(get_current_user)):
             "supervisor_name": doc.get("supervisor_name", ""),
             "periodo": doc.get("periodo", ""),
             "executado_por": doc.get("executado_por", ""),
+            "introduction": doc.get("introduction", ""),
+            "equipment_desc": doc.get("equipment_desc", ""),
+            "objective": doc.get("objective", ""),
+            "service_description": doc.get("service_description", ""),
+            "observations": doc.get("observations", ""),
             "status": doc.get("status", "draft"),
             "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
             "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
         })
     return {"reports": reports}
+
+@api_router.get("/reports/{report_id}")
+async def get_report_by_id(report_id: str, user: dict = Depends(get_current_user)):
+    doc = await db.reports.find_one({"_id": ObjectId(report_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    return {
+        "id": str(doc["_id"]),
+        "report_type": doc.get("report_type", "service"),
+        "os_id": doc.get("os_id", ""),
+        "os_number": doc.get("os_number", ""),
+        "client": doc.get("client", ""),
+        "location": doc.get("location", ""),
+        "service": doc.get("service", ""),
+        "supervisor_id": doc.get("supervisor_id", ""),
+        "supervisor_name": doc.get("supervisor_name", ""),
+        "periodo": doc.get("periodo", ""),
+        "executado_por": doc.get("executado_por", ""),
+        "introduction": doc.get("introduction", ""),
+        "equipment_desc": doc.get("equipment_desc", ""),
+        "objective": doc.get("objective", ""),
+        "service_description": doc.get("service_description", ""),
+        "observations": doc.get("observations", ""),
+        "status": doc.get("status", "draft"),
+        "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
+        "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
+    }
+
+@api_router.put("/reports/{report_id}")
+async def update_report(report_id: str, update: ReportUpdate, user: dict = Depends(get_current_user)):
+    doc = await db.reports.find_one({"_id": ObjectId(report_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    
+    update_data = {}
+    for field in ["periodo", "executado_por", "introduction", "equipment_desc", "objective", "service_description", "observations", "status"]:
+        value = getattr(update, field, None)
+        if value is not None:
+            update_data[field] = value
+    
+    update_data["updated_at"] = datetime.utcnow()
+    await db.reports.update_one({"_id": ObjectId(report_id)}, {"$set": update_data})
+    return {"success": True}
 
 @api_router.delete("/reports/{report_id}")
 async def delete_report(report_id: str, user: dict = Depends(get_current_user)):
@@ -1289,45 +1353,70 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     # ===== CONTENT PAGES =====
     elements.append(PageBreak())
     
+    # Use editable content or fall back to defaults
+    intro_text = report.get("introduction", "")
+    if not intro_text:
+        intro_text = (f"Este relatório descreve os serviços realizados pela TWAS REPAIR na embarcação/local "
+            f"<b>{report.get('location', '')}</b> para o cliente <b>{report.get('client', '')}</b>, "
+            f"conforme Ordem de Serviço <b>{report.get('os_number', '')}</b>.")
+    
+    equip_text = report.get("equipment_desc", "")
+    if not equip_text:
+        equip_text = f"Serviço: <b>{report.get('service', '')}</b>"
+    
+    obj_text = report.get("objective", "")
+    if not obj_text:
+        if is_service:
+            obj_text = (f"Realizar o serviço de <b>{report.get('service', '')}</b> conforme especificações técnicas "
+                f"e procedimentos internos da TWAS REPAIR.")
+        else:
+            obj_text = f"Registrar as atividades diárias realizadas durante o serviço de <b>{report.get('service', '')}</b>."
+    
+    svc_text = report.get("service_description", "")
+    obs_text = report.get("observations", "")
+    
     elements.append(Paragraph("1. INTRODUÇÃO", section_style))
-    elements.append(Paragraph(
-        f"Este relatório descreve os serviços realizados pela TWAS REPAIR na embarcação/local "
-        f"<b>{report.get('location', '')}</b> para o cliente <b>{report.get('client', '')}</b>, "
-        f"conforme Ordem de Serviço <b>{report.get('os_number', '')}</b>.", body_style))
+    elements.append(Paragraph(intro_text, body_style))
     elements.append(Spacer(1, 0.3*cm))
     
     elements.append(Paragraph("2. EQUIPAMENTOS", section_style))
-    elements.append(Paragraph(f"Serviço: <b>{report.get('service', '')}</b>", body_style))
+    elements.append(Paragraph(equip_text, body_style))
     elements.append(Spacer(1, 0.3*cm))
     
     elements.append(Paragraph("3. OBJETIVO", section_style))
-    if is_service:
-        elements.append(Paragraph(
-            f"Realizar o serviço de <b>{report.get('service', '')}</b> conforme especificações técnicas "
-            f"e procedimentos internos da TWAS REPAIR.", body_style))
-    else:
-        elements.append(Paragraph(
-            f"Registrar as atividades diárias realizadas durante o serviço de <b>{report.get('service', '')}</b>.", body_style))
+    elements.append(Paragraph(obj_text, body_style))
     elements.append(Spacer(1, 0.3*cm))
     
     if is_service:
         elements.append(Paragraph("4. DESCRIÇÃO DOS SERVIÇOS", section_style))
-        elements.append(Paragraph("4.1. DESMONTAGEM", ParagraphStyle('Sub', parent=body_style, fontSize=11, fontName='Helvetica-Bold', spaceBefore=8)))
-        elements.append(Paragraph("- Remoção do equipamento", body_style))
-        elements.append(Paragraph("- Inspeção visual", body_style))
-        elements.append(Spacer(1, 0.2*cm))
-        elements.append(Paragraph("4.2. MONTAGEM", ParagraphStyle('Sub2', parent=body_style, fontSize=11, fontName='Helvetica-Bold', spaceBefore=8)))
-        elements.append(Paragraph("- Montagem do equipamento", body_style))
-        elements.append(Paragraph("- Testes funcionais", body_style))
+        if svc_text:
+            elements.append(Paragraph(svc_text, body_style))
+        else:
+            elements.append(Paragraph("4.1. DESMONTAGEM", ParagraphStyle('Sub', parent=body_style, fontSize=11, fontName='Helvetica-Bold', spaceBefore=8)))
+            elements.append(Paragraph("- Remoção do equipamento", body_style))
+            elements.append(Paragraph("- Inspeção visual", body_style))
+            elements.append(Spacer(1, 0.2*cm))
+            elements.append(Paragraph("4.2. MONTAGEM", ParagraphStyle('Sub2', parent=body_style, fontSize=11, fontName='Helvetica-Bold', spaceBefore=8)))
+            elements.append(Paragraph("- Montagem do equipamento", body_style))
+            elements.append(Paragraph("- Testes funcionais", body_style))
         elements.append(Spacer(1, 0.3*cm))
         elements.append(Paragraph("5. RELATÓRIO DE ENSAIO NÃO DESTRUTIVO", section_style))
-        elements.append(Paragraph("Verificar certificados e ensaios aplicáveis.", body_style))
+        if obs_text:
+            elements.append(Paragraph(obs_text, body_style))
+        else:
+            elements.append(Paragraph("Verificar certificados e ensaios aplicáveis.", body_style))
     else:
         elements.append(Paragraph("4. DESCRIÇÃO DAS ATIVIDADES DIÁRIAS", section_style))
-        elements.append(Paragraph("Registrar as atividades realizadas no dia.", body_style))
+        if svc_text:
+            elements.append(Paragraph(svc_text, body_style))
+        else:
+            elements.append(Paragraph("Registrar as atividades realizadas no dia.", body_style))
         elements.append(Spacer(1, 0.3*cm))
         elements.append(Paragraph("5. OBSERVAÇÕES", section_style))
-        elements.append(Paragraph("Adicionar observações relevantes.", body_style))
+        if obs_text:
+            elements.append(Paragraph(obs_text, body_style))
+        else:
+            elements.append(Paragraph("Adicionar observações relevantes.", body_style))
     
     # Signature section
     elements.append(Spacer(1, 2*cm))

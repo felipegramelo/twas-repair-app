@@ -318,7 +318,11 @@ export default function SupervisorDashboard() {
   );
 
   const renderReportCard = (item: Report) => (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => router.push(`/supervisor/edit-report?id=${item.id}`)}
+      activeOpacity={0.7}
+    >
       <View style={styles.topRow}>
         <View style={styles.badgeRow}>
           <View style={styles.badge}>
@@ -352,7 +356,7 @@ export default function SupervisorDashboard() {
           <Text style={styles.cardMeta}>{formatDate(item.created_at)}</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderItem = ({ item }: { item: UnifiedItem }) => {

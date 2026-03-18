@@ -167,8 +167,16 @@ export const reportAPI = {
     const response = await api.get('/reports');
     return response.data.reports || [];
   },
+  getById: async (id: string) => {
+    const response = await api.get(`/reports/${id}`);
+    return response.data;
+  },
   create: async (data: { report_type: string; os_id: string; periodo?: string; executado_por?: string }) => {
     const response = await api.post('/reports', data);
+    return response.data;
+  },
+  update: async (id: string, data: Record<string, any>) => {
+    const response = await api.put(`/reports/${id}`, data);
     return response.data;
   },
   delete: async (id: string) => {

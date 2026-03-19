@@ -14,8 +14,17 @@ interface Photo {
 }
 
 const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations', 'disassembly', 'assembly'];
+const NO_BULLET_SECTIONS = ['introduction', 'equipment', 'objective'];
 const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos');
 const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); };
+
+const PlainTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
+  if (Platform.OS === 'web') {
+    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} placeholder={placeholder}
+      style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333', fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', ...(cs || {}) }} />;
+  }
+  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={onChangeText} placeholder={placeholder} multiline textAlignVertical="top" />;
+};
 
 const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
   if (Platform.OS === 'web') {
@@ -34,6 +43,13 @@ const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value
   return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={onChangeText} placeholder={placeholder} multiline textAlignVertical="top" />;
 };
 
+const SectionTextArea = ({ sectionKey, value, onChangeText, placeholder, style }: { sectionKey: string; value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
+  if (NO_BULLET_SECTIONS.includes(sectionKey)) {
+    return <PlainTextArea value={value} onChangeText={onChangeText} placeholder={placeholder} style={style} />;
+  }
+  return <BulletTextArea value={value} onChangeText={onChangeText} placeholder={placeholder} style={style} />;
+};
+
 export default function EditReportScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,6 +63,8 @@ export default function EditReportScreen() {
   const [showSectionsModal, setShowSectionsModal] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [addingSectionTitle, setAddingSectionTitle] = useState('');
+  const [addingSubsectionTitle, setAddingSubsectionTitle] = useState<Record<string, string>>({});
+  const [showAddSubsection, setShowAddSubsection] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const [token, setToken] = useState('');
@@ -136,6 +154,24 @@ export default function EditReportScreen() {
     if (!addingSectionTitle.trim()) return;
     setSections(prev => [...prev, { key: `custom_${Date.now()}`, number: '', title: addingSectionTitle.trim().toUpperCase(), content: '', enabled: true, subsections: [] }]);
     setAddingSectionTitle('');
+  };
+
+  const addSubsection = (parentKey: string) => {
+    const title = (addingSubsectionTitle[parentKey] || '').trim();
+    if (!title) return;
+    setSections(prev => prev.map(s => {
+      if (s.key === parentKey) {
+        return { ...s, subsections: [...s.subsections, { key: `sub_${Date.now()}`, number: '', title: title.toUpperCase(), content: '', enabled: true, subsections: [] }] };
+      }
+      return { ...s, subsections: s.subsections.map(sub => {
+        if (sub.key === parentKey) {
+          return { ...sub, subsections: [...(sub.subsections || []), { key: `subsub_${Date.now()}`, number: '', title: title.toUpperCase(), content: '', enabled: true, subsections: [] }] };
+        }
+        return sub;
+      })};
+    }));
+    setAddingSubsectionTitle(prev => ({ ...prev, [parentKey]: '' }));
+    setShowAddSubsection(null);
   };
 
   const getDisplayNumber = (secs: Section[]): Map<string, string> => {
@@ -255,23 +291,6 @@ export default function EditReportScreen() {
             <Ionicons name="chevron-forward" size={20} color="#1a237e" />
           </TouchableOpacity>
 
-          {/* Período */}
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>Período e Informações</Text>
-            <View style={styles.dateRow}>
-              <View style={styles.dateField}>
-                <Text style={styles.dateLabel}>Data Início</Text>
-                {Platform.OS === 'web' ? <input type="date" value={brDateToHtml(periodoInicio)} onChange={(e: any) => setPeriodoInicio(htmlDateToBR(e.target.value))} style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }} /> : <TextInput style={styles.dateInput} value={periodoInicio} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />}
-              </View>
-              <View style={styles.dateField}>
-                <Text style={styles.dateLabel}>Data Fim</Text>
-                {Platform.OS === 'web' ? <input type="date" value={brDateToHtml(periodoFim)} onChange={(e: any) => setPeriodoFim(htmlDateToBR(e.target.value))} style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }} /> : <TextInput style={styles.dateInput} value={periodoFim} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />}
-              </View>
-            </View>
-            <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Executado Por</Text>
-            <TextInput style={styles.input} value={executadoPor} onChangeText={setExecutadoPor} placeholder="Ex: TWAS REPAIR" />
-          </View>
-
           {/* Enabled Sections */}
           {sections.filter(s => s.enabled).map(sec => {
             const num = numberMap.get(sec.key) || '';
@@ -284,7 +303,7 @@ export default function EditReportScreen() {
                 </TouchableOpacity>
                 {editingSection === sec.key && (
                   <View style={{ marginTop: 12 }}>
-                    {!isPhotoOnlySection(sec.key) && <BulletTextArea value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
+                    {!isPhotoOnlySection(sec.key) && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
                     {canHavePhotos(sec.key) && !isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key)}
                     {isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key, true)}
                     {sec.subsections.filter(sub => sub.enabled).map(sub => {
@@ -293,7 +312,7 @@ export default function EditReportScreen() {
                       return (
                         <View key={sub.key} style={styles.subsectionBlock}>
                           <Text style={styles.subsectionTitle}>{subNum}. {sub.title}</Text>
-                          {!isPhotos && <BulletTextArea value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />}
+                          {!isPhotos && <SectionTextArea sectionKey={sub.key} value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />}
                           {isPhotos ? renderPhotoGrid(sub.key, true) : (canHavePhotos(sub.key) && renderPhotoGrid(sub.key))}
                           {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => {
                             const ssNum = numberMap.get(ss.key) || '';
@@ -301,12 +320,38 @@ export default function EditReportScreen() {
                             return (
                               <View key={ss.key} style={styles.subsubBlock}>
                                 <Text style={styles.subsubTitle}>{ssNum}. {ss.title}</Text>
-                                {!isSP && <BulletTextArea value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} />}
+                                {!isSP && <SectionTextArea sectionKey={ss.key} value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} />}
                                 {isSP ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
                               </View>);
                           })}
+                          {/* Add sub-subsection button */}
+                          {showAddSubsection === sub.key ? (
+                            <View style={styles.addSubRow}>
+                              <TextInput style={styles.addSubInput} value={addingSubsectionTitle[sub.key] || ''} onChangeText={(t) => setAddingSubsectionTitle(prev => ({ ...prev, [sub.key]: t }))} placeholder="Nome da subseção..." autoFocus />
+                              <TouchableOpacity style={styles.addSubConfirmBtn} onPress={() => addSubsection(sub.key)}><Ionicons name="checkmark-circle" size={26} color="#1a237e" /></TouchableOpacity>
+                              <TouchableOpacity onPress={() => setShowAddSubsection(null)}><Ionicons name="close-circle" size={26} color="#999" /></TouchableOpacity>
+                            </View>
+                          ) : (
+                            <TouchableOpacity style={styles.addSubBtn} onPress={() => setShowAddSubsection(sub.key)}>
+                              <Ionicons name="add-circle-outline" size={18} color="#1a237e" />
+                              <Text style={styles.addSubBtnText}>Adicionar Subseção</Text>
+                            </TouchableOpacity>
+                          )}
                         </View>);
                     })}
+                    {/* Add subsection button */}
+                    {showAddSubsection === sec.key ? (
+                      <View style={styles.addSubRow}>
+                        <TextInput style={styles.addSubInput} value={addingSubsectionTitle[sec.key] || ''} onChangeText={(t) => setAddingSubsectionTitle(prev => ({ ...prev, [sec.key]: t }))} placeholder="Nome da subseção..." autoFocus />
+                        <TouchableOpacity style={styles.addSubConfirmBtn} onPress={() => addSubsection(sec.key)}><Ionicons name="checkmark-circle" size={26} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={() => setShowAddSubsection(null)}><Ionicons name="close-circle" size={26} color="#999" /></TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity style={styles.addSubBtn} onPress={() => setShowAddSubsection(sec.key)}>
+                        <Ionicons name="add-circle-outline" size={18} color="#1a237e" />
+                        <Text style={styles.addSubBtnText}>Adicionar Subseção</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               </View>);
@@ -437,6 +482,12 @@ const styles = StyleSheet.create({
   subsectionTitle: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
   subsubBlock: { marginTop: 10, paddingLeft: 14 },
   subsubTitle: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 4 },
+  // Add subsection
+  addSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f0f4ff', borderRadius: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#d0d9f0', borderStyle: 'dashed' } as any,
+  addSubBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },
+  addSubRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  addSubInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#1a237e', padding: 10, fontSize: 14, color: '#333' },
+  addSubConfirmBtn: { padding: 2 },
   // Photos
   photoArea: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   photoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },

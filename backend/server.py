@@ -1154,14 +1154,14 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
 
 def get_default_service_sections(client="", service="", location=""):
     intro_text = (
-        f"• A TWAS Repair foi contratada pela(o) {client} para realizar o (a) {service} "
+        f"A TWAS Repair foi contratada pela(o) {client} para realizar o (a) {service} "
         f"da embarcação {location}.\n"
-        f"• A TWAS Repair performou as atividades descritas no relatório abaixo, utilizando-se de mão de obra "
+        f"A TWAS Repair performou as atividades descritas no relatório abaixo, utilizando-se de mão de obra "
         f"especializada, atendendo os requerimentos da(o) {client}, através do representante/especialista "
         f"do sistema treinado pelo fabricante."
     )
-    equip_text = "• Azimuth Thruster:\n• Serial:\n• Data:"
-    obj_text = f"• O serviço teve por objetivo o(a) {service}."
+    equip_text = "Azimuth Thruster:\nSerial:\nData:"
+    obj_text = f"O serviço teve por objetivo o(a) {service}."
     return [
         {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": intro_text, "enabled": True, "subsections": []},
         {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": equip_text, "enabled": True, "subsections": []},
@@ -1190,14 +1190,14 @@ def get_default_service_sections(client="", service="", location=""):
 
 def get_default_daily_sections(client="", service="", location=""):
     intro_text = (
-        f"• A TWAS Repair foi contratada pela(o) {client} para realizar o (a) {service} "
+        f"A TWAS Repair foi contratada pela(o) {client} para realizar o (a) {service} "
         f"da embarcação {location}.\n"
-        f"• A TWAS Repair performou as atividades descritas no relatório abaixo, utilizando-se de mão de obra "
+        f"A TWAS Repair performou as atividades descritas no relatório abaixo, utilizando-se de mão de obra "
         f"especializada, atendendo os requerimentos da(o) {client}, através do representante/especialista "
         f"do sistema treinado pelo fabricante."
     )
-    equip_text = "• Azimuth Thruster:\n• Serial:\n• Data:"
-    obj_text = f"• O serviço teve por objetivo o(a) {service}."
+    equip_text = "Azimuth Thruster:\nSerial:\nData:"
+    obj_text = f"O serviço teve por objetivo o(a) {service}."
     return [
         {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": intro_text, "enabled": True, "subsections": []},
         {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": equip_text, "enabled": True, "subsections": []},

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Platform, Modal, Switch, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Platform, Modal, Switch, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,10 +20,18 @@ interface Photo {
   section_key: string;
   storage_path: string;
   original_filename: string;
+  caption?: string;
 }
 
 // Sections that should NOT have photo upload
 const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations'];
+
+// Subsections that are photo-only (no text area, just photos with captions)
+const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos');
+
+const showMsg = (msg: string) => {
+  if (Platform.OS === 'web') window.alert(msg);
+};
 
 export default function EditReportScreen() {
   const router = useRouter();
@@ -41,6 +49,7 @@ export default function EditReportScreen() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const [token, setToken] = useState('');
+  const [captions, setCaptions] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentUploadSection, setCurrentUploadSection] = useState('cover');
 
@@ -62,7 +71,7 @@ export default function EditReportScreen() {
       setSections(data.sections || []);
       setPhotos(photosData);
     } catch (error) {
-      Alert.alert('Erro', 'Erro ao carregar relatório');
+      showMsg('Erro ao carregar relatório');
     } finally {
       setLoading(false);
     }
@@ -77,11 +86,10 @@ export default function EditReportScreen() {
         executado_por: executadoPor,
         sections,
       });
-      if (Platform.OS === 'web') window.alert('Relatório salvo com sucesso!');
-      else Alert.alert('Sucesso', 'Relatório salvo com sucesso!');
+      showMsg('Relatório salvo com sucesso!');
       router.push('/supervisor');
     } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao salvar: ' + (error.message || ''));
+      showMsg('Erro ao salvar: ' + (error.message || ''));
     } finally {
       setSaving(false);
     }
@@ -94,7 +102,7 @@ export default function EditReportScreen() {
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
       }
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao gerar PDF'); }
+    } catch { showMsg('Erro ao gerar PDF'); }
   };
 
   const triggerFileUpload = (sectionKey: string) => {
@@ -109,12 +117,12 @@ export default function EditReportScreen() {
     if (!file) return;
     setUploading(currentUploadSection);
     try {
-      const result = await reportAPI.uploadPhoto(id!, file, currentUploadSection, file.name);
+      await reportAPI.uploadPhoto(id!, file, currentUploadSection, file.name);
       const updatedPhotos = await reportAPI.getPhotos(id!);
       setPhotos(updatedPhotos);
-      if (Platform.OS === 'web') window.alert('Foto enviada com sucesso!');
+      showMsg('Foto enviada com sucesso!');
     } catch (error: any) {
-      if (Platform.OS === 'web') window.alert('Erro ao enviar foto: ' + (error.message || ''));
+      showMsg('Erro ao enviar foto: ' + (error.message || ''));
     } finally {
       setUploading(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -126,13 +134,11 @@ export default function EditReportScreen() {
     try {
       await reportAPI.deletePhoto(id!, photoId);
       setPhotos(prev => prev.filter(p => p.id !== photoId));
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao excluir foto'); }
+    } catch { showMsg('Erro ao excluir foto'); }
   };
 
   const getPhotoUrl = (storagePath: string) => reportAPI.getPhotoUrl(storagePath, token);
-
   const getPhotosForSection = (sectionKey: string) => photos.filter(p => p.section_key === sectionKey);
-
   const canHavePhotos = (sectionKey: string) => !NO_PHOTO_SECTIONS.includes(sectionKey);
 
   const toggleSection = (sectionKey: string) => {
@@ -173,10 +179,9 @@ export default function EditReportScreen() {
 
   const addCustomSection = () => {
     if (!addingSectionTitle.trim()) return;
-    const nextNum = String(sections.length + 1);
     const newSection: Section = {
       key: `custom_${Date.now()}`,
-      number: nextNum,
+      number: '',
       title: addingSectionTitle.trim().toUpperCase(),
       content: '',
       enabled: true,
@@ -186,38 +191,78 @@ export default function EditReportScreen() {
     setAddingSectionTitle('');
   };
 
-  const formatDateInput = (text: string, setter: (v: string) => void) => {
-    const cleaned = text.replace(/\D/g, '');
-    let formatted = cleaned;
-    if (cleaned.length >= 3 && cleaned.length <= 4) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
-    else if (cleaned.length >= 5) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
-    setter(formatted);
+  // Dynamic numbering: only count enabled sections
+  const getDisplayNumber = (sections: Section[]): Map<string, string> => {
+    const map = new Map<string, string>();
+    let mainIdx = 0;
+    for (const sec of sections) {
+      if (!sec.enabled) continue;
+      mainIdx++;
+      map.set(sec.key, String(mainIdx));
+      let subIdx = 0;
+      for (const sub of sec.subsections) {
+        if (!sub.enabled) continue;
+        subIdx++;
+        map.set(sub.key, `${mainIdx}.${subIdx}`);
+        let subSubIdx = 0;
+        for (const ss of (sub.subsections || [])) {
+          if (!ss.enabled) continue;
+          subSubIdx++;
+          map.set(ss.key, `${mainIdx}.${subIdx}.${subSubIdx}`);
+        }
+      }
+    }
+    return map;
   };
 
-  const renderPhotoSection = (sectionKey: string) => {
-    if (!canHavePhotos(sectionKey)) return null;
+  const numberMap = getDisplayNumber(sections);
+
+  const htmlDateToBR = (htmlDate: string): string => {
+    if (!htmlDate) return '';
+    const [y, m, d] = htmlDate.split('-');
+    return `${d}/${m}/${y}`;
+  };
+  const brDateToHtml = (brDate: string): string => {
+    if (!brDate || brDate.length < 10) return '';
+    const [d, m, y] = brDate.split('/');
+    return `${y}-${m}-${d}`;
+  };
+
+  // Render photo grid: 2 photos per row with caption
+  const renderPhotoGrid = (sectionKey: string, isPhotoOnly: boolean = false) => {
+    if (!canHavePhotos(sectionKey) && !isPhotoOnly) return null;
     const sectionPhotos = getPhotosForSection(sectionKey);
     return (
       <View style={styles.photoArea}>
-        <View style={styles.photoHeader}>
-          <Ionicons name="camera-outline" size={16} color="#1a237e" />
-          <Text style={styles.photoHeaderText}>Fotos ({sectionPhotos.length})</Text>
-        </View>
+        {!isPhotoOnly && (
+          <View style={styles.photoHeader}>
+            <Ionicons name="camera-outline" size={16} color="#1a237e" />
+            <Text style={styles.photoHeaderText}>Fotos ({sectionPhotos.length})</Text>
+          </View>
+        )}
         {sectionPhotos.length > 0 && (
-          <View style={styles.photoGrid}>
-            {sectionPhotos.map(photo => (
-              <View key={photo.id} style={styles.photoItem}>
-                {token ? (
-                  <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={styles.photoImage} resizeMode="cover" />
-                ) : (
-                  <View style={[styles.photoImage, styles.photoPlaceholder]}>
-                    <Ionicons name="image-outline" size={24} color="#999" />
-                  </View>
-                )}
-                <TouchableOpacity style={styles.photoDeleteBtn} onPress={() => handleDeletePhoto(photo.id)}>
-                  <Ionicons name="close-circle" size={20} color="#d32f2f" />
-                </TouchableOpacity>
-                <Text style={styles.photoName} numberOfLines={1}>{photo.original_filename}</Text>
+          <View style={styles.photoGridRow}>
+            {sectionPhotos.map((photo, idx) => (
+              <View key={photo.id} style={styles.photoGridItem}>
+                <View style={styles.photoImageWrapper}>
+                  {token ? (
+                    <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={styles.gridPhoto} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.gridPhoto, styles.photoPlaceholder]}>
+                      <Ionicons name="image-outline" size={32} color="#999" />
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.photoDeleteBtn} onPress={() => handleDeletePhoto(photo.id)}>
+                    <Ionicons name="close-circle" size={22} color="#d32f2f" />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.captionInput}
+                  value={captions[photo.id] || photo.original_filename}
+                  onChangeText={(t) => setCaptions(prev => ({ ...prev, [photo.id]: t }))}
+                  placeholder="Legenda da foto..."
+                  multiline
+                />
               </View>
             ))}
           </View>
@@ -253,15 +298,8 @@ export default function EditReportScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Hidden file input for web */}
       {Platform.OS === 'web' && (
-        <input
-          ref={fileInputRef as any}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleFileSelected}
-        />
+        <input ref={fileInputRef as any} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileSelected} />
       )}
       <View style={styles.innerContainer}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
@@ -273,16 +311,14 @@ export default function EditReportScreen() {
             <Text style={styles.headerTitle} numberOfLines={1}>
               {isService ? 'Editar Rel. Serviço' : 'Editar Rel. Diário'}
             </Text>
-            <TouchableOpacity onPress={handleOpenPDF} style={styles.pdfButton} data-testid="open-pdf-btn">
+            <TouchableOpacity onPress={handleOpenPDF} style={styles.pdfButton}>
               <Ionicons name="document-text-outline" size={22} color="#1a237e" />
             </TouchableOpacity>
           </View>
 
           {/* Info Card */}
           <View style={styles.infoCard}>
-            <View style={styles.infoBadge}>
-              <Text style={styles.infoBadgeText}>{report.os_number}</Text>
-            </View>
+            <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>{report.os_number}</Text></View>
             <Text style={styles.infoClient}>{report.client}</Text>
             <Text style={styles.infoLocation}>{report.location} - {report.service}</Text>
           </View>
@@ -291,7 +327,7 @@ export default function EditReportScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Foto de Capa</Text>
             {coverPhotos.length > 0 ? (
-              <View style={styles.coverPhotoContainer}>
+              <View>
                 {coverPhotos.map(photo => (
                   <View key={photo.id} style={styles.coverPhotoWrapper}>
                     {token ? (
@@ -306,31 +342,16 @@ export default function EditReportScreen() {
                     </TouchableOpacity>
                   </View>
                 ))}
+                <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
+                  {uploading === 'cover' ? <ActivityIndicator size="small" color="#1a237e" /> : (
+                    <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={styles.uploadBtnText}>Trocar Foto</Text></>
+                  )}
+                </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity
-                style={styles.coverUploadArea}
-                onPress={() => triggerFileUpload('cover')}
-                disabled={uploading === 'cover'}
-                data-testid="upload-cover-photo-btn"
-              >
-                {uploading === 'cover' ? (
-                  <ActivityIndicator size="large" color="#1a237e" />
-                ) : (
-                  <>
-                    <Ionicons name="camera-outline" size={40} color="#bbb" />
-                    <Text style={styles.coverUploadText}>Toque para adicionar foto de capa</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-            {coverPhotos.length > 0 && (
-              <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
-                {uploading === 'cover' ? <ActivityIndicator size="small" color="#1a237e" /> : (
-                  <>
-                    <Ionicons name="cloud-upload-outline" size={18} color="#1a237e" />
-                    <Text style={styles.uploadBtnText}>Trocar Foto</Text>
-                  </>
+              <TouchableOpacity style={styles.coverUploadArea} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
+                {uploading === 'cover' ? <ActivityIndicator size="large" color="#1a237e" /> : (
+                  <><Ionicons name="camera-outline" size={40} color="#bbb" /><Text style={styles.coverUploadText}>Toque para adicionar foto de capa</Text></>
                 )}
               </TouchableOpacity>
             )}
@@ -342,92 +363,97 @@ export default function EditReportScreen() {
             <View style={styles.dateRow}>
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Data Início</Text>
-                <TextInput style={styles.dateInput} value={periodoInicio} onChangeText={(t) => formatDateInput(t, setPeriodoInicio)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+                {Platform.OS === 'web' ? (
+                  <input type="date" value={brDateToHtml(periodoInicio)} onChange={(e: any) => setPeriodoInicio(htmlDateToBR(e.target.value))}
+                    style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }} />
+                ) : (
+                  <TextInput style={styles.dateInput} value={periodoInicio} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} onChangeText={(t) => { const c=t.replace(/\D/g,''); let f=c; if(c.length>=3&&c.length<=4) f=c.slice(0,2)+'/'+c.slice(2); else if(c.length>=5) f=c.slice(0,2)+'/'+c.slice(2,4)+'/'+c.slice(4,8); setPeriodoInicio(f); }} />
+                )}
               </View>
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Data Fim</Text>
-                <TextInput style={styles.dateInput} value={periodoFim} onChangeText={(t) => formatDateInput(t, setPeriodoFim)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+                {Platform.OS === 'web' ? (
+                  <input type="date" value={brDateToHtml(periodoFim)} onChange={(e: any) => setPeriodoFim(htmlDateToBR(e.target.value))}
+                    style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }} />
+                ) : (
+                  <TextInput style={styles.dateInput} value={periodoFim} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} onChangeText={(t) => { const c=t.replace(/\D/g,''); let f=c; if(c.length>=3&&c.length<=4) f=c.slice(0,2)+'/'+c.slice(2); else if(c.length>=5) f=c.slice(0,2)+'/'+c.slice(2,4)+'/'+c.slice(4,8); setPeriodoFim(f); }} />
+                )}
               </View>
             </View>
             <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Executado Por</Text>
             <TextInput style={styles.input} value={executadoPor} onChangeText={setExecutadoPor} placeholder="Ex: TWAS REPAIR" />
           </View>
 
-          {/* Sections Management Button */}
-          <TouchableOpacity style={styles.manageSectionsBtn} onPress={() => setShowSectionsModal(true)} data-testid="manage-sections-btn">
+          {/* Sections Management */}
+          <TouchableOpacity style={styles.manageSectionsBtn} onPress={() => setShowSectionsModal(true)}>
             <Ionicons name="settings-outline" size={20} color="#1a237e" />
             <Text style={styles.manageSectionsBtnText}>Gerenciar Seções</Text>
             <Ionicons name="chevron-forward" size={18} color="#999" />
           </TouchableOpacity>
 
-          {/* Enabled Sections */}
-          {sections.filter(s => s.enabled).map(sec => (
-            <View key={sec.key} style={styles.section}>
-              <TouchableOpacity onPress={() => setEditingSection(editingSection === sec.key ? null : sec.key)}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionNumber}>{sec.number}.</Text>
-                  <Text style={styles.sectionTitle}>{sec.title}</Text>
-                  <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
-                </View>
-              </TouchableOpacity>
+          {/* Enabled Sections with dynamic numbering */}
+          {sections.filter(s => s.enabled).map(sec => {
+            const secNum = numberMap.get(sec.key) || '';
+            return (
+              <View key={sec.key} style={styles.section}>
+                <TouchableOpacity onPress={() => setEditingSection(editingSection === sec.key ? null : sec.key)}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionNumber}>{secNum}.</Text>
+                    <Text style={styles.sectionTitleText}>{sec.title}</Text>
+                    <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
+                  </View>
+                </TouchableOpacity>
 
-              {editingSection === sec.key && (
-                <View style={styles.sectionContent}>
-                  {sec.key !== 'service_description' && sec.key !== 'daily_activities' && (
-                    <TextInput
-                      style={styles.textarea}
-                      value={sec.content}
-                      onChangeText={(t) => updateSectionContent(sec.key, t)}
-                      placeholder={`Texto para ${sec.title}...`}
-                      multiline
-                      textAlignVertical="top"
-                    />
-                  )}
+                {editingSection === sec.key && (
+                  <View style={styles.sectionContent}>
+                    {/* Text area for non-photo-only parent sections */}
+                    {!isPhotoOnlySection(sec.key) && sec.key !== 'service_description' && sec.key !== 'daily_activities' && (
+                      <TextInput style={styles.textarea} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} multiline textAlignVertical="top" />
+                    )}
 
-                  {/* Photo upload for this section */}
-                  {renderPhotoSection(sec.key)}
+                    {/* Photo upload for this section (if allowed) */}
+                    {canHavePhotos(sec.key) && !isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key)}
+                    {isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key, true)}
 
-                  {/* Subsections */}
-                  {sec.subsections.filter(sub => sub.enabled).map(sub => (
-                    <View key={sub.key} style={styles.subsectionBlock}>
-                      <Text style={styles.subsectionTitle}>{sub.number}. {sub.title}</Text>
-                      <TextInput
-                        style={styles.textarea}
-                        value={sub.content}
-                        onChangeText={(t) => updateSectionContent(sub.key, t)}
-                        placeholder={`Texto para ${sub.title}...`}
-                        multiline
-                        textAlignVertical="top"
-                      />
-                      {renderPhotoSection(sub.key)}
-                      {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => (
-                        <View key={ss.key} style={styles.subsubBlock}>
-                          <Text style={styles.subsubTitle}>{ss.number}. {ss.title}</Text>
-                          <TextInput
-                            style={styles.textarea}
-                            value={ss.content}
-                            onChangeText={(t) => updateSectionContent(ss.key, t)}
-                            placeholder={`Texto para ${ss.title}...`}
-                            multiline
-                            textAlignVertical="top"
-                          />
-                          {renderPhotoSection(ss.key)}
+                    {/* Subsections */}
+                    {sec.subsections.filter(sub => sub.enabled).map(sub => {
+                      const subNum = numberMap.get(sub.key) || '';
+                      const isPhotos = isPhotoOnlySection(sub.key);
+                      return (
+                        <View key={sub.key} style={styles.subsectionBlock}>
+                          <Text style={styles.subsectionTitle}>{subNum}. {sub.title}</Text>
+                          {!isPhotos && (
+                            <TextInput style={styles.textarea} value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} multiline textAlignVertical="top" />
+                          )}
+                          {isPhotos ? renderPhotoGrid(sub.key, true) : (canHavePhotos(sub.key) && renderPhotoGrid(sub.key))}
+
+                          {/* Sub-subsections */}
+                          {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => {
+                            const ssNum = numberMap.get(ss.key) || '';
+                            const isSSPhotos = isPhotoOnlySection(ss.key);
+                            return (
+                              <View key={ss.key} style={styles.subsubBlock}>
+                                <Text style={styles.subsubTitle}>{ssNum}. {ss.title}</Text>
+                                {!isSSPhotos && (
+                                  <TextInput style={styles.textarea} value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} multiline textAlignVertical="top" />
+                                )}
+                                {isSSPhotos ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
+                              </View>
+                            );
+                          })}
                         </View>
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          ))}
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            );
+          })}
 
           {/* Save Button */}
-          <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving} data-testid="save-report-btn">
+          <TouchableOpacity style={[styles.saveButton, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : (
-              <>
-                <Ionicons name="save" size={22} color="#fff" />
-                <Text style={styles.saveButtonText}>Salvar Relatório</Text>
-              </>
+              <><Ionicons name="save" size={22} color="#fff" /><Text style={styles.saveButtonText}>Salvar Relatório</Text></>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -439,30 +465,38 @@ export default function EditReportScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Gerenciar Seções</Text>
             <Text style={styles.modalSubtitle}>Ative ou desative as seções do relatório</Text>
-
             <ScrollView style={styles.modalScroll}>
-              {sections.map(sec => (
-                <View key={sec.key}>
-                  <View style={styles.toggleRow}>
-                    <Switch value={sec.enabled} onValueChange={() => toggleSection(sec.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={sec.enabled ? '#1a237e' : '#999'} />
-                    <Text style={[styles.toggleText, !sec.enabled && styles.toggleTextDisabled]}>{sec.number}. {sec.title}</Text>
-                  </View>
-                  {sec.enabled && sec.subsections.map(sub => (
-                    <View key={sub.key}>
-                      <View style={[styles.toggleRow, { paddingLeft: 32 }]}>
-                        <Switch value={sub.enabled} onValueChange={() => toggleSection(sub.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={sub.enabled ? '#1a237e' : '#999'} />
-                        <Text style={[styles.toggleText, styles.toggleSubText, !sub.enabled && styles.toggleTextDisabled]}>{sub.number}. {sub.title}</Text>
-                      </View>
-                      {sub.enabled && (sub.subsections || []).map((ss: Section) => (
-                        <View key={ss.key} style={[styles.toggleRow, { paddingLeft: 56 }]}>
-                          <Switch value={ss.enabled} onValueChange={() => toggleSection(ss.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={ss.enabled ? '#1a237e' : '#999'} />
-                          <Text style={[styles.toggleText, styles.toggleSubSubText, !ss.enabled && styles.toggleTextDisabled]}>{ss.number}. {ss.title}</Text>
-                        </View>
-                      ))}
+              {sections.map(sec => {
+                const secNum = numberMap.get(sec.key) || '-';
+                return (
+                  <View key={sec.key}>
+                    <View style={styles.toggleRow}>
+                      <Switch value={sec.enabled} onValueChange={() => toggleSection(sec.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={sec.enabled ? '#1a237e' : '#999'} />
+                      <Text style={[styles.toggleText, !sec.enabled && styles.toggleTextDisabled]}>{sec.enabled ? secNum : '-'}. {sec.title}</Text>
                     </View>
-                  ))}
-                </View>
-              ))}
+                    {sec.enabled && sec.subsections.map(sub => {
+                      const subNum = numberMap.get(sub.key) || '-';
+                      return (
+                        <View key={sub.key}>
+                          <View style={[styles.toggleRow, { paddingLeft: 32 }]}>
+                            <Switch value={sub.enabled} onValueChange={() => toggleSection(sub.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={sub.enabled ? '#1a237e' : '#999'} />
+                            <Text style={[styles.toggleText, styles.toggleSubText, !sub.enabled && styles.toggleTextDisabled]}>{sub.enabled ? subNum : '-'}. {sub.title}</Text>
+                          </View>
+                          {sub.enabled && (sub.subsections || []).map((ss: Section) => {
+                            const ssNum = numberMap.get(ss.key) || '-';
+                            return (
+                              <View key={ss.key} style={[styles.toggleRow, { paddingLeft: 56 }]}>
+                                <Switch value={ss.enabled} onValueChange={() => toggleSection(ss.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={ss.enabled ? '#1a237e' : '#999'} />
+                                <Text style={[styles.toggleText, styles.toggleSubSubText, !ss.enabled && styles.toggleTextDisabled]}>{ss.enabled ? ssNum : '-'}. {ss.title}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })}
 
               <View style={styles.addSectionRow}>
                 <TextInput style={styles.addSectionInput} value={addingSectionTitle} onChangeText={setAddingSectionTitle} placeholder="Nova seção personalizada..." />
@@ -471,7 +505,6 @@ export default function EditReportScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowSectionsModal(false)}>
               <Text style={styles.modalCloseBtnText}>Fechar</Text>
             </TouchableOpacity>
@@ -499,6 +532,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionNumber: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1a237e', flex: 1 },
+  sectionTitleText: { fontSize: 15, fontWeight: '700', color: '#1a237e', flex: 1 },
   sectionContent: { marginTop: 12 },
   subsectionBlock: { marginTop: 12, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#e3f2fd' },
   subsectionTitle: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
@@ -514,25 +548,24 @@ const styles = StyleSheet.create({
   manageSectionsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, gap: 8 },
   manageSectionsBtnText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a237e' },
   saveButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8, marginBottom: 32 },
-  saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  // Cover Photo
-  coverPhotoContainer: { marginTop: 8 },
-  coverPhotoWrapper: { position: 'relative', marginBottom: 8 },
+  // Cover
+  coverPhotoWrapper: { position: 'relative', marginBottom: 8, marginTop: 8 },
   coverPhoto: { width: '100%', height: 200, borderRadius: 8 } as any,
   coverDeleteBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(211,47,47,0.85)', borderRadius: 16, padding: 6 },
   coverUploadArea: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#e0e0e0', borderStyle: 'dashed', borderRadius: 12, padding: 32, marginTop: 8, backgroundColor: '#fafafa' } as any,
   coverUploadText: { fontSize: 14, color: '#999', marginTop: 8 },
-  // Photo in sections
+  // Photo grid: 2 per row
   photoArea: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   photoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   photoHeaderText: { fontSize: 13, fontWeight: '600', color: '#1a237e' },
-  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  photoItem: { width: 100, position: 'relative' },
-  photoImage: { width: 100, height: 80, borderRadius: 6 },
+  photoGridRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  photoGridItem: { width: '48%', marginBottom: 12 } as any,
+  photoImageWrapper: { position: 'relative' },
+  gridPhoto: { width: '100%', height: 140, borderRadius: 8 } as any,
   photoPlaceholder: { backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center' },
   photoDeleteBtn: { position: 'absolute', top: -6, right: -6 },
-  photoName: { fontSize: 10, color: '#999', marginTop: 2 },
+  captionInput: { backgroundColor: '#f8f9fa', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0', padding: 8, fontSize: 12, color: '#333', marginTop: 4, textAlign: 'center' },
   uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#e3f2fd', borderRadius: 8, alignSelf: 'flex-start', marginTop: 8 },
   uploadBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },
   // Modal

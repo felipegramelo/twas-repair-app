@@ -24,13 +24,63 @@ interface Photo {
 }
 
 // Sections that should NOT have photo upload
-const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations'];
+const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations', 'disassembly', 'assembly'];
 
 // Subsections that are photo-only (no text area, just photos with captions)
 const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos');
 
 const showMsg = (msg: string) => {
   if (Platform.OS === 'web') window.alert(msg);
+};
+
+// Bullet text area: adds • on new lines, respects Enter key
+const BulletTextArea = ({ value, onChangeText, placeholder, style: customStyle }: {
+  value: string;
+  onChangeText: (t: string) => void;
+  placeholder?: string;
+  style?: any;
+}) => {
+  if (Platform.OS === 'web') {
+    const handleKeyDown = (e: any) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const textarea = e.target;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const val = textarea.value;
+        const newVal = val.substring(0, start) + '\n• ' + val.substring(end);
+        onChangeText(newVal);
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + 3;
+        }, 0);
+      }
+    };
+    return (
+      <textarea
+        value={value}
+        onChange={(e: any) => onChangeText(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        style={{
+          width: '100%', minHeight: 100, padding: 12, fontSize: 14, borderRadius: 8,
+          border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333',
+          fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical',
+          boxSizing: 'border-box',
+          ...(customStyle || {}),
+        }}
+      />
+    );
+  }
+  return (
+    <TextInput
+      style={[{ backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, customStyle]}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      multiline
+      textAlignVertical="top"
+    />
+  );
 };
 
 export default function EditReportScreen() {
@@ -406,9 +456,9 @@ export default function EditReportScreen() {
 
                 {editingSection === sec.key && (
                   <View style={styles.sectionContent}>
-                    {/* Text area for non-photo-only parent sections */}
-                    {!isPhotoOnlySection(sec.key) && sec.key !== 'service_description' && sec.key !== 'daily_activities' && (
-                      <TextInput style={styles.textarea} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} multiline textAlignVertical="top" />
+                    {/* Text area for non-photo-only parent sections - ALL editable */}
+                    {!isPhotoOnlySection(sec.key) && (
+                      <BulletTextArea value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />
                     )}
 
                     {/* Photo upload for this section (if allowed) */}
@@ -423,7 +473,7 @@ export default function EditReportScreen() {
                         <View key={sub.key} style={styles.subsectionBlock}>
                           <Text style={styles.subsectionTitle}>{subNum}. {sub.title}</Text>
                           {!isPhotos && (
-                            <TextInput style={styles.textarea} value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} multiline textAlignVertical="top" />
+                            <BulletTextArea value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />
                           )}
                           {isPhotos ? renderPhotoGrid(sub.key, true) : (canHavePhotos(sub.key) && renderPhotoGrid(sub.key))}
 
@@ -435,7 +485,7 @@ export default function EditReportScreen() {
                               <View key={ss.key} style={styles.subsubBlock}>
                                 <Text style={styles.subsubTitle}>{ssNum}. {ss.title}</Text>
                                 {!isSSPhotos && (
-                                  <TextInput style={styles.textarea} value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} multiline textAlignVertical="top" />
+                                  <BulletTextArea value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} />
                                 )}
                                 {isSSPhotos ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
                               </View>

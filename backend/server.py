@@ -21,7 +21,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch, cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, PageBreak, Frame, PageTemplate
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 import io
 from PIL import Image as PILImage
 
@@ -1152,11 +1152,20 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
 
 # ==================== REPORT ENDPOINTS ====================
 
-def get_default_service_sections():
+def get_default_service_sections(client="", service="", location=""):
+    intro_text = (
+        f"• A TWAS Repair foi contratada pela(o) {client} para realizar o (a) {service} "
+        f"da embarcação {location}.\n"
+        f"• A TWAS Repair performou as atividades descritas no relatório abaixo, utilizando-se de mão de obra "
+        f"especializada, atendendo os requerimentos da(o) {client}, através do representante/especialista "
+        f"do sistema treinado pelo fabricante."
+    )
+    equip_text = "• Azimuth Thruster:\n• Serial:\n• Data:"
+    obj_text = f"• O serviço teve por objetivo o(a) {service}."
     return [
-        {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": "", "enabled": True, "subsections": []},
-        {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": "", "enabled": True, "subsections": []},
-        {"key": "objective", "number": "3", "title": "OBJETIVO", "content": "", "enabled": True, "subsections": []},
+        {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": intro_text, "enabled": True, "subsections": []},
+        {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": equip_text, "enabled": True, "subsections": []},
+        {"key": "objective", "number": "3", "title": "OBJETIVO", "content": obj_text, "enabled": True, "subsections": []},
         {"key": "service_description", "number": "4", "title": "DESCRIÇÃO DOS SERVIÇOS", "content": "", "enabled": True, "subsections": [
             {"key": "disassembly", "number": "4.1", "title": "DESMONTAGEM", "content": "", "enabled": True, "subsections": [
                 {"key": "disassembly_photos", "number": "4.1.1", "title": "FOTOS", "content": "", "enabled": True}
@@ -1179,11 +1188,20 @@ def get_default_service_sections():
         {"key": "client_eval", "number": "8", "title": "AVALIAÇÃO DO CLIENTE", "content": "", "enabled": False, "subsections": []},
     ]
 
-def get_default_daily_sections():
+def get_default_daily_sections(client="", service="", location=""):
+    intro_text = (
+        f"• A TWAS Repair foi contratada pela(o) {client} para realizar o (a) {service} "
+        f"da embarcação {location}.\n"
+        f"• A TWAS Repair performou as atividades descritas no relatório abaixo, utilizando-se de mão de obra "
+        f"especializada, atendendo os requerimentos da(o) {client}, através do representante/especialista "
+        f"do sistema treinado pelo fabricante."
+    )
+    equip_text = "• Azimuth Thruster:\n• Serial:\n• Data:"
+    obj_text = f"• O serviço teve por objetivo o(a) {service}."
     return [
-        {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": "", "enabled": True, "subsections": []},
-        {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": "", "enabled": True, "subsections": []},
-        {"key": "objective", "number": "3", "title": "OBJETIVO", "content": "", "enabled": True, "subsections": []},
+        {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": intro_text, "enabled": True, "subsections": []},
+        {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": equip_text, "enabled": True, "subsections": []},
+        {"key": "objective", "number": "3", "title": "OBJETIVO", "content": obj_text, "enabled": True, "subsections": []},
         {"key": "daily_activities", "number": "4", "title": "DESCRIÇÃO DAS ATIVIDADES DIÁRIAS", "content": "", "enabled": True, "subsections": []},
         {"key": "observations", "number": "5", "title": "OBSERVAÇÕES", "content": "", "enabled": True, "subsections": []},
     ]
@@ -1196,7 +1214,11 @@ async def create_report(report: ReportCreate, user: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="Ordem de Serviço não encontrada")
     
     now = datetime.utcnow()
-    default_sections = get_default_service_sections() if report.report_type == "service" else get_default_daily_sections()
+    default_sections = get_default_service_sections(
+        client=os_data["client"], service=os_data["service"], location=os_data["location"]
+    ) if report.report_type == "service" else get_default_daily_sections(
+        client=os_data["client"], service=os_data["service"], location=os_data["location"]
+    )
     report_doc = {
         "report_type": report.report_type,
         "os_id": report.os_id,
@@ -1605,7 +1627,16 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1a237e'), alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
     section_style = ParagraphStyle('RSec', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a237e'), spaceBefore=14, spaceAfter=6, fontName='Helvetica-Bold')
     subsec_style = ParagraphStyle('RSubSec', parent=styles['Heading3'], fontSize=11, spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4)
+    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4, alignment=TA_JUSTIFY)
+    
+    def format_content(text):
+        """Convert plain text with line breaks and bullet markers to HTML for reportlab."""
+        if not text:
+            return ""
+        import html as html_mod
+        text = html_mod.escape(text)
+        text = text.replace('\n', '<br/>')
+        return text
     label_style = ParagraphStyle('RLabel', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), fontName='Helvetica-Bold')
     value_style = ParagraphStyle('RValue', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
     
@@ -1681,31 +1712,53 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     # ===== SUMÁRIO PAGE =====
     elements.append(PageBreak())
-    elements.append(Paragraph("SUMÁRIO", title_style))
+    sumario_title_style = ParagraphStyle('SumarioTitle', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.HexColor('#1a237e'), spaceBefore=12, spaceAfter=24)
+    elements.append(Paragraph("SUMÁRIO", sumario_title_style))
     elements.append(Spacer(1, 0.5*cm))
     
     sections = report.get("sections", [])
     
-    def build_toc_entries(sec_list, result=None):
-        if result is None:
-            result = []
+    toc_main_style = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', textColor=colors.HexColor('#333333'), spaceBefore=8, spaceAfter=4, leftIndent=0)
+    toc_sub_style = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.HexColor('#555555'), spaceBefore=3, spaceAfter=2, leftIndent=20)
+    toc_subsub_style = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.HexColor('#777777'), spaceBefore=2, spaceAfter=2, leftIndent=40)
+    
+    def build_toc_entries(sec_list):
+        entries = []
         for sec in sec_list:
             if sec.get("enabled", True):
-                indent = "    " * (len(sec["number"].split(".")) - 1)
-                result.append(f"{indent}{sec['number']}. {sec['title']}")
+                entries.append({"number": sec["number"], "title": sec["title"], "level": 0})
                 for sub in sec.get("subsections", []):
                     if sub.get("enabled", True):
-                        sub_indent = "    " * len(sub["number"].split("."))
-                        result.append(f"{sub_indent}{sub['number']}. {sub['title']}")
+                        entries.append({"number": sub["number"], "title": sub["title"], "level": 1})
                         for subsub in sub.get("subsections", []):
                             if subsub.get("enabled", True):
-                                ss_indent = "    " * len(subsub["number"].split("."))
-                                result.append(f"{ss_indent}{subsub['number']}. {subsub['title']}")
-        return result
+                                entries.append({"number": subsub["number"], "title": subsub["title"], "level": 2})
+        return entries
     
     toc_entries = build_toc_entries(sections)
+    
+    # Build TOC as a clean table with dotted lines
+    toc_data = []
     for entry in toc_entries:
-        elements.append(Paragraph(entry, body_style))
+        num_title = f"{entry['number']}. {entry['title']}"
+        dots = " " + "." * max(3, 60 - len(num_title))
+        if entry['level'] == 0:
+            toc_data.append([Paragraph(f"<b>{num_title}</b>{dots}", toc_main_style)])
+        elif entry['level'] == 1:
+            toc_data.append([Paragraph(f"{num_title}{dots}", toc_sub_style)])
+        else:
+            toc_data.append([Paragraph(f"{num_title}{dots}", toc_subsub_style)])
+    
+    if toc_data:
+        toc_table = Table(toc_data, colWidths=[content_width])
+        toc_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(toc_table)
     
     # ===== CONTENT PAGES =====
     elements.append(PageBreak())
@@ -1718,7 +1771,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         elements_list.append(Paragraph(f"{sec['number']}. {sec['title']}", style))
         content = sec.get("content", "")
         if content:
-            elements_list.append(Paragraph(content, body_style))
+            elements_list.append(Paragraph(format_content(content), body_style))
         
         # Add photos for this section (2 per row, same size, aligned with header/footer)
         _render_photos(sec.get("key", ""), elements_list)
@@ -1728,7 +1781,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                 elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", subsec_style))
                 sub_content = sub.get("content", "")
                 if sub_content:
-                    elements_list.append(Paragraph(sub_content, body_style))
+                    elements_list.append(Paragraph(format_content(sub_content), body_style))
                 _render_photos(sub.get("key", ""), elements_list)
                 
                 for subsub in sub.get("subsections", []):
@@ -1736,7 +1789,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                         elements_list.append(Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style))
                         ss_content = subsub.get("content", "")
                         if ss_content:
-                            elements_list.append(Paragraph(ss_content, body_style))
+                            elements_list.append(Paragraph(format_content(ss_content), body_style))
                         _render_photos(subsub.get("key", ""), elements_list)
     
     # Photo rendering helper: 2 per row, uniform size, aligned with content width

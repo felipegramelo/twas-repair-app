@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Platform, Modal, Switch, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Platform, Modal, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,80 +7,31 @@ import { reportAPI } from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Section {
-  key: string;
-  number: string;
-  title: string;
-  content: string;
-  enabled: boolean;
-  subsections: Section[];
+  key: string; number: string; title: string; content: string; enabled: boolean; subsections: Section[];
 }
-
 interface Photo {
-  id: string;
-  section_key: string;
-  storage_path: string;
-  original_filename: string;
-  caption?: string;
+  id: string; section_key: string; storage_path: string; original_filename: string;
 }
 
-// Sections that should NOT have photo upload
 const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations', 'disassembly', 'assembly'];
-
-// Subsections that are photo-only (no text area, just photos with captions)
 const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos');
+const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); };
 
-const showMsg = (msg: string) => {
-  if (Platform.OS === 'web') window.alert(msg);
-};
-
-// Bullet text area: adds • on new lines, respects Enter key
-const BulletTextArea = ({ value, onChangeText, placeholder, style: customStyle }: {
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder?: string;
-  style?: any;
-}) => {
+const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
   if (Platform.OS === 'web') {
     const handleKeyDown = (e: any) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        const textarea = e.target;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const val = textarea.value;
-        const newVal = val.substring(0, start) + '\n• ' + val.substring(end);
-        onChangeText(newVal);
-        setTimeout(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + 3;
-        }, 0);
+        const ta = e.target; const s = ta.selectionStart; const end = ta.selectionEnd;
+        const nv = ta.value.substring(0, s) + '\n• ' + ta.value.substring(end);
+        onChangeText(nv);
+        setTimeout(() => { ta.selectionStart = ta.selectionEnd = s + 3; }, 0);
       }
     };
-    return (
-      <textarea
-        value={value}
-        onChange={(e: any) => onChangeText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        style={{
-          width: '100%', minHeight: 100, padding: 12, fontSize: 14, borderRadius: 8,
-          border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333',
-          fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical',
-          boxSizing: 'border-box',
-          ...(customStyle || {}),
-        }}
-      />
-    );
+    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} onKeyDown={handleKeyDown} placeholder={placeholder}
+      style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333', fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', ...(cs || {}) }} />;
   }
-  return (
-    <TextInput
-      style={[{ backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, customStyle]}
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      multiline
-      textAlignVertical="top"
-    />
-  );
+  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={onChangeText} placeholder={placeholder} multiline textAlignVertical="top" />;
 };
 
 export default function EditReportScreen() {
@@ -103,461 +54,338 @@ export default function EditReportScreen() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentUploadSection, setCurrentUploadSection] = useState('cover');
 
-  useEffect(() => {
-    loadReport();
-    AsyncStorage.getItem('token').then(t => t && setToken(t));
-  }, []);
+  useEffect(() => { loadReport(); AsyncStorage.getItem('token').then(t => t && setToken(t)); }, []);
 
   const loadReport = async () => {
     try {
-      const [data, photosData] = await Promise.all([
-        reportAPI.getById(id!),
-        reportAPI.getPhotos(id!),
-      ]);
-      setReport(data);
-      setPeriodoInicio(data.periodo_inicio || '');
-      setPeriodoFim(data.periodo_fim || '');
-      setExecutadoPor(data.executado_por || '');
-      setSections(data.sections || []);
-      setPhotos(photosData);
-    } catch (error) {
-      showMsg('Erro ao carregar relatório');
-    } finally {
-      setLoading(false);
-    }
+      const [data, photosData] = await Promise.all([reportAPI.getById(id!), reportAPI.getPhotos(id!)]);
+      setReport(data); setPeriodoInicio(data.periodo_inicio || ''); setPeriodoFim(data.periodo_fim || '');
+      setExecutadoPor(data.executado_por || ''); setSections(data.sections || []); setPhotos(photosData);
+    } catch { showMsg('Erro ao carregar relatório'); } finally { setLoading(false); }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await reportAPI.update(id!, {
-        periodo_inicio: periodoInicio,
-        periodo_fim: periodoFim,
-        executado_por: executadoPor,
-        sections,
-      });
-      showMsg('Relatório salvo com sucesso!');
-      router.push('/supervisor');
-    } catch (error: any) {
-      showMsg('Erro ao salvar: ' + (error.message || ''));
-    } finally {
-      setSaving(false);
-    }
+      await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, sections });
+      showMsg('Relatório salvo com sucesso!'); router.push('/supervisor');
+    } catch (e: any) { showMsg('Erro ao salvar: ' + (e.message || '')); } finally { setSaving(false); }
   };
 
   const handleOpenPDF = async () => {
+    try { if (Platform.OS === 'web') { const blob = await reportAPI.downloadPDF(id!); window.open(URL.createObjectURL(blob), '_blank'); } } catch { showMsg('Erro ao gerar PDF'); }
+  };
+
+  const handleSharePDF = async () => {
     try {
       if (Platform.OS === 'web') {
         const blob = await reportAPI.downloadPDF(id!);
         const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
+        const link = document.createElement('a');
+        link.href = url; link.download = `relatorio_${report?.os_number || ''}.pdf`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
       }
-    } catch { showMsg('Erro ao gerar PDF'); }
+    } catch { showMsg('Erro ao compartilhar PDF'); }
   };
 
   const triggerFileUpload = (sectionKey: string) => {
     setCurrentUploadSection(sectionKey);
-    if (Platform.OS === 'web' && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    if (Platform.OS === 'web' && fileInputRef.current) fileInputRef.current.click();
   };
 
   const handleFileSelected = async (event: any) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const file = event.target.files?.[0]; if (!file) return;
     setUploading(currentUploadSection);
     try {
       await reportAPI.uploadPhoto(id!, file, currentUploadSection, file.name);
-      const updatedPhotos = await reportAPI.getPhotos(id!);
-      setPhotos(updatedPhotos);
-      showMsg('Foto enviada com sucesso!');
-    } catch (error: any) {
-      showMsg('Erro ao enviar foto: ' + (error.message || ''));
-    } finally {
-      setUploading(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+      setPhotos(await reportAPI.getPhotos(id!)); showMsg('Foto enviada!');
+    } catch (e: any) { showMsg('Erro ao enviar foto: ' + (e.message || '')); }
+    finally { setUploading(null); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
   const handleDeletePhoto = async (photoId: string) => {
     if (Platform.OS === 'web' && !window.confirm('Excluir esta foto?')) return;
-    try {
-      await reportAPI.deletePhoto(id!, photoId);
-      setPhotos(prev => prev.filter(p => p.id !== photoId));
-    } catch { showMsg('Erro ao excluir foto'); }
+    try { await reportAPI.deletePhoto(id!, photoId); setPhotos(prev => prev.filter(p => p.id !== photoId)); } catch { showMsg('Erro ao excluir foto'); }
   };
 
-  const getPhotoUrl = (storagePath: string) => reportAPI.getPhotoUrl(storagePath, token);
-  const getPhotosForSection = (sectionKey: string) => photos.filter(p => p.section_key === sectionKey);
-  const canHavePhotos = (sectionKey: string) => !NO_PHOTO_SECTIONS.includes(sectionKey);
+  const getPhotoUrl = (sp: string) => reportAPI.getPhotoUrl(sp, token);
+  const getPhotosForSection = (sk: string) => photos.filter(p => p.section_key === sk);
+  const canHavePhotos = (sk: string) => !NO_PHOTO_SECTIONS.includes(sk);
 
   const toggleSection = (sectionKey: string) => {
     setSections(prev => prev.map(s => {
       if (s.key === sectionKey) return { ...s, enabled: !s.enabled };
-      return {
-        ...s,
-        subsections: s.subsections.map(sub => {
-          if (sub.key === sectionKey) return { ...sub, enabled: !sub.enabled };
-          return {
-            ...sub,
-            subsections: (sub.subsections || []).map(ss =>
-              ss.key === sectionKey ? { ...ss, enabled: !ss.enabled } : ss
-            ),
-          };
-        }),
-      };
+      return { ...s, subsections: s.subsections.map(sub => {
+        if (sub.key === sectionKey) return { ...sub, enabled: !sub.enabled };
+        return { ...sub, subsections: (sub.subsections || []).map(ss => ss.key === sectionKey ? { ...ss, enabled: !ss.enabled } : ss) };
+      })};
     }));
   };
 
   const updateSectionContent = (sectionKey: string, content: string) => {
     setSections(prev => prev.map(s => {
       if (s.key === sectionKey) return { ...s, content };
-      return {
-        ...s,
-        subsections: s.subsections.map(sub => {
-          if (sub.key === sectionKey) return { ...sub, content };
-          return {
-            ...sub,
-            subsections: (sub.subsections || []).map(ss =>
-              ss.key === sectionKey ? { ...ss, content } : ss
-            ),
-          };
-        }),
-      };
+      return { ...s, subsections: s.subsections.map(sub => {
+        if (sub.key === sectionKey) return { ...sub, content };
+        return { ...sub, subsections: (sub.subsections || []).map(ss => ss.key === sectionKey ? { ...ss, content } : ss) };
+      })};
     }));
   };
 
   const addCustomSection = () => {
     if (!addingSectionTitle.trim()) return;
-    const newSection: Section = {
-      key: `custom_${Date.now()}`,
-      number: '',
-      title: addingSectionTitle.trim().toUpperCase(),
-      content: '',
-      enabled: true,
-      subsections: [],
-    };
-    setSections(prev => [...prev, newSection]);
+    setSections(prev => [...prev, { key: `custom_${Date.now()}`, number: '', title: addingSectionTitle.trim().toUpperCase(), content: '', enabled: true, subsections: [] }]);
     setAddingSectionTitle('');
   };
 
-  // Dynamic numbering: only count enabled sections
-  const getDisplayNumber = (sections: Section[]): Map<string, string> => {
-    const map = new Map<string, string>();
-    let mainIdx = 0;
-    for (const sec of sections) {
-      if (!sec.enabled) continue;
-      mainIdx++;
-      map.set(sec.key, String(mainIdx));
-      let subIdx = 0;
-      for (const sub of sec.subsections) {
-        if (!sub.enabled) continue;
-        subIdx++;
-        map.set(sub.key, `${mainIdx}.${subIdx}`);
-        let subSubIdx = 0;
-        for (const ss of (sub.subsections || [])) {
-          if (!ss.enabled) continue;
-          subSubIdx++;
-          map.set(ss.key, `${mainIdx}.${subIdx}.${subSubIdx}`);
-        }
+  const getDisplayNumber = (secs: Section[]): Map<string, string> => {
+    const map = new Map<string, string>(); let mi = 0;
+    for (const s of secs) { if (!s.enabled) continue; mi++; map.set(s.key, String(mi)); let si = 0;
+      for (const sub of s.subsections) { if (!sub.enabled) continue; si++; map.set(sub.key, `${mi}.${si}`); let ssi = 0;
+        for (const ss of (sub.subsections || [])) { if (!ss.enabled) continue; ssi++; map.set(ss.key, `${mi}.${si}.${ssi}`); }
       }
-    }
-    return map;
+    }; return map;
   };
 
   const numberMap = getDisplayNumber(sections);
+  const enabledCount = sections.filter(s => s.enabled).length;
 
-  const htmlDateToBR = (htmlDate: string): string => {
-    if (!htmlDate) return '';
-    const [y, m, d] = htmlDate.split('-');
-    return `${d}/${m}/${y}`;
-  };
-  const brDateToHtml = (brDate: string): string => {
-    if (!brDate || brDate.length < 10) return '';
-    const [d, m, y] = brDate.split('/');
-    return `${y}-${m}-${d}`;
-  };
+  const htmlDateToBR = (h: string): string => { if (!h) return ''; const [y, m, d] = h.split('-'); return `${d}/${m}/${y}`; };
+  const brDateToHtml = (b: string): string => { if (!b || b.length < 10) return ''; const [d, m, y] = b.split('/'); return `${y}-${m}-${d}`; };
 
-  // Render photo grid: 2 photos per row with caption
   const renderPhotoGrid = (sectionKey: string, isPhotoOnly: boolean = false) => {
     if (!canHavePhotos(sectionKey) && !isPhotoOnly) return null;
-    const sectionPhotos = getPhotosForSection(sectionKey);
+    const sp = getPhotosForSection(sectionKey);
     return (
       <View style={styles.photoArea}>
-        {!isPhotoOnly && (
-          <View style={styles.photoHeader}>
-            <Ionicons name="camera-outline" size={16} color="#1a237e" />
-            <Text style={styles.photoHeaderText}>Fotos ({sectionPhotos.length})</Text>
-          </View>
-        )}
-        {sectionPhotos.length > 0 && (
+        {!isPhotoOnly && <View style={styles.photoHeader}><Ionicons name="camera-outline" size={16} color="#1a237e" /><Text style={styles.photoHeaderText}>Fotos ({sp.length})</Text></View>}
+        {sp.length > 0 && (
           <View style={styles.photoGridRow}>
-            {sectionPhotos.map((photo, idx) => (
+            {sp.map(photo => (
               <View key={photo.id} style={styles.photoGridItem}>
                 <View style={styles.photoImageWrapper}>
-                  {token ? (
-                    <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={styles.gridPhoto} resizeMode="cover" />
-                  ) : (
-                    <View style={[styles.gridPhoto, styles.photoPlaceholder]}>
-                      <Ionicons name="image-outline" size={32} color="#999" />
-                    </View>
-                  )}
-                  <TouchableOpacity style={styles.photoDeleteBtn} onPress={() => handleDeletePhoto(photo.id)}>
-                    <Ionicons name="close-circle" size={22} color="#d32f2f" />
-                  </TouchableOpacity>
+                  {token ? <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={styles.gridPhoto} resizeMode="cover" /> : <View style={[styles.gridPhoto, styles.photoPlaceholder]}><Ionicons name="image-outline" size={32} color="#999" /></View>}
+                  <TouchableOpacity style={styles.photoDeleteBtn} onPress={() => handleDeletePhoto(photo.id)}><Ionicons name="close-circle" size={22} color="#d32f2f" /></TouchableOpacity>
                 </View>
-                <TextInput
-                  style={styles.captionInput}
-                  value={captions[photo.id] || photo.original_filename}
-                  onChangeText={(t) => setCaptions(prev => ({ ...prev, [photo.id]: t }))}
-                  placeholder="Legenda da foto..."
-                  multiline
-                />
+                <TextInput style={styles.captionInput} value={captions[photo.id] || photo.original_filename} onChangeText={(t) => setCaptions(prev => ({ ...prev, [photo.id]: t }))} placeholder="Legenda..." multiline />
               </View>
             ))}
           </View>
         )}
-        <TouchableOpacity
-          style={styles.uploadBtn}
-          onPress={() => triggerFileUpload(sectionKey)}
-          disabled={uploading === sectionKey}
-        >
-          {uploading === sectionKey ? (
-            <ActivityIndicator size="small" color="#1a237e" />
-          ) : (
-            <>
-              <Ionicons name="cloud-upload-outline" size={18} color="#1a237e" />
-              <Text style={styles.uploadBtnText}>Adicionar Foto</Text>
-            </>
-          )}
+        <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload(sectionKey)} disabled={uploading === sectionKey}>
+          {uploading === sectionKey ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={styles.uploadBtnText}>Adicionar Foto</Text></>}
         </TouchableOpacity>
       </View>
     );
   };
 
-  if (loading) {
-    return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 100 }} /></SafeAreaView>;
-  }
+  if (loading) return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 100 }} /></SafeAreaView>;
+  if (!report) return <SafeAreaView style={styles.container}><Text style={{ padding: 20, textAlign: 'center' }}>Relatório não encontrado</Text></SafeAreaView>;
 
-  if (!report) {
-    return <SafeAreaView style={styles.container}><Text style={{ padding: 20, textAlign: 'center' }}>Relatório não encontrado</Text></SafeAreaView>;
-  }
-
-  const isService = report.report_type === 'service';
   const coverPhotos = getPhotosForSection('cover');
 
   return (
     <SafeAreaView style={styles.container}>
-      {Platform.OS === 'web' && (
-        <input ref={fileInputRef as any} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileSelected} />
-      )}
+      {Platform.OS === 'web' && <input ref={fileInputRef as any} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileSelected} />}
       <View style={styles.innerContainer}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
           {/* Header */}
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#1a237e" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {isService ? 'Editar Rel. Serviço' : 'Editar Rel. Diário'}
-            </Text>
-            <TouchableOpacity onPress={handleOpenPDF} style={styles.pdfButton}>
-              <Ionicons name="document-text-outline" size={22} color="#1a237e" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
+            <Ionicons name="arrow-back" size={22} color="#1a237e" />
+            <Text style={styles.backText}>Voltar</Text>
+          </TouchableOpacity>
 
-          {/* Info Card */}
-          <View style={styles.infoCard}>
-            <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>{report.os_number}</Text></View>
-            <Text style={styles.infoClient}>{report.client}</Text>
-            <Text style={styles.infoLocation}>{report.location} - {report.service}</Text>
+          {/* Service Info */}
+          <View style={styles.serviceInfo}>
+            <View style={styles.serviceRow}>
+              <Ionicons name="construct-outline" size={18} color="#666" />
+              <Text style={styles.serviceText} numberOfLines={1}>{report.service || report.os_number}</Text>
+            </View>
+            <View style={styles.serviceRow}>
+              <Ionicons name="person-outline" size={18} color="#666" />
+              <Text style={styles.serviceName}>{report.supervisor_name}</Text>
+            </View>
           </View>
 
           {/* Cover Photo */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Foto de Capa</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Foto da Capa</Text>
             {coverPhotos.length > 0 ? (
               <View>
-                {coverPhotos.map(photo => (
-                  <View key={photo.id} style={styles.coverPhotoWrapper}>
-                    {token ? (
-                      <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={styles.coverPhoto} resizeMode="cover" />
-                    ) : (
-                      <View style={[styles.coverPhoto, styles.photoPlaceholder]}>
-                        <Ionicons name="image-outline" size={40} color="#999" />
-                      </View>
-                    )}
-                    <TouchableOpacity style={styles.coverDeleteBtn} onPress={() => handleDeletePhoto(photo.id)}>
-                      <Ionicons name="trash-outline" size={16} color="#fff" />
-                    </TouchableOpacity>
+                {coverPhotos.map(p => (
+                  <View key={p.id} style={styles.coverPhotoWrapper}>
+                    {token ? <Image source={{ uri: getPhotoUrl(p.storage_path) }} style={styles.coverPhoto} resizeMode="cover" /> : <View style={[styles.coverPhoto, styles.photoPlaceholder]}><Ionicons name="image-outline" size={40} color="#999" /></View>}
+                    <TouchableOpacity style={styles.coverDeleteBtn} onPress={() => handleDeletePhoto(p.id)}><Ionicons name="trash-outline" size={16} color="#fff" /></TouchableOpacity>
                   </View>
                 ))}
                 <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
-                  {uploading === 'cover' ? <ActivityIndicator size="small" color="#1a237e" /> : (
-                    <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={styles.uploadBtnText}>Trocar Foto</Text></>
-                  )}
+                  {uploading === 'cover' ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={styles.uploadBtnText}>Trocar Foto</Text></>}
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.coverUploadArea} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
-                {uploading === 'cover' ? <ActivityIndicator size="large" color="#1a237e" /> : (
-                  <><Ionicons name="camera-outline" size={40} color="#bbb" /><Text style={styles.coverUploadText}>Toque para adicionar foto de capa</Text></>
-                )}
+                {uploading === 'cover' ? <ActivityIndicator size="large" color="#1a237e" /> : <><Ionicons name="image-outline" size={48} color="#c0c0c0" /><Text style={styles.coverUploadText}>Toque para adicionar foto da capa</Text></>}
               </TouchableOpacity>
             )}
           </View>
 
+          {/* PDF Action Buttons */}
+          <TouchableOpacity style={styles.pdfOutlinedBtn} onPress={handleOpenPDF}>
+            <Ionicons name="eye-outline" size={20} color="#1a237e" />
+            <Text style={styles.pdfOutlinedText}>Visualizar PDF (Todos)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.pdfSolidBtn} onPress={handleSharePDF}>
+            <Ionicons name="share-outline" size={20} color="#fff" />
+            <Text style={styles.pdfSolidText}>Compartilhar PDF</Text>
+          </TouchableOpacity>
+
+          {/* Índice do Relatório */}
+          <View style={styles.indexHeader}>
+            <Ionicons name="list-outline" size={24} color="#1a237e" />
+            <View style={{ marginLeft: 10 }}>
+              <Text style={styles.indexTitle}>Índice do Relatório</Text>
+              <Text style={styles.indexCount}>{enabledCount} seções</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.selectSectionsBtn} onPress={() => setShowSectionsModal(true)}>
+            <Ionicons name="checkbox-outline" size={22} color="#1a237e" />
+            <Text style={styles.selectSectionsText}>Selecionar Seções do Índice</Text>
+            <Ionicons name="chevron-forward" size={20} color="#1a237e" />
+          </TouchableOpacity>
+
           {/* Período */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Período e Informações</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Período e Informações</Text>
             <View style={styles.dateRow}>
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Data Início</Text>
-                {Platform.OS === 'web' ? (
-                  <input type="date" value={brDateToHtml(periodoInicio)} onChange={(e: any) => setPeriodoInicio(htmlDateToBR(e.target.value))}
-                    style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }} />
-                ) : (
-                  <TextInput style={styles.dateInput} value={periodoInicio} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} onChangeText={(t) => { const c=t.replace(/\D/g,''); let f=c; if(c.length>=3&&c.length<=4) f=c.slice(0,2)+'/'+c.slice(2); else if(c.length>=5) f=c.slice(0,2)+'/'+c.slice(2,4)+'/'+c.slice(4,8); setPeriodoInicio(f); }} />
-                )}
+                {Platform.OS === 'web' ? <input type="date" value={brDateToHtml(periodoInicio)} onChange={(e: any) => setPeriodoInicio(htmlDateToBR(e.target.value))} style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }} /> : <TextInput style={styles.dateInput} value={periodoInicio} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />}
               </View>
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Data Fim</Text>
-                {Platform.OS === 'web' ? (
-                  <input type="date" value={brDateToHtml(periodoFim)} onChange={(e: any) => setPeriodoFim(htmlDateToBR(e.target.value))}
-                    style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }} />
-                ) : (
-                  <TextInput style={styles.dateInput} value={periodoFim} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} onChangeText={(t) => { const c=t.replace(/\D/g,''); let f=c; if(c.length>=3&&c.length<=4) f=c.slice(0,2)+'/'+c.slice(2); else if(c.length>=5) f=c.slice(0,2)+'/'+c.slice(2,4)+'/'+c.slice(4,8); setPeriodoFim(f); }} />
-                )}
+                {Platform.OS === 'web' ? <input type="date" value={brDateToHtml(periodoFim)} onChange={(e: any) => setPeriodoFim(htmlDateToBR(e.target.value))} style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }} /> : <TextInput style={styles.dateInput} value={periodoFim} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />}
               </View>
             </View>
             <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Executado Por</Text>
             <TextInput style={styles.input} value={executadoPor} onChangeText={setExecutadoPor} placeholder="Ex: TWAS REPAIR" />
           </View>
 
-          {/* Sections Management */}
-          <TouchableOpacity style={styles.manageSectionsBtn} onPress={() => setShowSectionsModal(true)}>
-            <Ionicons name="settings-outline" size={20} color="#1a237e" />
-            <Text style={styles.manageSectionsBtnText}>Gerenciar Seções</Text>
-            <Ionicons name="chevron-forward" size={18} color="#999" />
-          </TouchableOpacity>
-
-          {/* Enabled Sections with dynamic numbering */}
+          {/* Enabled Sections */}
           {sections.filter(s => s.enabled).map(sec => {
-            const secNum = numberMap.get(sec.key) || '';
+            const num = numberMap.get(sec.key) || '';
             return (
-              <View key={sec.key} style={styles.section}>
-                <TouchableOpacity onPress={() => setEditingSection(editingSection === sec.key ? null : sec.key)}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionNumber}>{secNum}.</Text>
-                    <Text style={styles.sectionTitleText}>{sec.title}</Text>
-                    <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
-                  </View>
+              <View key={sec.key} style={styles.card}>
+                <TouchableOpacity onPress={() => setEditingSection(editingSection === sec.key ? null : sec.key)} style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionNum}>{num}.</Text>
+                  <Text style={styles.sectionTitleText}>{sec.title}</Text>
+                  <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
                 </TouchableOpacity>
-
                 {editingSection === sec.key && (
-                  <View style={styles.sectionContent}>
-                    {/* Text area for non-photo-only parent sections - ALL editable */}
-                    {!isPhotoOnlySection(sec.key) && (
-                      <BulletTextArea value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />
-                    )}
-
-                    {/* Photo upload for this section (if allowed) */}
+                  <View style={{ marginTop: 12 }}>
+                    {!isPhotoOnlySection(sec.key) && <BulletTextArea value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
                     {canHavePhotos(sec.key) && !isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key)}
                     {isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key, true)}
-
-                    {/* Subsections */}
                     {sec.subsections.filter(sub => sub.enabled).map(sub => {
                       const subNum = numberMap.get(sub.key) || '';
                       const isPhotos = isPhotoOnlySection(sub.key);
                       return (
                         <View key={sub.key} style={styles.subsectionBlock}>
                           <Text style={styles.subsectionTitle}>{subNum}. {sub.title}</Text>
-                          {!isPhotos && (
-                            <BulletTextArea value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />
-                          )}
+                          {!isPhotos && <BulletTextArea value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />}
                           {isPhotos ? renderPhotoGrid(sub.key, true) : (canHavePhotos(sub.key) && renderPhotoGrid(sub.key))}
-
-                          {/* Sub-subsections */}
                           {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => {
                             const ssNum = numberMap.get(ss.key) || '';
-                            const isSSPhotos = isPhotoOnlySection(ss.key);
+                            const isSP = isPhotoOnlySection(ss.key);
                             return (
                               <View key={ss.key} style={styles.subsubBlock}>
                                 <Text style={styles.subsubTitle}>{ssNum}. {ss.title}</Text>
-                                {!isSSPhotos && (
-                                  <BulletTextArea value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} />
-                                )}
-                                {isSSPhotos ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
-                              </View>
-                            );
+                                {!isSP && <BulletTextArea value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} />}
+                                {isSP ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
+                              </View>);
                           })}
-                        </View>
-                      );
+                        </View>);
                     })}
                   </View>
                 )}
-              </View>
-            );
+              </View>);
           })}
 
-          {/* Save Button */}
+          {/* Save */}
           <TouchableOpacity style={[styles.saveButton, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" /> : (
-              <><Ionicons name="save" size={22} color="#fff" /><Text style={styles.saveButtonText}>Salvar Relatório</Text></>
-            )}
+            {saving ? <ActivityIndicator color="#fff" /> : <><Ionicons name="save" size={22} color="#fff" /><Text style={styles.saveButtonText}>Salvar Relatório</Text></>}
           </TouchableOpacity>
         </ScrollView>
       </View>
 
-      {/* Sections Management Modal */}
+      {/* Section Selection Modal */}
       <Modal visible={showSectionsModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Gerenciar Seções</Text>
-            <Text style={styles.modalSubtitle}>Ative ou desative as seções do relatório</Text>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowSectionsModal(false)}><Ionicons name="arrow-back" size={22} color="#1a237e" /></TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>Selecionar Seções</Text>
+              <View style={{ width: 22 }} />
+            </View>
+
+            <View style={styles.modalIconRow}><Ionicons name="list-outline" size={32} color="#1a237e" /></View>
+            <Text style={styles.modalMainTitle}>Selecione as Seções do Relatório</Text>
+            <Text style={styles.modalSubtitle}>Marque as caixas das seções que deseja incluir</Text>
+
             <ScrollView style={styles.modalScroll}>
               {sections.map(sec => {
-                const secNum = numberMap.get(sec.key) || '-';
+                const num = numberMap.get(sec.key) || '-';
                 return (
                   <View key={sec.key}>
-                    <View style={styles.toggleRow}>
-                      <Switch value={sec.enabled} onValueChange={() => toggleSection(sec.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={sec.enabled ? '#1a237e' : '#999'} />
-                      <Text style={[styles.toggleText, !sec.enabled && styles.toggleTextDisabled]}>{sec.enabled ? secNum : '-'}. {sec.title}</Text>
-                    </View>
+                    <TouchableOpacity style={styles.checkRow} onPress={() => toggleSection(sec.key)}>
+                      <View style={[styles.checkbox, sec.enabled && styles.checkboxChecked]}>
+                        {sec.enabled && <Ionicons name="checkmark" size={14} color="#fff" />}
+                      </View>
+                      <Text style={styles.checkNum}>{sec.enabled ? num : '-'}</Text>
+                      <Text style={styles.checkTitle}>{sec.title}</Text>
+                      {sec.subsections.length > 0 && <Ionicons name="add-circle-outline" size={22} color="#bbb" />}
+                    </TouchableOpacity>
                     {sec.enabled && sec.subsections.map(sub => {
                       const subNum = numberMap.get(sub.key) || '-';
                       return (
                         <View key={sub.key}>
-                          <View style={[styles.toggleRow, { paddingLeft: 32 }]}>
-                            <Switch value={sub.enabled} onValueChange={() => toggleSection(sub.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={sub.enabled ? '#1a237e' : '#999'} />
-                            <Text style={[styles.toggleText, styles.toggleSubText, !sub.enabled && styles.toggleTextDisabled]}>{sub.enabled ? subNum : '-'}. {sub.title}</Text>
-                          </View>
+                          <TouchableOpacity style={[styles.checkRow, { paddingLeft: 40 }]} onPress={() => toggleSection(sub.key)}>
+                            <View style={[styles.checkbox, sub.enabled && styles.checkboxChecked]}>{sub.enabled && <Ionicons name="checkmark" size={14} color="#fff" />}</View>
+                            <Text style={styles.checkNumSub}>{sub.enabled ? subNum : '-'}</Text>
+                            <Text style={styles.checkTitleSub}>{sub.title}</Text>
+                            {(sub.subsections || []).length > 0 && <Ionicons name="add-circle-outline" size={20} color="#bbb" />}
+                          </TouchableOpacity>
                           {sub.enabled && (sub.subsections || []).map((ss: Section) => {
                             const ssNum = numberMap.get(ss.key) || '-';
                             return (
-                              <View key={ss.key} style={[styles.toggleRow, { paddingLeft: 56 }]}>
-                                <Switch value={ss.enabled} onValueChange={() => toggleSection(ss.key)} trackColor={{ false: '#ddd', true: '#bbdefb' }} thumbColor={ss.enabled ? '#1a237e' : '#999'} />
-                                <Text style={[styles.toggleText, styles.toggleSubSubText, !ss.enabled && styles.toggleTextDisabled]}>{ss.enabled ? ssNum : '-'}. {ss.title}</Text>
-                              </View>
-                            );
+                              <TouchableOpacity key={ss.key} style={[styles.checkRow, { paddingLeft: 70 }]} onPress={() => toggleSection(ss.key)}>
+                                <View style={[styles.checkbox, ss.enabled && styles.checkboxChecked]}>{ss.enabled && <Ionicons name="checkmark" size={14} color="#fff" />}</View>
+                                <Text style={styles.checkNumSub}>{ss.enabled ? ssNum : '-'}</Text>
+                                <Text style={styles.checkTitleSub}>{ss.title}</Text>
+                              </TouchableOpacity>);
                           })}
-                        </View>
-                      );
+                        </View>);
                     })}
-                  </View>
-                );
+                  </View>);
               })}
 
               <View style={styles.addSectionRow}>
                 <TextInput style={styles.addSectionInput} value={addingSectionTitle} onChangeText={setAddingSectionTitle} placeholder="Nova seção personalizada..." />
-                <TouchableOpacity style={styles.addSectionBtn} onPress={addCustomSection}>
-                  <Ionicons name="add-circle" size={28} color="#1a237e" />
-                </TouchableOpacity>
+                <TouchableOpacity style={styles.addSectionBtn} onPress={addCustomSection}><Ionicons name="add-circle" size={28} color="#1a237e" /></TouchableOpacity>
               </View>
             </ScrollView>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowSectionsModal(false)}>
-              <Text style={styles.modalCloseBtnText}>Fechar</Text>
-            </TouchableOpacity>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowSectionsModal(false)}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={() => setShowSectionsModal(false)}>
+                <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                <Text style={styles.modalSaveText}>Salvar Seleção</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -568,44 +396,48 @@ export default function EditReportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   innerContainer: { flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}) } as any,
-  scrollContent: { padding: 16, paddingBottom: 32 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
-  backButton: { padding: 8 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a237e', flex: 1 },
-  pdfButton: { padding: 8 },
-  infoCard: { backgroundColor: '#e3f2fd', borderRadius: 12, padding: 16, marginBottom: 12 },
-  infoBadge: { backgroundColor: '#1a237e', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6, marginBottom: 8 },
-  infoBadgeText: { color: '#fff', fontWeight: '600', fontSize: 12 },
-  infoClient: { fontSize: 16, fontWeight: '600', color: '#1a237e' },
-  infoLocation: { fontSize: 13, color: '#555', marginTop: 4 },
-  section: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 10 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionNumber: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1a237e', flex: 1 },
-  sectionTitleText: { fontSize: 15, fontWeight: '700', color: '#1a237e', flex: 1 },
-  sectionContent: { marginTop: 12 },
-  subsectionBlock: { marginTop: 12, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#e3f2fd' },
-  subsectionTitle: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
-  subsubBlock: { marginTop: 8, paddingLeft: 12 },
-  subsubTitle: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 4 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 },
-  input: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, color: '#333' },
-  textarea: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 80 },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  backText: { fontSize: 17, fontWeight: '600', color: '#1a237e' },
+  serviceInfo: { marginBottom: 16 },
+  serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  serviceText: { fontSize: 14, color: '#666' },
+  serviceName: { fontSize: 14, color: '#666' },
+  card: { backgroundColor: '#fff', borderRadius: 14, padding: 18, marginBottom: 12, ...(Platform.OS === 'web' ? { boxShadow: '0 1px 4px rgba(0,0,0,0.06)' } : { elevation: 1 }) } as any,
+  cardLabel: { fontSize: 16, fontWeight: '700', color: '#222', marginBottom: 10 },
+  // Cover photo
+  coverPhotoWrapper: { position: 'relative', marginBottom: 8 },
+  coverPhoto: { width: '100%', height: 200, borderRadius: 10 } as any,
+  coverDeleteBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(211,47,47,0.85)', borderRadius: 16, padding: 6 },
+  coverUploadArea: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#ddd', borderStyle: 'dashed', borderRadius: 14, padding: 36, backgroundColor: '#fafafa' } as any,
+  coverUploadText: { fontSize: 14, color: '#aaa', marginTop: 10 },
+  // PDF buttons
+  pdfOutlinedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#1a237e', borderRadius: 12, padding: 14, marginBottom: 10, gap: 10, backgroundColor: '#fff' },
+  pdfOutlinedText: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
+  pdfSolidBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a237e', borderRadius: 12, padding: 14, marginBottom: 16, gap: 10 },
+  pdfSolidText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  // Índice
+  indexHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 },
+  indexTitle: { fontSize: 18, fontWeight: '700', color: '#222' },
+  indexCount: { fontSize: 13, color: '#999', marginTop: 2 },
+  selectSectionsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8edf8', borderRadius: 12, padding: 14, marginBottom: 16, gap: 10 },
+  selectSectionsText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a237e' },
+  // Period
   dateRow: { flexDirection: 'row', gap: 12 },
   dateField: { flex: 1 },
   dateLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
-  dateInput: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, textAlign: 'center' },
-  manageSectionsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, gap: 8 },
-  manageSectionsBtnText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a237e' },
-  saveButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8, marginBottom: 32 },
-  saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  // Cover
-  coverPhotoWrapper: { position: 'relative', marginBottom: 8, marginTop: 8 },
-  coverPhoto: { width: '100%', height: 200, borderRadius: 8 } as any,
-  coverDeleteBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(211,47,47,0.85)', borderRadius: 16, padding: 6 },
-  coverUploadArea: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#e0e0e0', borderStyle: 'dashed', borderRadius: 12, padding: 32, marginTop: 8, backgroundColor: '#fafafa' } as any,
-  coverUploadText: { fontSize: 14, color: '#999', marginTop: 8 },
-  // Photo grid: 2 per row
+  dateInput: { backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, textAlign: 'center' },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 },
+  input: { backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, color: '#333' },
+  // Sections
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionNum: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
+  sectionTitleText: { fontSize: 15, fontWeight: '700', color: '#1a237e', flex: 1 },
+  subsectionBlock: { marginTop: 14, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: '#e3f2fd' },
+  subsectionTitle: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
+  subsubBlock: { marginTop: 10, paddingLeft: 14 },
+  subsubTitle: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 4 },
+  // Photos
   photoArea: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   photoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   photoHeaderText: { fontSize: 13, fontWeight: '600', color: '#1a237e' },
@@ -618,20 +450,31 @@ const styles = StyleSheet.create({
   captionInput: { backgroundColor: '#f8f9fa', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0', padding: 8, fontSize: 12, color: '#333', marginTop: 4, textAlign: 'center' },
   uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#e3f2fd', borderRadius: 8, alignSelf: 'flex-start', marginTop: 8 },
   uploadBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },
+  // Save
+  saveButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8, marginBottom: 32 },
+  saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a237e', textAlign: 'center' },
-  modalSubtitle: { fontSize: 13, color: '#666', textAlign: 'center', marginTop: 4, marginBottom: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, maxHeight: '90%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  modalHeaderTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
+  modalIconRow: { alignItems: 'center', marginBottom: 8 },
+  modalMainTitle: { fontSize: 18, fontWeight: '700', color: '#222', textAlign: 'center', marginBottom: 4 },
+  modalSubtitle: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 16 },
   modalScroll: { maxHeight: 400 },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 12 },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#333', flex: 1 },
-  toggleSubText: { fontSize: 13, fontWeight: '500' },
-  toggleSubSubText: { fontSize: 12, fontWeight: '400' },
-  toggleTextDisabled: { color: '#aaa', textDecorationLine: 'line-through' },
-  addSectionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 8 },
-  addSectionInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 10, fontSize: 14 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#f2f2f2', gap: 12 },
+  checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 2, borderColor: '#ccc', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  checkboxChecked: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  checkNum: { fontSize: 16, fontWeight: '700', color: '#1a237e', width: 30 },
+  checkTitle: { fontSize: 14, fontWeight: '700', color: '#333', flex: 1 },
+  checkNumSub: { fontSize: 14, fontWeight: '600', color: '#1a237e', width: 40 },
+  checkTitleSub: { fontSize: 13, fontWeight: '500', color: '#555', flex: 1 },
+  addSectionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 8, paddingHorizontal: 8 },
+  addSectionInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 10, fontSize: 14 },
   addSectionBtn: { padding: 4 },
-  modalCloseBtn: { backgroundColor: '#1a237e', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
-  modalCloseBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  modalCancelBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#f5f5f5' },
+  modalCancelText: { fontSize: 16, color: '#666', fontWeight: '600' },
+  modalSaveBtn: { flex: 1.2, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#2563eb', flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  modalSaveText: { fontSize: 16, color: '#fff', fontWeight: '700' },
 });

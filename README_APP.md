@@ -111,8 +111,8 @@ O PDF é gerado automaticamente com:
 
 ## 🌐 URLs
 
-- **Frontend:** https://report-hub-local.preview.emergentagent.com
-- **Backend API:** https://report-hub-local.preview.emergentagent.com/api
+- **Frontend:** https://repair-tracker-app-7.preview.emergentagent.com
+- **Backend API:** https://repair-tracker-app-7.preview.emergentagent.com/api
 
 ## 📱 Acesso Mobile
 

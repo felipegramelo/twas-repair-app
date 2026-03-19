@@ -802,12 +802,12 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     buffer = io.BytesIO()
     page_width, page_height = A4
     
-    # Border margins (distance from page edge)
-    border_margin = 0.9*cm
+    # Border margins (distance from page edge) - TIMESHEET uses original values
+    border_margin = 0.7*cm
     
     # Content margins (inside the border) - aligned with header/footer
-    content_left = border_margin + 1.6*cm
-    content_right = border_margin + 1.6*cm
+    content_left = border_margin + 0.5*cm
+    content_right = border_margin + 0.5*cm
     content_top = border_margin + 2.5*cm  # Space for header drawn on canvas
     content_bottom = border_margin + 1.8*cm  # Space for footer drawn on canvas
     
@@ -1648,14 +1648,14 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     elements.append(Paragraph(report_title, title_style))
     elements.append(Spacer(1, 1*cm))
     
-    # Cover photo
+    # Cover photo - larger, full content width
     cover_photos = report_photos.get("cover", [])
     if cover_photos:
         photo = cover_photos[0]
-        img = load_photo_image(photo["storage_path"], content_width * 0.7, 8*cm)
+        img = load_photo_image(photo["storage_path"], content_width, 10*cm)
         if img:
             elements.append(img)
-            elements.append(Spacer(1, 0.5*cm))
+            elements.append(Spacer(1, 1.5*cm))
     
     # Info table
     info_data = [
@@ -1720,76 +1720,16 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         if content:
             elements_list.append(Paragraph(content, body_style))
         
-        # Add photos for this section (2 per row with captions)
-        sec_photos = report_photos.get(sec.get("key", ""), [])
-        if sec_photos:
-            photo_half_w = (content_width - 0.5*cm) / 2
-            photo_h = 5*cm
-            rows = []
-            for i in range(0, len(sec_photos), 2):
-                row_imgs = []
-                row_caps = []
-                for j in range(2):
-                    if i + j < len(sec_photos):
-                        p = sec_photos[i + j]
-                        img = load_photo_image(p["storage_path"], photo_half_w - 0.2*cm, photo_h)
-                        row_imgs.append(img if img else Paragraph("", body_style))
-                        row_caps.append(Paragraph(p.get("original_filename", ""), caption_style))
-                    else:
-                        row_imgs.append(Paragraph("", body_style))
-                        row_caps.append(Paragraph("", caption_style))
-                rows.append(row_imgs)
-                rows.append(row_caps)
-            if rows:
-                photo_table = Table(rows, colWidths=[photo_half_w, photo_half_w])
-                photo_table.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('TOPPADDING', (0, 0), (-1, -1), 4),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ]))
-                elements_list.append(Spacer(1, 0.3*cm))
-                elements_list.append(photo_table)
+        # Add photos for this section (2 per row, same size, aligned with header/footer)
+        _render_photos(sec.get("key", ""), elements_list)
         
         for sub in sec.get("subsections", []):
             if sub.get("enabled", True):
-                sub_level = len(sub["number"].split("."))
-                sub_style = subsec_style
-                elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", sub_style))
+                elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", subsec_style))
                 sub_content = sub.get("content", "")
                 if sub_content:
                     elements_list.append(Paragraph(sub_content, body_style))
-                
-                # Photos for subsection
-                sub_photos = report_photos.get(sub.get("key", ""), [])
-                if sub_photos:
-                    photo_half_w = (content_width - 0.5*cm) / 2
-                    photo_h = 5*cm
-                    rows = []
-                    for i in range(0, len(sub_photos), 2):
-                        row_imgs = []
-                        row_caps = []
-                        for j in range(2):
-                            if i + j < len(sub_photos):
-                                p = sub_photos[i + j]
-                                img = load_photo_image(p["storage_path"], photo_half_w - 0.2*cm, photo_h)
-                                row_imgs.append(img if img else Paragraph("", body_style))
-                                row_caps.append(Paragraph(p.get("original_filename", ""), caption_style))
-                            else:
-                                row_imgs.append(Paragraph("", body_style))
-                                row_caps.append(Paragraph("", caption_style))
-                        rows.append(row_imgs)
-                        rows.append(row_caps)
-                    if rows:
-                        photo_table = Table(rows, colWidths=[photo_half_w, photo_half_w])
-                        photo_table.setStyle(TableStyle([
-                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                            ('TOPPADDING', (0, 0), (-1, -1), 4),
-                            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                        ]))
-                        elements_list.append(Spacer(1, 0.3*cm))
-                        elements_list.append(photo_table)
+                _render_photos(sub.get("key", ""), elements_list)
                 
                 for subsub in sub.get("subsections", []):
                     if subsub.get("enabled", True):
@@ -1797,37 +1737,42 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                         ss_content = subsub.get("content", "")
                         if ss_content:
                             elements_list.append(Paragraph(ss_content, body_style))
-                        
-                        # Photos for sub-subsection
-                        ss_photos = report_photos.get(subsub.get("key", ""), [])
-                        if ss_photos:
-                            photo_half_w = (content_width - 0.5*cm) / 2
-                            photo_h = 5*cm
-                            rows = []
-                            for i in range(0, len(ss_photos), 2):
-                                row_imgs = []
-                                row_caps = []
-                                for j in range(2):
-                                    if i + j < len(ss_photos):
-                                        p = ss_photos[i + j]
-                                        img = load_photo_image(p["storage_path"], photo_half_w - 0.2*cm, photo_h)
-                                        row_imgs.append(img if img else Paragraph("", body_style))
-                                        row_caps.append(Paragraph(p.get("original_filename", ""), caption_style))
-                                    else:
-                                        row_imgs.append(Paragraph("", body_style))
-                                        row_caps.append(Paragraph("", caption_style))
-                                rows.append(row_imgs)
-                                rows.append(row_caps)
-                            if rows:
-                                photo_table = Table(rows, colWidths=[photo_half_w, photo_half_w])
-                                photo_table.setStyle(TableStyle([
-                                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                                    ('TOPPADDING', (0, 0), (-1, -1), 4),
-                                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                                ]))
-                                elements_list.append(Spacer(1, 0.3*cm))
-                                elements_list.append(photo_table)
+                        _render_photos(subsub.get("key", ""), elements_list)
+    
+    # Photo rendering helper: 2 per row, uniform size, aligned with content width
+    photo_col_w = content_width / 2
+    photo_img_w = photo_col_w - 0.3*cm
+    photo_img_h = 6*cm
+    
+    def _render_photos(section_key, elements_list):
+        sec_photos = report_photos.get(section_key, [])
+        if not sec_photos:
+            return
+        rows = []
+        for i in range(0, len(sec_photos), 2):
+            row_imgs = []
+            row_caps = []
+            for j in range(2):
+                if i + j < len(sec_photos):
+                    p = sec_photos[i + j]
+                    img = load_photo_image(p["storage_path"], photo_img_w, photo_img_h)
+                    row_imgs.append(img if img else Paragraph("", body_style))
+                    row_caps.append(Paragraph(p.get("original_filename", ""), caption_style))
+                else:
+                    row_imgs.append(Paragraph("", body_style))
+                    row_caps.append(Paragraph("", caption_style))
+            rows.append(row_imgs)
+            rows.append(row_caps)
+        if rows:
+            photo_table = Table(rows, colWidths=[photo_col_w, photo_col_w])
+            photo_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            elements_list.append(Spacer(1, 0.3*cm))
+            elements_list.append(photo_table)
     
     for sec in sections:
         render_section(sec, elements)

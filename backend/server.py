@@ -1388,8 +1388,20 @@ async def duplicate_report(report_id: str, dup: DuplicateReportRequest, user: di
 
 MIME_TYPES = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-    "gif": "image/gif", "webp": "image/webp",
+    "gif": "image/gif", "webp": "image/webp", "pdf": "application/pdf",
 }
+
+def convert_pdf_to_images(pdf_data: bytes) -> list:
+    """Convert PDF pages to JPEG images, returns list of (bytes, filename)."""
+    import fitz
+    images = []
+    doc = fitz.open(stream=pdf_data, filetype="pdf")
+    for i, page in enumerate(doc):
+        pix = page.get_pixmap(dpi=150)
+        img_data = pix.tobytes("jpeg")
+        images.append((img_data, f"page_{i+1}.jpeg"))
+    doc.close()
+    return images
 
 @api_router.post("/reports/{report_id}/upload-photo")
 async def upload_report_photo(
@@ -1404,47 +1416,108 @@ async def upload_report_photo(
 
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
     if ext not in MIME_TYPES:
-        raise HTTPException(status_code=400, detail="Formato não suportado. Use jpg, png, gif ou webp.")
+        raise HTTPException(status_code=400, detail="Formato não suportado. Use jpg, png, gif, webp ou pdf.")
 
-    content_type = MIME_TYPES.get(ext, "image/jpeg")
     data = await file.read()
 
-    if len(data) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="Arquivo muito grande. Máximo 10MB.")
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Arquivo muito grande. Máximo 20MB.")
 
-    file_id = str(uuid.uuid4())
-    storage_path = f"{APP_NAME}/reports/{report_id}/{section_key}/{file_id}.{ext}"
+    uploaded_paths = []
 
-    try:
-        result = put_object(storage_path, data, content_type)
-    except Exception as e:
-        logging.error(f"Upload error: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao fazer upload da imagem")
+    if ext == "pdf":
+        # Convert PDF pages to images
+        try:
+            pages = convert_pdf_to_images(data)
+        except Exception as e:
+            logging.error(f"PDF conversion error: {e}")
+            raise HTTPException(status_code=400, detail="Erro ao converter PDF para imagens")
+        
+        for img_data, img_name in pages:
+            # Compress the image
+            pil_img = PILImage.open(io.BytesIO(img_data))
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            out_buf = io.BytesIO()
+            pil_img.save(out_buf, format='JPEG', quality=60)
+            compressed = out_buf.getvalue()
+            
+            file_id = str(uuid.uuid4())
+            storage_path = f"{APP_NAME}/reports/{report_id}/{section_key}/{file_id}.jpeg"
+            try:
+                result = put_object(storage_path, compressed, "image/jpeg")
+            except Exception as e:
+                logging.error(f"Upload error: {e}")
+                continue
+            
+            await db.report_photos.insert_one({
+                "report_id": report_id,
+                "section_key": section_key,
+                "storage_path": result["path"],
+                "original_filename": f"{file.filename} - {img_name}",
+                "content_type": "image/jpeg",
+                "size": result.get("size", len(compressed)),
+                "is_deleted": False,
+                "created_at": datetime.utcnow(),
+            })
+            uploaded_paths.append(result["path"])
+        
+        return {
+            "storage_paths": uploaded_paths,
+            "section_key": section_key,
+            "filename": file.filename,
+            "pages_converted": len(uploaded_paths),
+        }
+    else:
+        # Regular image upload - compress it
+        content_type = MIME_TYPES.get(ext, "image/jpeg")
+        try:
+            pil_img = PILImage.open(io.BytesIO(data))
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            # Resize if very large
+            max_dim = 2000
+            if max(pil_img.size) > max_dim:
+                pil_img.thumbnail((max_dim, max_dim), PILImage.LANCZOS)
+            out_buf = io.BytesIO()
+            pil_img.save(out_buf, format='JPEG', quality=60)
+            data = out_buf.getvalue()
+            ext = "jpeg"
+            content_type = "image/jpeg"
+        except Exception:
+            pass  # If compression fails, use original data
 
-    # Store file reference
-    await db.report_photos.insert_one({
-        "report_id": report_id,
-        "section_key": section_key,
-        "storage_path": result["path"],
-        "original_filename": file.filename,
-        "content_type": content_type,
-        "size": result.get("size", len(data)),
-        "is_deleted": False,
-        "created_at": datetime.utcnow(),
-    })
+        file_id = str(uuid.uuid4())
+        storage_path = f"{APP_NAME}/reports/{report_id}/{section_key}/{file_id}.{ext}"
 
-    # If it's a cover photo, update the report
-    if section_key == "cover":
-        await db.reports.update_one(
-            {"_id": ObjectId(report_id)},
-            {"$set": {"cover_photo": result["path"]}}
-        )
+        try:
+            result = put_object(storage_path, data, content_type)
+        except Exception as e:
+            logging.error(f"Upload error: {e}")
+            raise HTTPException(status_code=500, detail="Erro ao fazer upload da imagem")
 
-    return {
-        "storage_path": result["path"],
-        "section_key": section_key,
-        "filename": file.filename,
-    }
+        await db.report_photos.insert_one({
+            "report_id": report_id,
+            "section_key": section_key,
+            "storage_path": result["path"],
+            "original_filename": file.filename,
+            "content_type": content_type,
+            "size": result.get("size", len(data)),
+            "is_deleted": False,
+            "created_at": datetime.utcnow(),
+        })
+
+        if section_key == "cover":
+            await db.reports.update_one(
+                {"_id": ObjectId(report_id)},
+                {"$set": {"cover_photo": result["path"]}}
+            )
+
+        return {
+            "storage_path": result["path"],
+            "section_key": section_key,
+            "filename": file.filename,
+        }
 
 
 @api_router.get("/photos/{path:path}")
@@ -1565,9 +1638,11 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         
         # Title
         canvas_obj.setFont("Helvetica-Bold", 12)
-        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.0*cm, report_title)
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.1*cm, report_title)
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.65*cm, "20-FR-01-03 (1)")
         canvas_obj.setFont("Helvetica-Bold", 10)
-        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.35*cm, f"OS: {report.get('os_number', '')}")
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.2*cm, f"OS: {report.get('os_number', '')}")
         
         # Right side details
         right_x = page_width - content_right - 0.2*cm
@@ -1665,7 +1740,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             new_w = w * ratio
             new_h = h * ratio
             out = io.BytesIO()
-            pil.save(out, format='JPEG', quality=75)
+            pil.save(out, format='JPEG', quality=45)
             out.seek(0)
             return RLImage(out, width=new_w, height=new_h)
         except Exception as e:
@@ -1675,18 +1750,27 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     caption_style = ParagraphStyle('PhotoCaption', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, textColor=colors.HexColor('#666666'), spaceAfter=6)
 
     # ===== COVER PAGE =====
-    elements.append(Spacer(1, 0.5*cm))
-    elements.append(Paragraph(report_title, title_style))
-    elements.append(Spacer(1, 1*cm))
+    service_name = report.get("service", "")
+    vessel_name = report.get("location", "")
     
-    # Cover photo - larger, full content width
+    elements.append(Spacer(1, 0.5*cm))
+    # Service name above photo
+    service_cover_style = ParagraphStyle('ServiceCover', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.HexColor('#1a237e'), spaceAfter=12)
+    elements.append(Paragraph(service_name, service_cover_style))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Cover photo
     cover_photos = report_photos.get("cover", [])
     if cover_photos:
         photo = cover_photos[0]
         img = load_photo_image(photo["storage_path"], content_width, 10*cm)
         if img:
             elements.append(img)
-            elements.append(Spacer(1, 1.5*cm))
+    
+    # Vessel name below photo
+    vessel_cover_style = ParagraphStyle('VesselCover', parent=styles['Normal'], fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.HexColor('#333333'), spaceBefore=12, spaceAfter=16)
+    elements.append(Paragraph(vessel_name, vessel_cover_style))
+    elements.append(Spacer(1, 0.5*cm))
     
     # Info table
     info_data = [
@@ -1792,6 +1876,9 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                             elements_list.append(Paragraph(format_content(ss_content), body_style))
                         _render_photos(subsub.get("key", ""), elements_list)
     
+    # Image-only sections: render full-page images (one per page)
+    IMAGE_ONLY_KEYS = {'ndt', 'pressure_test', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'}
+    
     # Photo rendering helper: 2 per row, uniform size, aligned with content width
     photo_col_w = content_width / 2
     photo_img_w = photo_col_w - 0.3*cm
@@ -1801,31 +1888,48 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         sec_photos = report_photos.get(section_key, [])
         if not sec_photos:
             return
-        rows = []
-        for i in range(0, len(sec_photos), 2):
-            row_imgs = []
-            row_caps = []
-            for j in range(2):
-                if i + j < len(sec_photos):
-                    p = sec_photos[i + j]
-                    img = load_photo_image(p["storage_path"], photo_img_w, photo_img_h)
-                    row_imgs.append(img if img else Paragraph("", body_style))
-                    row_caps.append(Paragraph(p.get("original_filename", ""), caption_style))
-                else:
-                    row_imgs.append(Paragraph("", body_style))
-                    row_caps.append(Paragraph("", caption_style))
-            rows.append(row_imgs)
-            rows.append(row_caps)
-        if rows:
-            photo_table = Table(rows, colWidths=[photo_col_w, photo_col_w])
-            photo_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ]))
-            elements_list.append(Spacer(1, 0.3*cm))
-            elements_list.append(photo_table)
+        
+        # Check if this is an image-only section: full-page images
+        if section_key in IMAGE_ONLY_KEYS or section_key.startswith('sub_') or section_key.startswith('subsub_'):
+            # Check parent context - for now treat all photos uniformly
+            pass
+        
+        # Check if parent section is image-only (full page rendering)
+        is_full_page = section_key in IMAGE_ONLY_KEYS
+        
+        if is_full_page:
+            # One image per page, full content width
+            for p in sec_photos:
+                img = load_photo_image(p["storage_path"], content_width, 18*cm)
+                if img:
+                    elements_list.append(img)
+                    elements_list.append(PageBreak())
+        else:
+            rows = []
+            for i in range(0, len(sec_photos), 2):
+                row_imgs = []
+                row_caps = []
+                for j in range(2):
+                    if i + j < len(sec_photos):
+                        p = sec_photos[i + j]
+                        img = load_photo_image(p["storage_path"], photo_img_w, photo_img_h)
+                        row_imgs.append(img if img else Paragraph("", body_style))
+                        row_caps.append(Paragraph(p.get("original_filename", ""), caption_style))
+                    else:
+                        row_imgs.append(Paragraph("", body_style))
+                        row_caps.append(Paragraph("", caption_style))
+                rows.append(row_imgs)
+                rows.append(row_caps)
+            if rows:
+                photo_table = Table(rows, colWidths=[photo_col_w, photo_col_w])
+                photo_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ]))
+                elements_list.append(Spacer(1, 0.3*cm))
+                elements_list.append(photo_table)
     
     for sec in sections:
         render_section(sec, elements)

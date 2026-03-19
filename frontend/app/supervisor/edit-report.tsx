@@ -15,7 +15,9 @@ interface Photo {
 
 const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations', 'disassembly', 'assembly'];
 const NO_BULLET_SECTIONS = ['introduction', 'equipment', 'objective'];
-const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos');
+const NO_TEXT_SECTIONS = ['service_description'];
+const IMAGE_ONLY_SECTIONS = ['ndt', 'pressure_test', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'];
+const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(key);
 const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); };
 
 const PlainTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
@@ -27,6 +29,11 @@ const PlainTextArea = ({ value, onChangeText, placeholder, style: cs }: { value:
 };
 
 const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
+  const ensureBullet = (v: string) => {
+    if (!v) return '• ';
+    if (!v.startsWith('• ')) return '• ' + v;
+    return v;
+  };
   if (Platform.OS === 'web') {
     const handleKeyDown = (e: any) => {
       if (e.key === 'Enter') {
@@ -37,10 +44,17 @@ const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value
         setTimeout(() => { ta.selectionStart = ta.selectionEnd = s + 3; }, 0);
       }
     };
-    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} onKeyDown={handleKeyDown} placeholder={placeholder}
-      style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333', fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', ...(cs || {}) }} />;
+    const handleFocus = (e: any) => {
+      if (!e.target.value || !e.target.value.startsWith('• ')) {
+        const nv = ensureBullet(e.target.value);
+        onChangeText(nv);
+        setTimeout(() => { e.target.selectionStart = e.target.selectionEnd = nv.length; }, 0);
+      }
+    };
+    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} onKeyDown={handleKeyDown} onFocus={handleFocus} placeholder={placeholder}
+      style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 13, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333', fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', ...(cs || {}) }} />;
   }
-  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={onChangeText} placeholder={placeholder} multiline textAlignVertical="top" />;
+  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 13, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={(t) => onChangeText(ensureBullet(t))} placeholder={placeholder} multiline textAlignVertical="top" />;
 };
 
 const SectionTextArea = ({ sectionKey, value, onChangeText, placeholder, style }: { sectionKey: string; value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
@@ -71,6 +85,7 @@ export default function EditReportScreen() {
   const [captions, setCaptions] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentUploadSection, setCurrentUploadSection] = useState('cover');
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => { loadReport(); AsyncStorage.getItem('token').then(t => t && setToken(t)); }, []);
 
@@ -91,10 +106,12 @@ export default function EditReportScreen() {
   };
 
   const handleOpenPDF = async () => {
-    try { if (Platform.OS === 'web') { const blob = await reportAPI.downloadPDF(id!); window.open(URL.createObjectURL(blob), '_blank'); } } catch { showMsg('Erro ao gerar PDF'); }
+    setPdfLoading(true);
+    try { if (Platform.OS === 'web') { const blob = await reportAPI.downloadPDF(id!); window.open(URL.createObjectURL(blob), '_blank'); } } catch { showMsg('Erro ao gerar PDF'); } finally { setPdfLoading(false); }
   };
 
   const handleSharePDF = async () => {
+    setPdfLoading(true);
     try {
       if (Platform.OS === 'web') {
         const blob = await reportAPI.downloadPDF(id!);
@@ -103,7 +120,7 @@ export default function EditReportScreen() {
         link.href = url; link.download = `relatorio_${report?.os_number || ''}.pdf`;
         document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
       }
-    } catch { showMsg('Erro ao compartilhar PDF'); }
+    } catch { showMsg('Erro ao compartilhar PDF'); } finally { setPdfLoading(false); }
   };
 
   const triggerFileUpload = (sectionKey: string) => {
@@ -222,7 +239,7 @@ export default function EditReportScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {Platform.OS === 'web' && <input ref={fileInputRef as any} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileSelected} />}
+      {Platform.OS === 'web' && <input ref={fileInputRef as any} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={handleFileSelected} />}
       <View style={styles.innerContainer}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
           {/* Header */}
@@ -235,17 +252,13 @@ export default function EditReportScreen() {
           <View style={styles.serviceInfo}>
             <View style={styles.serviceRow}>
               <Ionicons name="construct-outline" size={18} color="#666" />
-              <Text style={styles.serviceText} numberOfLines={1}>{report.service || report.os_number}</Text>
-            </View>
-            <View style={styles.serviceRow}>
-              <Ionicons name="person-outline" size={18} color="#666" />
-              <Text style={styles.serviceName}>{report.supervisor_name}</Text>
+              <Text style={styles.serviceText} numberOfLines={1}>{report.os_number}</Text>
             </View>
           </View>
 
           {/* Cover Photo */}
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Foto da Capa</Text>
+            <Text style={styles.cardLabel}>{report.service || 'Serviço'}</Text>
             {coverPhotos.length > 0 ? (
               <View>
                 {coverPhotos.map(p => (
@@ -254,26 +267,28 @@ export default function EditReportScreen() {
                     <TouchableOpacity style={styles.coverDeleteBtn} onPress={() => handleDeletePhoto(p.id)}><Ionicons name="trash-outline" size={16} color="#fff" /></TouchableOpacity>
                   </View>
                 ))}
+                <Text style={styles.vesselLabel}>{report.location || 'Embarcação'}</Text>
                 <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
                   {uploading === 'cover' ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={styles.uploadBtnText}>Trocar Foto</Text></>}
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity style={styles.coverUploadArea} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
-                {uploading === 'cover' ? <ActivityIndicator size="large" color="#1a237e" /> : <><Ionicons name="image-outline" size={48} color="#c0c0c0" /><Text style={styles.coverUploadText}>Toque para adicionar foto da capa</Text></>}
-              </TouchableOpacity>
+              <View>
+                <TouchableOpacity style={styles.coverUploadArea} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
+                  {uploading === 'cover' ? <ActivityIndicator size="large" color="#1a237e" /> : <><Ionicons name="image-outline" size={48} color="#c0c0c0" /><Text style={styles.coverUploadText}>Toque para adicionar foto da capa</Text></>}
+                </TouchableOpacity>
+                <Text style={styles.vesselLabel}>{report.location || 'Embarcação'}</Text>
+              </View>
             )}
           </View>
 
           {/* PDF Action Buttons */}
-          <TouchableOpacity style={styles.pdfOutlinedBtn} onPress={handleOpenPDF}>
-            <Ionicons name="eye-outline" size={20} color="#1a237e" />
-            <Text style={styles.pdfOutlinedText}>Visualizar PDF (Todos)</Text>
+          <TouchableOpacity style={[styles.pdfOutlinedBtn, pdfLoading && { opacity: 0.6 }]} onPress={handleOpenPDF} disabled={pdfLoading}>
+            {pdfLoading ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="eye-outline" size={20} color="#1a237e" /><Text style={styles.pdfOutlinedText}>Visualizar PDF</Text></>}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.pdfSolidBtn} onPress={handleSharePDF}>
-            <Ionicons name="share-outline" size={20} color="#fff" />
-            <Text style={styles.pdfSolidText}>Compartilhar PDF</Text>
+          <TouchableOpacity style={[styles.pdfSolidBtn, pdfLoading && { opacity: 0.6 }]} onPress={handleSharePDF} disabled={pdfLoading}>
+            {pdfLoading ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="download-outline" size={20} color="#fff" /><Text style={styles.pdfSolidText}>Baixar PDF</Text></>}
           </TouchableOpacity>
 
           {/* Índice do Relatório */}
@@ -303,8 +318,7 @@ export default function EditReportScreen() {
                 </TouchableOpacity>
                 {editingSection === sec.key && (
                   <View style={{ marginTop: 12 }}>
-                    {!isPhotoOnlySection(sec.key) && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
-                    {canHavePhotos(sec.key) && !isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key)}
+                    {!isPhotoOnlySection(sec.key) && !NO_TEXT_SECTIONS.includes(sec.key) && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
                     {isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key, true)}
                     {sec.subsections.filter(sub => sub.enabled).map(sub => {
                       const subNum = numberMap.get(sub.key) || '';
@@ -456,6 +470,7 @@ const styles = StyleSheet.create({
   coverDeleteBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(211,47,47,0.85)', borderRadius: 16, padding: 6 },
   coverUploadArea: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#ddd', borderStyle: 'dashed', borderRadius: 14, padding: 36, backgroundColor: '#fafafa' } as any,
   coverUploadText: { fontSize: 14, color: '#aaa', marginTop: 10 },
+  vesselLabel: { fontSize: 13, fontWeight: '600', color: '#555', textAlign: 'center', marginTop: 8, marginBottom: 4 },
   // PDF buttons
   pdfOutlinedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#1a237e', borderRadius: 12, padding: 14, marginBottom: 10, gap: 10, backgroundColor: '#fff' },
   pdfOutlinedText: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
@@ -476,12 +491,12 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, color: '#333' },
   // Sections
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionNum: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
-  sectionTitleText: { fontSize: 15, fontWeight: '700', color: '#1a237e', flex: 1 },
+  sectionNum: { fontSize: 14, fontWeight: '700', color: '#1a237e' },
+  sectionTitleText: { fontSize: 13, fontWeight: '700', color: '#1a237e', flex: 1 },
   subsectionBlock: { marginTop: 14, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: '#e3f2fd' },
-  subsectionTitle: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
+  subsectionTitle: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 6 },
   subsubBlock: { marginTop: 10, paddingLeft: 14 },
-  subsubTitle: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 4 },
+  subsubTitle: { fontSize: 11, fontWeight: '600', color: '#555', marginBottom: 4 },
   // Add subsection
   addSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f0f4ff', borderRadius: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#d0d9f0', borderStyle: 'dashed' } as any,
   addSubBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },

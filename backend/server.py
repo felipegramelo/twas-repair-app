@@ -1583,9 +1583,9 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     buffer = io.BytesIO()
     page_width, page_height = A4
-    border_margin = 0.9*cm
-    content_left = border_margin + 1.6*cm
-    content_right = border_margin + 1.6*cm
+    border_margin = 0.3*cm
+    content_left = 1.2*cm
+    content_right = 1.2*cm
     content_width = page_width - content_left - content_right
     
     # Preload logo
@@ -1613,6 +1613,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     current_date = dt.now().strftime("%d/%m/%Y")
     
     page_counter = [0]
+    total_pages = [0]
     
     def draw_report_page(canvas_obj, doc_obj, page_num):
         canvas_obj.saveState()
@@ -1623,29 +1624,27 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         canvas_obj.rect(border_margin, border_margin, page_width - 2*border_margin, page_height - 2*border_margin)
         
         # === HEADER BOX ===
-        header_top = page_height - border_margin - 0.4*cm
+        header_top = page_height - border_margin - 0.2*cm
         header_height = 1.8*cm
         header_bottom = header_top - header_height
         canvas_obj.setLineWidth(0.5)
-        canvas_obj.rect(content_left, header_bottom, page_width - content_left - content_right, header_height)
+        canvas_obj.rect(content_left, header_bottom, content_width, header_height)
         
-        # Logo
+        # Logo (bigger)
         if logo_image:
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left + 0.2*cm, header_bottom + 0.1*cm, width=3.8*cm, height=1.6*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left + 0.15*cm, header_bottom + 0.1*cm, width=4.5*cm, height=1.6*cm, preserveAspectRatio=True)
         
-        # Title
+        # Title (no OS number in center)
         canvas_obj.setFont("Helvetica-Bold", 12)
         canvas_obj.drawCentredString(page_width/2, header_bottom + 1.1*cm, report_title)
         canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.65*cm, "20-FR-01-03 (1)")
-        canvas_obj.setFont("Helvetica-Bold", 10)
-        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.2*cm, f"OS: {report.get('os_number', '')}")
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.55*cm, "20-FR-01-03 (1)")
         
         # Right side details
-        right_x = page_width - content_right - 0.2*cm
+        right_x = content_left + content_width - 0.2*cm
         detail_y = header_top - 0.35*cm
         canvas_obj.setFont("Helvetica-Bold", 6.5)
         canvas_obj.drawRightString(right_x, detail_y, f"Cliente: {report.get('client', '')}")
@@ -1658,11 +1657,11 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         canvas_obj.drawRightString(right_x, detail_y, f"{current_date}  |  Rev.: 0")
         
         # === FOOTER BOX ===
-        footer_bottom = border_margin + 0.4*cm
+        footer_bottom = border_margin + 0.2*cm
         footer_height = 1.4*cm
         footer_top = footer_bottom + footer_height
         canvas_obj.setLineWidth(0.5)
-        canvas_obj.rect(content_left, footer_bottom, page_width - content_left - content_right, footer_height)
+        canvas_obj.rect(content_left, footer_bottom, content_width, footer_height)
         
         center_x = page_width / 2
         y = footer_top - 0.25*cm
@@ -1676,9 +1675,6 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         y -= 0.25*cm
         canvas_obj.setFont("Helvetica-BoldOblique", 6)
         canvas_obj.drawCentredString(center_x, y, "TOGETHER WE ARE STRONGER")
-        y -= 0.2*cm
-        canvas_obj.setFont("Helvetica", 5.5)
-        canvas_obj.drawCentredString(center_x, y, f"P\u00e1gina {page_num}")
         
         canvas_obj.restoreState()
     
@@ -1692,7 +1688,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        topMargin=border_margin + 2.5*cm,
+        topMargin=border_margin + 2.3*cm,
         bottomMargin=border_margin + 1.8*cm,
         leftMargin=content_left,
         rightMargin=content_right,
@@ -1713,7 +1709,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         text = text.replace('\n', '<br/>')
         return text
     label_style = ParagraphStyle('RLabel', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), fontName='Helvetica-Bold')
-    value_style = ParagraphStyle('RValue', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
+    value_style = ParagraphStyle('RValue', parent=styles['Normal'], fontSize=10, fontName='Helvetica')
     
     elements = []
     
@@ -1877,28 +1873,22 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                         _render_photos(subsub.get("key", ""), elements_list)
     
     # Image-only sections: render full-page images (one per page)
-    IMAGE_ONLY_KEYS = {'ndt', 'pressure_test', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'}
+    FULL_PAGE_KEYS = {'ndt', 'pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'}
     
     # Photo rendering helper: 2 per row, uniform size, aligned with content width
     photo_col_w = content_width / 2
     photo_img_w = photo_col_w - 0.3*cm
     photo_img_h = 6*cm
     
-    def _render_photos(section_key, elements_list):
+    def _render_photos(section_key, elements_list, force_full_page=False):
         sec_photos = report_photos.get(section_key, [])
         if not sec_photos:
             return
         
-        # Check if this is an image-only section: full-page images
-        if section_key in IMAGE_ONLY_KEYS or section_key.startswith('sub_') or section_key.startswith('subsub_'):
-            # Check parent context - for now treat all photos uniformly
-            pass
-        
-        # Check if parent section is image-only (full page rendering)
-        is_full_page = section_key in IMAGE_ONLY_KEYS
+        # Full page: NDT subsections, pressure_test, certificate, custom sections
+        is_full_page = force_full_page or section_key in FULL_PAGE_KEYS or section_key.startswith('sub_') or section_key.startswith('subsub_') or section_key.startswith('custom_')
         
         if is_full_page:
-            # One image per page, full content width
             for p in sec_photos:
                 img = load_photo_image(p["storage_path"], content_width, 18*cm)
                 if img:
@@ -1948,8 +1938,34 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     doc.build(elements, onFirstPage=on_first_page, onLaterPages=on_later_pages)
     buffer.seek(0)
     
+    # Post-process: add "X de Y" page numbers using PyMuPDF (skip cover page)
+    import fitz
+    pdf_doc = fitz.open(stream=buffer.read(), filetype="pdf")
+    total = len(pdf_doc)
+    total_numbered = total - 1  # Cover page not counted
+    for i in range(1, total):  # Skip page 0 (cover)
+        page = pdf_doc[i]
+        page_num = i  # Page 1 starts counting from index 1
+        text = f"{page_num} de {total_numbered}"
+        # Position: center bottom of the footer area
+        rect = page.rect
+        x = rect.width / 2
+        y = (border_margin / 28.35 * 72) + 0.2 * 72 / 2.54  # Convert cm to points approx
+        page.insert_text(
+            fitz.Point(x - len(text) * 2, y),
+            text,
+            fontsize=6,
+            fontname="helv",
+            color=(0, 0, 0),
+        )
+    
+    final_buffer = io.BytesIO()
+    pdf_doc.save(final_buffer)
+    pdf_doc.close()
+    final_buffer.seek(0)
+    
     return StreamingResponse(
-        buffer,
+        final_buffer,
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename=relatorio_{report.get('os_number', 'report')}.pdf",

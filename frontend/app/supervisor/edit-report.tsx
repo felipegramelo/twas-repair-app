@@ -13,10 +13,11 @@ interface Photo {
   id: string; section_key: string; storage_path: string; original_filename: string;
 }
 
-const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations', 'disassembly', 'assembly'];
+const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations', 'disassembly', 'assembly', 'ndt'];
 const NO_BULLET_SECTIONS = ['introduction', 'equipment', 'objective'];
-const NO_TEXT_SECTIONS = ['service_description'];
-const IMAGE_ONLY_SECTIONS = ['ndt', 'pressure_test', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'];
+const NO_TEXT_SECTIONS = ['service_description', 'ndt'];
+const IMAGE_ONLY_SECTIONS = ['pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'];
+const PDF_UPLOAD_SECTIONS = new Set(['ndt', 'pressure_test', 'certificate']);
 const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(key);
 const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); };
 
@@ -129,12 +130,14 @@ export default function EditReportScreen() {
   };
 
   const handleFileSelected = async (event: any) => {
-    const file = event.target.files?.[0]; if (!file) return;
+    const files = event.target.files; if (!files || files.length === 0) return;
     setUploading(currentUploadSection);
     try {
-      await reportAPI.uploadPhoto(id!, file, currentUploadSection, file.name);
-      setPhotos(await reportAPI.getPhotos(id!)); showMsg('Foto enviada!');
-    } catch (e: any) { showMsg('Erro ao enviar foto: ' + (e.message || '')); }
+      for (let i = 0; i < files.length; i++) {
+        await reportAPI.uploadPhoto(id!, files[i], currentUploadSection, files[i].name);
+      }
+      setPhotos(await reportAPI.getPhotos(id!));
+    } catch (e: any) { showMsg('Erro ao enviar arquivo: ' + (e.message || '')); }
     finally { setUploading(null); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
@@ -239,7 +242,7 @@ export default function EditReportScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {Platform.OS === 'web' && <input ref={fileInputRef as any} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={handleFileSelected} />}
+      {Platform.OS === 'web' && <input ref={fileInputRef as any} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }} onChange={handleFileSelected} />}
       <View style={styles.innerContainer}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
           {/* Header */}
@@ -323,11 +326,12 @@ export default function EditReportScreen() {
                     {sec.subsections.filter(sub => sub.enabled).map(sub => {
                       const subNum = numberMap.get(sub.key) || '';
                       const isPhotos = isPhotoOnlySection(sub.key);
+                      const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(sec.key) || isPhotos || sub.key.startsWith('sub_') || sub.key.startsWith('custom_');
                       return (
                         <View key={sub.key} style={styles.subsectionBlock}>
                           <Text style={styles.subsectionTitle}>{subNum}. {sub.title}</Text>
-                          {!isPhotos && <SectionTextArea sectionKey={sub.key} value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />}
-                          {isPhotos ? renderPhotoGrid(sub.key, true) : (canHavePhotos(sub.key) && renderPhotoGrid(sub.key))}
+                          {!isPhotos && !showPhotoUpload && <SectionTextArea sectionKey={sub.key} value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />}
+                          {showPhotoUpload ? renderPhotoGrid(sub.key, true) : (canHavePhotos(sub.key) && renderPhotoGrid(sub.key))}
                           {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => {
                             const ssNum = numberMap.get(ss.key) || '';
                             const isSP = isPhotoOnlySection(ss.key);
@@ -338,19 +342,6 @@ export default function EditReportScreen() {
                                 {isSP ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
                               </View>);
                           })}
-                          {/* Add sub-subsection button */}
-                          {showAddSubsection === sub.key ? (
-                            <View style={styles.addSubRow}>
-                              <TextInput style={styles.addSubInput} value={addingSubsectionTitle[sub.key] || ''} onChangeText={(t) => setAddingSubsectionTitle(prev => ({ ...prev, [sub.key]: t }))} placeholder="Nome da subseção..." autoFocus />
-                              <TouchableOpacity style={styles.addSubConfirmBtn} onPress={() => addSubsection(sub.key)}><Ionicons name="checkmark-circle" size={26} color="#1a237e" /></TouchableOpacity>
-                              <TouchableOpacity onPress={() => setShowAddSubsection(null)}><Ionicons name="close-circle" size={26} color="#999" /></TouchableOpacity>
-                            </View>
-                          ) : (
-                            <TouchableOpacity style={styles.addSubBtn} onPress={() => setShowAddSubsection(sub.key)}>
-                              <Ionicons name="add-circle-outline" size={18} color="#1a237e" />
-                              <Text style={styles.addSubBtnText}>Adicionar Subseção</Text>
-                            </TouchableOpacity>
-                          )}
                         </View>);
                     })}
                     {/* Add subsection button */}

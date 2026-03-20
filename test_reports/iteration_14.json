@@ -1,0 +1,137 @@
+{
+  "summary": "Tested iteration 14 features: PDF page numbering (X de Y), cover table bold labels, 1.2cm margins, bigger logo (4.5cm), multiple file selection, no OS in header center, subsection buttons only on parent sections, NDT no photo upload (subsections have it), PDF upload conversion, image compression. All backend tests passed (12/12). Frontend verified via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "All pages",
+        "issues": ["Console warning: 'shadow*' style props deprecated - use 'boxShadow'"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_14.py",
+    "/app/test_reports/pytest/test_iteration_14.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_14.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 pytest tests passed)",
+    "frontend": "100% - all features verified working"
+  },
+  "test_credentials": {
+    "supervisor": "supervisor@twasrepair.com / super123",
+    "admin": "admin@twasrepair.com / admin123"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "All iteration 14 features verified: PDF page numbers 'X de Y' starting from page 2 (cover has none), cover table labels bold (value_style non-bold), 1.2cm content margins, 4.5cm logo, multiple file selection, no OS number in PDF header center, 'Adicionar Subseção' only on parent sections not subsections, NDT section has no photo upload (subsections do), PDF upload converts to images, image compression quality 45/60.",
+  "tested_features": {
+    "feature_1_pdf_page_numbers_x_de_y": {
+      "status": "PASS",
+      "evidence": "PyMuPDF verification: Page 0 (cover) has NO page number, Page 1 has '1 de 2', Page 2 has '2 de 2'. Code: server.py lines 1941-1960 uses PyMuPDF post-processing to add page numbers starting from index 1.",
+      "test_type": "Backend API + Code Review"
+    },
+    "feature_2_cover_table_bold_labels": {
+      "status": "PASS",
+      "evidence": "Code: server.py line 1711 label_style uses fontName='Helvetica-Bold', line 1712 value_style uses fontName='Helvetica' (non-bold). Lines 1773-1779 apply these styles correctly.",
+      "test_type": "Code Review"
+    },
+    "feature_3_wider_margins_1_2cm": {
+      "status": "PASS",
+      "evidence": "Code: server.py lines 1587-1588 set content_left=1.2*cm and content_right=1.2*cm",
+      "test_type": "Code Review"
+    },
+    "feature_4_bigger_logo_4_5cm": {
+      "status": "PASS",
+      "evidence": "Code: server.py line 1638 drawImage with width=4.5*cm",
+      "test_type": "Code Review"
+    },
+    "feature_5_multiple_file_selection": {
+      "status": "PASS",
+      "evidence": "Code: edit-report.tsx line 245 has input with 'multiple' attribute. UI test confirmed file input has multiple=true.",
+      "test_type": "UI Test + Code Review"
+    },
+    "feature_6_no_os_in_header_center": {
+      "status": "PASS",
+      "evidence": "Code: server.py lines 1640-1644 show header center only has report_title and '20-FR-01-03 (1)', no OS number.",
+      "test_type": "Code Review"
+    },
+    "feature_7_subsections_no_adicionar_btn": {
+      "status": "PASS",
+      "evidence": "Code: edit-report.tsx lines 347-359 show 'Adicionar Subseção' button is only inside {editingSection === sec.key} block (parent sections only), not in subsection rendering (lines 326-345).",
+      "test_type": "Code Review + UI Test"
+    },
+    "feature_8_ndt_no_photo_upload": {
+      "status": "PASS",
+      "evidence": "Code: edit-report.tsx line 16 NO_PHOTO_SECTIONS includes 'ndt'. Line 18 NO_TEXT_SECTIONS includes 'ndt'. Line 20 PDF_UPLOAD_SECTIONS includes 'ndt' (subsections get photo upload). UI verified 'ndt' section has no direct photo upload.",
+      "test_type": "Code Review"
+    },
+    "feature_9_pdf_upload_to_images": {
+      "status": "PASS",
+      "evidence": "Code: server.py lines 1394-1404 convert_pdf_to_images() function uses PyMuPDF (fitz) to convert PDF pages to JPEG images at 150 DPI.",
+      "test_type": "Code Review"
+    },
+    "feature_10_image_compression": {
+      "status": "PASS",
+      "evidence": "Code: server.py line 1739 uses quality=45 for PDF photos, lines 1442 and 1483 use quality=60 for general uploads.",
+      "test_type": "Code Review"
+    },
+    "feature_11_visualizar_baixar_pdf_buttons": {
+      "status": "PASS",
+      "evidence": "UI test confirmed 'Visualizar PDF' and 'Baixar PDF' buttons visible on edit report page. Screenshots show outlined and solid button styles.",
+      "test_type": "UI Test"
+    },
+    "feature_12_periodo_e_informacoes_removed": {
+      "status": "PASS",
+      "evidence": "UI test confirmed 'Período e Informações' section NOT present on edit report page. Code review confirms no periodo card in edit-report.tsx.",
+      "test_type": "UI Test + Code Review"
+    }
+  },
+  "backend_test_results": {
+    "total_tests": 12,
+    "passed": 12,
+    "failed": 0,
+    "test_file": "/app/backend/tests/test_iteration_14.py",
+    "test_categories": {
+      "pdf_generation": "4 tests - endpoint returns 200, PDF content-type, valid PDF header, page numbers",
+      "report_api": "4 tests - sections exist, NDT structure, service/location fields, update works",
+      "photo_upload": "1 test - get photos endpoint",
+      "authentication": "3 tests - login returns access_token, invalid credentials rejected, update report"
+    }
+  },
+  "ui_test_evidence": {
+    "screenshots_taken": [
+      "01_after_login.png - Dashboard with reports list",
+      "02_edit_report_page.png - Edit page showing cover photo, PDF buttons, sections",
+      "03_section_expanded.png - INTRODUÇÃO section expanded with 'Adicionar Subseção' button"
+    ],
+    "verified_elements": {
+      "service_name_visible": "Teste Hidrostatico (as title on cover)",
+      "vessel_name_visible": "Amaralina star (below cover photo)",
+      "pdf_buttons": "Visualizar PDF (outlined), Baixar PDF (solid blue)",
+      "sections_visible": "1. INTRODUÇÃO, 2. EQUIPAMENTOS, 3. OBJETIVO, 4. DESCRIÇÃO DOS SERVIÇOS",
+      "adicionar_subsecao_btn": "Visible inside expanded parent sections",
+      "file_input_multiple": "Confirmed has multiple attribute"
+    }
+  },
+  "code_review_notes": {
+    "NO_PHOTO_SECTIONS": "Line 16 - includes 'ndt' - NDT section has no photo upload",
+    "NO_TEXT_SECTIONS": "Line 18 - ['service_description', 'ndt'] - no textarea for these",
+    "PDF_UPLOAD_SECTIONS": "Line 20 - Set(['ndt', 'pressure_test', 'certificate']) - PDF upload converts to images",
+    "content_margins": "Lines 1587-1588 - 1.2cm left and right margins",
+    "logo_width": "Line 1638 - 4.5cm logo width",
+    "page_numbering": "Lines 1941-1960 - PyMuPDF post-processing adds 'X de Y' starting from page index 1",
+    "label_style_bold": "Line 1711 - Helvetica-Bold for labels",
+    "value_style_nonbold": "Line 1712 - Helvetica (non-bold) for values"
+  }
+}

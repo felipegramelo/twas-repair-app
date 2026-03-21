@@ -1620,7 +1620,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         canvas_obj.saveState()
         
         # === PAGE BORDER ===
-        canvas_obj.setStrokeColor(colors.black)
+        canvas_obj.setStrokeColor(colors.HexColor('#AAAAAA'))
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(border_margin, border_margin, page_width - 2*border_margin, page_height - 2*border_margin)
         
@@ -1642,6 +1642,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         header_top = page_height - border_margin - 0.8*cm
         header_height = 2.49*cm
         header_bottom = header_top - header_height
+        canvas_obj.setStrokeColor(colors.HexColor('#AAAAAA'))
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, header_bottom, content_width, header_height)
         
@@ -1684,6 +1685,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         footer_bottom = border_margin + 0.7*cm
         footer_height = 1.1*cm
         footer_top = footer_bottom + footer_height
+        canvas_obj.setStrokeColor(colors.HexColor('#AAAAAA'))
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, footer_bottom, content_width, footer_height)
         
@@ -1714,6 +1716,11 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         leftMargin=content_left,
         rightMargin=content_right,
     )
+    
+    # Calculate safe max image heights based on actual frame dimensions
+    frame_available_height = page_height - (border_margin + 3.5*cm) - (border_margin + 2.3*cm) - 12  # 12pt frame padding
+    max_full_photo_height = frame_available_height - 0.5*cm   # standalone images (~20.9cm)
+    max_first_photo_height = frame_available_height - 3.5*cm   # images with title above (~17.9cm)
     
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.black, alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
@@ -1806,7 +1813,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
         ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f0f0f0')),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
         ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cccccc')),
     ]))
     elements.append(info_table)
@@ -1819,7 +1826,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     sections = report.get("sections", [])
     
-    toc_style_main = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=11, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=4, spaceAfter=4)
+    toc_style_main = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=11, fontName='Helvetica', textColor=colors.black, spaceBefore=4, spaceAfter=4)
     toc_style_sub = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=15)
     toc_style_subsub = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=30)
     
@@ -1839,20 +1846,37 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     toc_entries = build_toc_entries(sections)
     
     # Build TOC: single row per entry with dot leaders filling entire line
+    from reportlab.pdfbase.pdfmetrics import stringWidth
     toc_data = []
     for entry in toc_entries:
-        label = f"{entry['number']}. {entry['title']}"
-        # Calculate chars available based on level indent
+        num_part = f"{entry['number']}."
+        title_part = f" {entry['title']}"
+        label = f"{num_part}{title_part} "
+        # Calculate dots needed based on actual font widths
         if entry['level'] == 0:
-            max_chars = 68
+            font_name = 'Helvetica'
+            font_size = 11
+            indent = 0
         elif entry['level'] == 1:
-            max_chars = 65
+            font_name = 'Helvetica'
+            font_size = 10
+            indent = 15
         else:
-            max_chars = 62
-        num_dots = max(3, max_chars - len(label))
-        line_text = f"{label} {'.' * num_dots}"
+            font_name = 'Helvetica'
+            font_size = 10
+            indent = 30
+        # Bold number part width
+        num_width = stringWidth(num_part, 'Helvetica-Bold', font_size)
+        # Normal title part width
+        title_width = stringWidth(title_part + ' ', font_name, font_size)
+        available_for_dots = content_width - indent - num_width - title_width - 25  # 25pt reserved for page number
+        dot_width = stringWidth('.', font_name, font_size)
+        num_dots = max(3, int(available_for_dots / dot_width))
+        dots = '.' * num_dots
+        # Bold only on the number, title and dots in normal weight
+        line_text = f"<b>{num_part}</b>{title_part} {dots}"
         if entry['level'] == 0:
-            toc_data.append([Paragraph(f"<b>{line_text}</b>", toc_style_main)])
+            toc_data.append([Paragraph(line_text, toc_style_main)])
         elif entry['level'] == 1:
             toc_data.append([Paragraph(line_text, toc_style_sub)])
         else:
@@ -1888,14 +1912,14 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             content = sec.get("content", "")
             if content:
                 first_group.append(Paragraph(format_content(content), body_style))
-            first_img = load_photo_image(sec_photos[0]["storage_path"], content_width, 19*cm)
+            first_img = load_photo_image(sec_photos[0]["storage_path"], content_width, max_first_photo_height)
             if first_img:
                 first_group.append(first_img)
             elements_list.append(KeepTogether(first_group))
             elements_list.append(PageBreak())
             # Remaining photos: full page, max size (fill available area)
             for p in sec_photos[1:]:
-                img = load_photo_image(p["storage_path"], content_width, 22*cm)
+                img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                 if img:
                     elements_list.append(img)
                     elements_list.append(PageBreak())
@@ -1918,14 +1942,14 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                     sub_content = sub.get("content", "")
                     if sub_content:
                         first_group.append(Paragraph(format_content(sub_content), body_style))
-                    first_img = load_photo_image(sub_photos[0]["storage_path"], content_width, 19*cm)
+                    first_img = load_photo_image(sub_photos[0]["storage_path"], content_width, max_first_photo_height)
                     if first_img:
                         first_group.append(first_img)
                     elements_list.append(KeepTogether(first_group))
                     elements_list.append(PageBreak())
                     # Remaining photos: full size (fill available area)
                     for p in sub_photos[1:]:
-                        img = load_photo_image(p["storage_path"], content_width, 22*cm)
+                        img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                         if img:
                             elements_list.append(img)
                             elements_list.append(PageBreak())
@@ -1947,13 +1971,13 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                             ss_content = subsub.get("content", "")
                             if ss_content:
                                 first_group.append(Paragraph(format_content(ss_content), body_style))
-                            first_img = load_photo_image(ss_photos[0]["storage_path"], content_width, 19*cm)
+                            first_img = load_photo_image(ss_photos[0]["storage_path"], content_width, max_first_photo_height)
                             if first_img:
                                 first_group.append(first_img)
                             elements_list.append(KeepTogether(first_group))
                             elements_list.append(PageBreak())
                             for p in ss_photos[1:]:
-                                img = load_photo_image(p["storage_path"], content_width, 22*cm)
+                                img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                                 if img:
                                     elements_list.append(img)
                                     elements_list.append(PageBreak())
@@ -1982,7 +2006,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         
         if is_full_page:
             for p in sec_photos:
-                img = load_photo_image(p["storage_path"], content_width, 18*cm)
+                img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                 if img:
                     elements_list.append(img)
                     elements_list.append(PageBreak())

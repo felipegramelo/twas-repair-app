@@ -1,0 +1,115 @@
+{
+  "summary": "Tested PDF layout fixes for iteration 18. All 14 backend tests passed. All three bug fixes verified working: (1) LayoutError crash fixed - reports with 19 and 11 photos generate PDFs successfully, (2) TOC formatting correct - dot leaders span full width with bold numbers and normal titles, (3) Border colors are #AAAAAA.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pdf_layout_iteration_18.py",
+    "/app/test_reports/pytest/test_iteration_18.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_pdf_layout_iteration_18.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 pytest tests passed)",
+    "frontend": "Not tested (backend only requested)"
+  },
+  "test_credentials": {
+    "supervisor": "supervisor@twasrepair.com / super123"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "All PDF layout bug fixes verified working. PDF generation for reports with photos (19 and 11 photos) returns 200 without LayoutError. TOC has 17 dot leader sequences, page numbers on right side at x≈525-529. Cover page has no 'X de Y' page number. Content pages have 'X de Y' format. Border colors are #AAAAAA (4 occurrences). Image heights calculated dynamically from frame dimensions.",
+  "tested_features": {
+    "feature_1_pdf_with_19_photos": {
+      "status": "PASS",
+      "evidence": "GET /api/reports/69be9c83db8f3fc8bdee0a21/pdf returns 200, PDF has 16 pages, 3.9MB"
+    },
+    "feature_2_pdf_with_11_photos": {
+      "status": "PASS",
+      "evidence": "GET /api/reports/69be9e02db8f3fc8bdee0a35/pdf returns 200"
+    },
+    "feature_3_pdf_without_photos": {
+      "status": "PASS",
+      "evidence": "GET /api/reports/69bec4c0ee7e51c8ca1583e9/pdf returns 200"
+    },
+    "feature_4_toc_dot_leaders": {
+      "status": "PASS",
+      "evidence": "SUMÁRIO page has 17 dot leader sequences (3+ consecutive dots)"
+    },
+    "feature_5_toc_page_numbers": {
+      "status": "PASS",
+      "evidence": "Page numbers on right side of SUMÁRIO at x≈525-529"
+    },
+    "feature_6_page_numbers_x_de_y": {
+      "status": "PASS",
+      "evidence": "Content pages have 'X de Y' format (e.g., '2 de 15')"
+    },
+    "feature_7_cover_no_page_number": {
+      "status": "PASS",
+      "evidence": "Cover page (page 0) has no 'X de Y' pattern"
+    },
+    "feature_8_login_flow": {
+      "status": "PASS",
+      "evidence": "POST /api/auth/login with supervisor credentials returns 200 with access_token"
+    },
+    "feature_9_get_reports": {
+      "status": "PASS",
+      "evidence": "GET /api/reports returns list of reports"
+    },
+    "feature_10_border_colors_aaaaaa": {
+      "status": "PASS",
+      "evidence": "4 occurrences of colors.HexColor('#AAAAAA') in server.py (lines 1623, 1645, 1688, 1816)"
+    },
+    "feature_11_dynamic_image_heights": {
+      "status": "PASS",
+      "evidence": "frame_available_height, max_full_photo_height, max_first_photo_height calculated from frame dimensions"
+    },
+    "feature_12_toc_stringwidth": {
+      "status": "PASS",
+      "evidence": "TOC uses reportlab.pdfbase.pdfmetrics.stringWidth for accurate dot leader calculation"
+    }
+  },
+  "pdf_verification": {
+    "report_with_19_photos": {
+      "id": "69be9c83db8f3fc8bdee0a21",
+      "status": "200 OK",
+      "total_pages": 16,
+      "size_bytes": 3937074
+    },
+    "report_with_11_photos": {
+      "id": "69be9e02db8f3fc8bdee0a35",
+      "status": "200 OK"
+    },
+    "report_without_photos": {
+      "id": "69bec4c0ee7e51c8ca1583e9",
+      "status": "200 OK"
+    }
+  },
+  "bug_fixes_verified": {
+    "layouterror_crash": {
+      "status": "FIXED",
+      "description": "LayoutError caused by hardcoded image heights exceeding ReportLab frame limits",
+      "fix": "Dynamic calculation of max_full_photo_height and max_first_photo_height from frame dimensions"
+    },
+    "toc_formatting": {
+      "status": "FIXED",
+      "description": "TOC numbers should be bold, titles normal weight, dot leaders span full width",
+      "fix": "Uses stringWidth for accurate dot leader calculation, <b>{num_part}</b>{title_part} format"
+    },
+    "border_colors": {
+      "status": "FIXED",
+      "description": "Border colors in PDF header/footer/cover table should be lighter gray",
+      "fix": "Changed from colors.black to colors.HexColor('#AAAAAA')"
+    }
+  }
+}

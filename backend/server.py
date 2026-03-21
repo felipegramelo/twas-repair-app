@@ -19,7 +19,7 @@ from bson import ObjectId
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, PageBreak, Frame, PageTemplate
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, PageBreak, Frame, PageTemplate, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 import io
@@ -1631,7 +1631,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             img_reader = ImageReader(logo_image)
             canvas_obj.saveState()
             canvas_obj.setFillAlpha(0.06)
-            wm_w = content_width * 1.05
+            wm_w = content_width * 1.15
             wm_h = wm_w * 0.35
             wm_x = content_left + (content_width - wm_w) / 2
             wm_y = (page_height - wm_h) / 2
@@ -1658,45 +1658,31 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         canvas_obj.setFont("Helvetica", 7)
         canvas_obj.drawCentredString(page_width/2, header_bottom + 1.15*cm, "20-FR-01-03 (1)")
         
-        # Right side: label bold + value regular (matching reference)
-        right_x = content_left + content_width - 0.2*cm
+        # Right side: labels and values right-aligned
+        right_x = content_left + content_width - 0.15*cm
         detail_y = header_top - 0.3*cm
         line_h = 0.35*cm
-        val_x = right_x - 2.4*cm
-        lbl_x = right_x - 3.3*cm
         
-        canvas_obj.setFont("Helvetica-Bold", 8)
-        canvas_obj.drawString(lbl_x, detail_y, "Cliente:")
-        canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawString(val_x, detail_y, report.get('client', ''))
+        def _draw_right_label(label, value, y_pos):
+            canvas_obj.setFont("Helvetica", 8)
+            val_w = canvas_obj.stringWidth(value, "Helvetica", 8)
+            canvas_obj.drawRightString(right_x, y_pos, value)
+            canvas_obj.setFont("Helvetica-Bold", 8)
+            canvas_obj.drawRightString(right_x - val_w - 3, y_pos, label)
         
+        _draw_right_label("Cliente:", report.get('client', ''), detail_y)
         detail_y -= line_h
-        canvas_obj.setFont("Helvetica-Bold", 8)
-        canvas_obj.drawString(lbl_x, detail_y, "Rig/Vessel:")
-        canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawString(val_x, detail_y, report.get('location', ''))
-        
+        _draw_right_label("Rig/Vessel:", report.get('location', ''), detail_y)
         detail_y -= line_h
-        canvas_obj.setFont("Helvetica-Bold", 8)
-        canvas_obj.drawString(lbl_x, detail_y, "Equipamento:")
-        canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawString(val_x, detail_y, report.get('service', ''))
-        
+        _draw_right_label("Equipamento:", report.get('service', ''), detail_y)
         detail_y -= line_h
-        canvas_obj.setFont("Helvetica-Bold", 8)
-        canvas_obj.drawString(lbl_x, detail_y, "OS:")
-        canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawString(val_x, detail_y, report.get('os_number', ''))
-        
+        _draw_right_label("OS:", report.get('os_number', ''), detail_y)
         detail_y -= line_h
-        canvas_obj.setFont("Helvetica-Bold", 8)
-        canvas_obj.drawString(lbl_x, detail_y, "Rev:")
-        canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawString(val_x, detail_y, "0")
+        _draw_right_label("Rev:", "0", detail_y)
         
         # === FOOTER BOX (subido: 0.7cm acima da borda) ===
         footer_bottom = border_margin + 0.7*cm
-        footer_height = 1.4*cm
+        footer_height = 1.1*cm
         footer_top = footer_bottom + footer_height
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, footer_bottom, content_width, footer_height)
@@ -1710,9 +1696,6 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N\u00b0 84, Boa Vista, S\u00e3o Gon\u00e7alo, Rio de Janeiro - CEP.: 24.466-180.")
         y -= 0.28*cm
         canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com - www.twasrepair.com")
-        y -= 0.28*cm
-        canvas_obj.setFont("Helvetica-BoldOblique", 8)
-        canvas_obj.drawCentredString(center_x, y, "TOGETHER WE ARE STRONGER")
         
         canvas_obj.restoreState()
     
@@ -1857,17 +1840,21 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     toc_entries = build_toc_entries(sections)
     
-    # Build TOC matching reference format: [number bold] [title regular] ... [page number right]
+    # Build TOC: [number bold] [title + dots] [page number right]
     toc_data = []
     num_col_w = 1.5*cm
-    title_col_w = content_width - num_col_w - 1.2*cm
     page_col_w = 1.2*cm
+    title_col_w = content_width - num_col_w - page_col_w
     for entry in toc_entries:
         num_text = f"{entry['number']}."
         title_text = entry['title']
+        # Calculate dot leaders to fill the space
+        max_chars = 55 - entry['level'] * 5
+        num_dots = max(3, max_chars - len(title_text))
+        dots = " " + "." * num_dots
         toc_data.append([
             Paragraph(f"<b>{num_text}</b>", toc_main_style),
-            Paragraph(title_text, toc_main_title),
+            Paragraph(f"{title_text}{dots}", toc_main_title),
             Paragraph("", toc_page_style),
         ])
     
@@ -1890,29 +1877,92 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             return
         level = len(sec["number"].split("."))
         style = section_style if level == 1 else subsec_style
-        elements_list.append(Paragraph(f"{sec['number']}. {sec['title']}", style))
-        content = sec.get("content", "")
-        if content:
-            elements_list.append(Paragraph(format_content(content), body_style))
+        sec_key = sec.get("key", "")
+        sec_photos = report_photos.get(sec_key, [])
+        is_fp = sec_key in FULL_PAGE_KEYS or sec_key.startswith('sub_') or sec_key.startswith('subsub_') or sec_key.startswith('custom_')
         
-        # Add photos for this section (2 per row, same size, aligned with header/footer)
-        _render_photos(sec.get("key", ""), elements_list)
+        # If section has full-page photos, use KeepTogether for title + first photo
+        if is_fp and sec_photos:
+            # First page: section title + first photo (smaller to fit with title)
+            first_group = [Paragraph(f"{sec['number']}. {sec['title']}", style)]
+            content = sec.get("content", "")
+            if content:
+                first_group.append(Paragraph(format_content(content), body_style))
+            first_img = load_photo_image(sec_photos[0]["storage_path"], content_width, 15*cm)
+            if first_img:
+                first_group.append(first_img)
+            elements_list.append(KeepTogether(first_group))
+            elements_list.append(PageBreak())
+            # Remaining photos: full page, max size
+            for p in sec_photos[1:]:
+                img = load_photo_image(p["storage_path"], content_width, 20*cm)
+                if img:
+                    elements_list.append(img)
+                    elements_list.append(PageBreak())
+        else:
+            elements_list.append(Paragraph(f"{sec['number']}. {sec['title']}", style))
+            content = sec.get("content", "")
+            if content:
+                elements_list.append(Paragraph(format_content(content), body_style))
+            _render_photos(sec_key, elements_list)
         
         for sub in sec.get("subsections", []):
             if sub.get("enabled", True):
-                elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", subsec_style))
-                sub_content = sub.get("content", "")
-                if sub_content:
-                    elements_list.append(Paragraph(format_content(sub_content), body_style))
-                _render_photos(sub.get("key", ""), elements_list)
+                sub_key = sub.get("key", "")
+                sub_photos = report_photos.get(sub_key, [])
+                sub_is_fp = sub_key in FULL_PAGE_KEYS or sub_key.startswith('sub_') or sub_key.startswith('subsub_') or sub_key.startswith('custom_')
+                
+                if sub_is_fp and sub_photos:
+                    # KeepTogether: parent section + subsection title + first photo
+                    first_group = [Paragraph(f"{sub['number']}. {sub['title']}", subsec_style)]
+                    sub_content = sub.get("content", "")
+                    if sub_content:
+                        first_group.append(Paragraph(format_content(sub_content), body_style))
+                    first_img = load_photo_image(sub_photos[0]["storage_path"], content_width, 15*cm)
+                    if first_img:
+                        first_group.append(first_img)
+                    elements_list.append(KeepTogether(first_group))
+                    elements_list.append(PageBreak())
+                    # Remaining photos: full size
+                    for p in sub_photos[1:]:
+                        img = load_photo_image(p["storage_path"], content_width, 20*cm)
+                        if img:
+                            elements_list.append(img)
+                            elements_list.append(PageBreak())
+                else:
+                    elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", subsec_style))
+                    sub_content = sub.get("content", "")
+                    if sub_content:
+                        elements_list.append(Paragraph(format_content(sub_content), body_style))
+                    _render_photos(sub_key, elements_list)
                 
                 for subsub in sub.get("subsections", []):
                     if subsub.get("enabled", True):
-                        elements_list.append(Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style))
-                        ss_content = subsub.get("content", "")
-                        if ss_content:
-                            elements_list.append(Paragraph(format_content(ss_content), body_style))
-                        _render_photos(subsub.get("key", ""), elements_list)
+                        ss_key = subsub.get("key", "")
+                        ss_photos = report_photos.get(ss_key, [])
+                        ss_is_fp = ss_key in FULL_PAGE_KEYS or ss_key.startswith('sub_') or ss_key.startswith('subsub_') or ss_key.startswith('custom_')
+                        
+                        if ss_is_fp and ss_photos:
+                            first_group = [Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style)]
+                            ss_content = subsub.get("content", "")
+                            if ss_content:
+                                first_group.append(Paragraph(format_content(ss_content), body_style))
+                            first_img = load_photo_image(ss_photos[0]["storage_path"], content_width, 15*cm)
+                            if first_img:
+                                first_group.append(first_img)
+                            elements_list.append(KeepTogether(first_group))
+                            elements_list.append(PageBreak())
+                            for p in ss_photos[1:]:
+                                img = load_photo_image(p["storage_path"], content_width, 20*cm)
+                                if img:
+                                    elements_list.append(img)
+                                    elements_list.append(PageBreak())
+                        else:
+                            elements_list.append(Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style))
+                            ss_content = subsub.get("content", "")
+                            if ss_content:
+                                elements_list.append(Paragraph(format_content(ss_content), body_style))
+                            _render_photos(ss_key, elements_list)
     
     # Image-only sections: render full-page images (one per page)
     FULL_PAGE_KEYS = {'ndt', 'pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'}

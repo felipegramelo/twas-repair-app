@@ -1630,8 +1630,8 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             img_reader = ImageReader(logo_image)
             canvas_obj.saveState()
             canvas_obj.setFillAlpha(0.06)
-            wm_w = content_width * 0.7
-            wm_h = wm_w * 0.4
+            wm_w = content_width * 0.9
+            wm_h = wm_w * 0.35
             wm_x = content_left + (content_width - wm_w) / 2
             wm_y = (page_height - wm_h) / 2
             canvas_obj.drawImage(img_reader, wm_x, wm_y, width=wm_w, height=wm_h, preserveAspectRatio=True, mask='auto')
@@ -1649,7 +1649,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.05*cm, width=5.0*cm, height=1.7*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.05*cm, width=5.5*cm, height=1.7*cm, preserveAspectRatio=True)
         
         # Title (no OS number in center) - all black
         canvas_obj.setFont("Helvetica-Bold", 12)
@@ -1812,9 +1812,11 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     sections = report.get("sections", [])
     
-    toc_main_style = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=8, spaceAfter=4, leftIndent=0)
-    toc_sub_style = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=3, spaceAfter=2, leftIndent=20)
-    toc_subsub_style = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=40)
+    toc_main_style = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=0)
+    toc_sub_style = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=1, spaceAfter=1, leftIndent=10)
+    toc_subsub_style = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=1, spaceAfter=1, leftIndent=20)
+    toc_page_style = ParagraphStyle('TOCPage', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', textColor=colors.black, alignment=2)
+    toc_page_sub_style = ParagraphStyle('TOCPageSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, alignment=2)
     
     def build_toc_entries(sec_list):
         entries = []
@@ -1831,26 +1833,41 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     toc_entries = build_toc_entries(sections)
     
-    # Build TOC as a clean table with dotted lines
+    # Build TOC as a two-column table: [title with dots] [page number]
+    # Page numbers will be injected by PyMuPDF post-processing
     toc_data = []
+    dots_col_w = content_width - 1.2*cm
+    page_col_w = 1.2*cm
     for entry in toc_entries:
         num_title = f"{entry['number']}. {entry['title']}"
-        dots = " " + "." * max(3, 60 - len(num_title))
+        # Calculate dots to fill the space
+        max_chars = 70 - entry['level'] * 5
+        num_dots = max(3, max_chars - len(num_title))
+        dots = " " + "." * num_dots
         if entry['level'] == 0:
-            toc_data.append([Paragraph(f"<b>{num_title}</b>{dots}", toc_main_style)])
+            toc_data.append([
+                Paragraph(f"<b>{num_title}</b>{dots}", toc_main_style),
+                Paragraph("", toc_page_style),
+            ])
         elif entry['level'] == 1:
-            toc_data.append([Paragraph(f"{num_title}{dots}", toc_sub_style)])
+            toc_data.append([
+                Paragraph(f"{num_title}{dots}", toc_sub_style),
+                Paragraph("", toc_page_sub_style),
+            ])
         else:
-            toc_data.append([Paragraph(f"{num_title}{dots}", toc_subsub_style)])
+            toc_data.append([
+                Paragraph(f"{num_title}{dots}", toc_subsub_style),
+                Paragraph("", toc_page_sub_style),
+            ])
     
     if toc_data:
-        toc_table = Table(toc_data, colWidths=[content_width])
+        toc_table = Table(toc_data, colWidths=[dots_col_w, page_col_w])
         toc_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (0, -1), 0),
+            ('RIGHTPADDING', (1, 0), (1, -1), 0),
         ]))
         elements.append(toc_table)
     

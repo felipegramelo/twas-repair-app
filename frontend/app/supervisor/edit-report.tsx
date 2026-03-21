@@ -110,14 +110,25 @@ export default function EditReportScreen() {
     setPdfLoading(true);
     try {
       if (Platform.OS === 'web') {
-        const blob = await reportAPI.downloadPDF(id!);
-        if (blob.size === 0) { showMsg('PDF vazio retornado pelo servidor'); return; }
-        window.open(URL.createObjectURL(blob), '_blank');
+        // Open window immediately on user click to avoid popup blocker
+        const pdfWindow = window.open('', '_blank');
+        if (pdfWindow) {
+          pdfWindow.document.write('<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;color:#333"><p>Gerando PDF, aguarde...</p></body></html>');
+        }
+        try {
+          const blob = await reportAPI.downloadPDF(id!);
+          if (blob.size === 0) { if (pdfWindow) pdfWindow.close(); showMsg('PDF vazio retornado pelo servidor'); return; }
+          const url = URL.createObjectURL(blob);
+          if (pdfWindow) { pdfWindow.location.href = url; } else { window.location.href = url; }
+        } catch (e: any) {
+          if (pdfWindow) pdfWindow.close();
+          const detail = e?.response?.data ? await e.response.data.text?.() || e.message : e.message || 'Erro desconhecido';
+          showMsg('Erro ao gerar PDF: ' + detail);
+          console.error('PDF open error:', e);
+        }
       }
     } catch (e: any) {
-      const detail = e?.response?.data ? await e.response.data.text?.() || e.message : e.message || 'Erro desconhecido';
-      showMsg('Erro ao gerar PDF: ' + detail);
-      console.error('PDF open error:', e);
+      showMsg('Erro ao gerar PDF: ' + (e.message || ''));
     } finally { setPdfLoading(false); }
   };
 

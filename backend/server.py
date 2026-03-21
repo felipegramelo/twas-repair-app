@@ -1583,9 +1583,10 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     buffer = io.BytesIO()
     page_width, page_height = A4
-    border_margin = 1.0*cm
-    content_left = 1.0*cm
-    content_right = 1.0*cm
+    border_margin = 1.0*cm  # Page border at 1cm from edge
+    # Header/footer/content boxes ~1cm inside the page border = ~2cm from page edge
+    content_left = 2.03*cm
+    content_right = 2.03*cm
     content_width = page_width - content_left - content_right
     
     # Preload logo
@@ -1630,48 +1631,71 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             img_reader = ImageReader(logo_image)
             canvas_obj.saveState()
             canvas_obj.setFillAlpha(0.06)
-            wm_w = content_width * 0.9
+            wm_w = content_width * 0.95
             wm_h = wm_w * 0.35
             wm_x = content_left + (content_width - wm_w) / 2
             wm_y = (page_height - wm_h) / 2
             canvas_obj.drawImage(img_reader, wm_x, wm_y, width=wm_w, height=wm_h, preserveAspectRatio=True, mask='auto')
             canvas_obj.restoreState()
         
-        # === HEADER BOX ===
-        header_top = page_height - border_margin - 0.1*cm
-        header_height = 1.8*cm
+        # === HEADER BOX (~0.53cm below page border top, 2.49cm tall) ===
+        header_top = page_height - border_margin - 0.53*cm
+        header_height = 2.49*cm
         header_bottom = header_top - header_height
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, header_bottom, content_width, header_height)
         
-        # Logo (bigger)
+        # Logo (fills header height)
         if logo_image:
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.05*cm, width=5.5*cm, height=1.7*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left + 0.15*cm, header_bottom + 0.15*cm, width=5.2*cm, height=2.2*cm, preserveAspectRatio=True)
         
-        # Title (no OS number in center) - all black
-        canvas_obj.setFont("Helvetica-Bold", 12)
-        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.1*cm, report_title)
-        canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawCentredString(page_width/2, header_bottom + 0.55*cm, "20-FR-01-03 (1)")
+        # Center title
+        canvas_obj.setFont("Helvetica-Bold", 13)
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.6*cm, report_title)
+        canvas_obj.setFont("Helvetica", 7)
+        canvas_obj.drawCentredString(page_width/2, header_bottom + 1.15*cm, "20-FR-01-03 (1)")
         
-        # Right side details - all black
+        # Right side: label bold + value regular (matching reference)
         right_x = content_left + content_width - 0.2*cm
-        detail_y = header_top - 0.35*cm
-        canvas_obj.setFont("Helvetica-Bold", 6.5)
-        canvas_obj.drawRightString(right_x, detail_y, f"Cliente: {report.get('client', '')}")
-        detail_y -= 0.35*cm
-        canvas_obj.drawRightString(right_x, detail_y, f"Embarcação: {report.get('location', '')}")
-        detail_y -= 0.35*cm
-        canvas_obj.drawRightString(right_x, detail_y, f"OS: {report.get('os_number', '')}")
-        detail_y -= 0.35*cm
-        canvas_obj.setFont("Helvetica", 6.5)
-        canvas_obj.drawRightString(right_x, detail_y, f"{current_date}  |  Rev.: 0")
+        detail_y = header_top - 0.3*cm
+        line_h = 0.35*cm
+        val_x = right_x - 2.4*cm
+        lbl_x = right_x - 3.3*cm
+        
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawString(lbl_x, detail_y, "Cliente:")
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawString(val_x, detail_y, report.get('client', ''))
+        
+        detail_y -= line_h
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawString(lbl_x, detail_y, "Rig/Vessel:")
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawString(val_x, detail_y, report.get('location', ''))
+        
+        detail_y -= line_h
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawString(lbl_x, detail_y, "Equipamento:")
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawString(val_x, detail_y, report.get('service', ''))
+        
+        detail_y -= line_h
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawString(lbl_x, detail_y, "OS:")
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawString(val_x, detail_y, report.get('os_number', ''))
+        
+        detail_y -= line_h
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawString(lbl_x, detail_y, "Rev:")
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawString(val_x, detail_y, "0")
         
         # === FOOTER BOX ===
-        footer_bottom = border_margin + 0.1*cm
+        footer_bottom = border_margin + 0.4*cm
         footer_height = 1.4*cm
         footer_top = footer_bottom + footer_height
         canvas_obj.setLineWidth(0.5)
@@ -1679,15 +1703,15 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         
         center_x = page_width / 2
         y = footer_top - 0.25*cm
-        canvas_obj.setFont("Helvetica-Bold", 5.5)
-        canvas_obj.drawCentredString(center_x, y, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA - CNPJ: 31.839.501/0001-90")
-        y -= 0.25*cm
-        canvas_obj.setFont("Helvetica", 5.5)
-        canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N\u00b0 84, Boa Vista, S\u00e3o Gon\u00e7alo, Rio de Janeiro - CEP.: 24.466-180")
-        y -= 0.22*cm
-        canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com  |  www.twasrepair.com")
-        y -= 0.25*cm
-        canvas_obj.setFont("Helvetica-BoldOblique", 6)
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawCentredString(center_x, y, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA")
+        y -= 0.3*cm
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N\u00b0 84, Boa Vista, S\u00e3o Gon\u00e7alo, Rio de Janeiro - CEP.: 24.466-180.")
+        y -= 0.28*cm
+        canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com - www.twasrepair.com")
+        y -= 0.28*cm
+        canvas_obj.setFont("Helvetica-BoldOblique", 8)
         canvas_obj.drawCentredString(center_x, y, "TOGETHER WE ARE STRONGER")
         
         canvas_obj.restoreState()
@@ -1702,8 +1726,8 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        topMargin=border_margin + 2.1*cm,
-        bottomMargin=border_margin + 1.7*cm,
+        topMargin=border_margin + 3.2*cm,
+        bottomMargin=border_margin + 2.0*cm,
         leftMargin=content_left,
         rightMargin=content_right,
     )
@@ -1812,11 +1836,11 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     sections = report.get("sections", [])
     
-    toc_main_style = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=0)
-    toc_sub_style = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=1, spaceAfter=1, leftIndent=10)
-    toc_subsub_style = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=1, spaceAfter=1, leftIndent=20)
-    toc_page_style = ParagraphStyle('TOCPage', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', textColor=colors.black, alignment=2)
-    toc_page_sub_style = ParagraphStyle('TOCPageSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, alignment=2)
+    toc_main_style = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=11, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=0)
+    toc_main_title = ParagraphStyle('TOCMainT', parent=styles['Normal'], fontSize=11, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=0)
+    toc_sub_style = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=11, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=1, spaceAfter=1, leftIndent=0)
+    toc_sub_title = ParagraphStyle('TOCSubT', parent=styles['Normal'], fontSize=11, fontName='Helvetica', textColor=colors.black, spaceBefore=1, spaceAfter=1, leftIndent=0)
+    toc_page_style = ParagraphStyle('TOCPage', parent=styles['Normal'], fontSize=11, fontName='Helvetica', textColor=colors.black, alignment=2)
     
     def build_toc_entries(sec_list):
         entries = []
@@ -1833,41 +1857,28 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     toc_entries = build_toc_entries(sections)
     
-    # Build TOC as a two-column table: [title with dots] [page number]
-    # Page numbers will be injected by PyMuPDF post-processing
+    # Build TOC matching reference format: [number bold] [title regular] ... [page number right]
     toc_data = []
-    dots_col_w = content_width - 1.2*cm
+    num_col_w = 1.5*cm
+    title_col_w = content_width - num_col_w - 1.2*cm
     page_col_w = 1.2*cm
     for entry in toc_entries:
-        num_title = f"{entry['number']}. {entry['title']}"
-        # Calculate dots to fill the space
-        max_chars = 70 - entry['level'] * 5
-        num_dots = max(3, max_chars - len(num_title))
-        dots = " " + "." * num_dots
-        if entry['level'] == 0:
-            toc_data.append([
-                Paragraph(f"<b>{num_title}</b>{dots}", toc_main_style),
-                Paragraph("", toc_page_style),
-            ])
-        elif entry['level'] == 1:
-            toc_data.append([
-                Paragraph(f"{num_title}{dots}", toc_sub_style),
-                Paragraph("", toc_page_sub_style),
-            ])
-        else:
-            toc_data.append([
-                Paragraph(f"{num_title}{dots}", toc_subsub_style),
-                Paragraph("", toc_page_sub_style),
-            ])
+        num_text = f"{entry['number']}."
+        title_text = entry['title']
+        toc_data.append([
+            Paragraph(f"<b>{num_text}</b>", toc_main_style),
+            Paragraph(title_text, toc_main_title),
+            Paragraph("", toc_page_style),
+        ])
     
     if toc_data:
-        toc_table = Table(toc_data, colWidths=[dots_col_w, page_col_w])
+        toc_table = Table(toc_data, colWidths=[num_col_w, title_col_w, page_col_w])
         toc_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
             ('LEFTPADDING', (0, 0), (0, -1), 0),
-            ('RIGHTPADDING', (1, 0), (1, -1), 0),
+            ('RIGHTPADDING', (2, 0), (2, -1), 0),
         ]))
         elements.append(toc_table)
     
@@ -1991,34 +2002,29 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         search_text = f"{entry['number']}. {entry['title']}"
         page_num = section_pages.get(search_text, "")
         if page_num:
-            display_num = page_num  # Since cover is page 0, page index equals display number
-            # Find the dots line and add page number at the right
+            display_num = page_num  # Since cover is page 0, page index = display number
             text_instances = sumario_page.search_for(entry['title'])
             if text_instances:
                 rect = text_instances[0]
-                # Place page number at right margin (page_width is already in points)
-                right_x = page_width - content_right - 15
+                # Place page number at right margin, matching reference x=532
                 sumario_page.insert_text(
-                    fitz.Point(right_x, rect.y1),
+                    fitz.Point(532, rect.y1),
                     str(display_num),
-                    fontsize=9 if entry['level'] == 0 else 8,
-                    fontname="hebo" if entry['level'] == 0 else "helv",
+                    fontsize=11,
+                    fontname="helv",
                     color=(0, 0, 0),
                 )
     
     # Add page numbers to footer (right-aligned), skip cover page
+    # Reference: x=507, y=772, sz=8, format "X de Y"
     for i in range(1, total):
         page = pdf_doc[i]
         page_num = i  # Cover not counted
         text = f"{page_num} de {total_numbered}"
-        rect = page.rect
-        # Right side of footer (page dimensions are already in points)
-        right_x = rect.width - content_right - 15
-        footer_y = border_margin + 0.2 * cm + 3
         page.insert_text(
-            fitz.Point(right_x - len(text) * 3.5, footer_y),
+            fitz.Point(507, 772),
             text,
-            fontsize=6,
+            fontsize=8,
             fontname="helv",
             color=(0, 0, 0),
         )

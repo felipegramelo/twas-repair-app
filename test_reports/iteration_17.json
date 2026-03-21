@@ -1,0 +1,87 @@
+{
+  "summary": "Tested PDF layout changes for iteration 17. All 22 backend tests passed. All requested features verified working: page numbers at x=507, y=772, cover has no page number, SUMÁRIO page numbers at x=532, header has label:value format, footer text is 8pt, logo is 5.2cm, watermark is 95% width.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "All pages",
+        "issues": ["Console warning: 'shadow*' style props deprecated - use 'boxShadow' (pre-existing)"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pdf_layout_iteration_17.py",
+    "/app/test_reports/pytest/test_iteration_17.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_pdf_layout_iteration_17.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 pytest tests passed)",
+    "frontend": "Not tested (backend only requested)"
+  },
+  "test_credentials": {
+    "supervisor": "supervisor@twasrepair.com / super123"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "All PDF layout features verified working. PDF has 13 pages total, 12 numbered. Cover page has no page number. Page numbers at x=507, y=772 in format 'X de Y'. SUMÁRIO has section page numbers at x=532. Header has label:value format (Cliente:, Rig/Vessel:, Equipamento:, OS:, Rev:). Footer text is 8pt. Logo is 5.2cm wide. Watermark is 95% content width.",
+  "tested_features": {
+    "feature_1_pdf_endpoint_200": {
+      "status": "PASS",
+      "evidence": "GET /api/reports/69be160fbc3470b8fd2dbe87/pdf returns 200 with valid PDF content"
+    },
+    "feature_2_page_number_position_507_772": {
+      "status": "PASS",
+      "evidence": "Page 1 has page number at x≈507, y≈772 in format '1 de 12'"
+    },
+    "feature_3_cover_no_page_number": {
+      "status": "PASS",
+      "evidence": "Page 0 (cover) has no 'X de Y' pattern in text and no text at footer position"
+    },
+    "feature_4_sumario_page_numbers_x532": {
+      "status": "PASS",
+      "evidence": "SUMÁRIO page has section page numbers at x≈532 (code uses fitz.Point(532, ...))"
+    },
+    "feature_5_header_label_value_format": {
+      "status": "PASS",
+      "evidence": "Header has Cliente:, Rig/Vessel:, Equipamento:, OS:, Rev: labels with values"
+    },
+    "feature_6_footer_text_8pt": {
+      "status": "PASS",
+      "evidence": "Footer uses Helvetica-Bold 8pt, Helvetica 8pt, Helvetica-BoldOblique 8pt. Page numbers use fontsize=8"
+    },
+    "feature_7_total_pages_gt_1": {
+      "status": "PASS",
+      "evidence": "PDF has 13 pages (cover + SUMÁRIO + 11 content pages)"
+    },
+    "feature_8_logo_5_2cm": {
+      "status": "PASS",
+      "evidence": "Code: drawImage with width=5.2*cm"
+    },
+    "feature_9_content_margins_2_03cm": {
+      "status": "PASS",
+      "evidence": "Code: content_left = 2.03*cm, content_right = 2.03*cm"
+    },
+    "feature_10_watermark_95_percent": {
+      "status": "PASS",
+      "evidence": "Code: wm_w = content_width * 0.95 (95% of content width)"
+    }
+  },
+  "pdf_verification": {
+    "total_pages": 13,
+    "numbered_pages": 12,
+    "cover_page": "No page number (correct)",
+    "page_number_position": "x=507, y=772",
+    "sumario_page": "Has '1 de 12' footer + section page numbers at x=532",
+    "content_pages": "Have 'X de 12' footer page numbers"
+  }
+}

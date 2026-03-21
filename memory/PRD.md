@@ -1,15 +1,14 @@
 # TWAS REPAIR - PRD
 
-## PDF Specifications
-- Page borders: 1.0cm all sides
-- Header/footer boxes: aligned at 1.0cm from page edge
-- Logo: 5.5cm in header
-- Watermark: 90% content width, 6% opacity, centered, all pages except cover
-- Header: "RELATÓRIO TÉCNICO" + "20-FR-01-03 (1)" centered, client/vessel/OS/date on right
-- Page numbers: "X de Y" right-aligned in footer, skip cover
-- SUMÁRIO: dot leaders with page numbers right-aligned (PyMuPDF post-processing)
+## PDF Layout (matching reference)
+- Page border: 1.0cm from page edge
+- Header/footer boxes: ~2cm from page edge (~1cm inside border)
+- Header: logo 5.2cm | "RELATÓRIO TÉCNICO" + "20-FR-01-03 (1)" center | label:value pairs right (Cliente, Rig/Vessel, Equipamento, OS, Rev)
+- Footer: company info centered (8pt), "TOGETHER WE ARE STRONGER" italic
+- Page numbers: "X de Y" at (x=507, y=772) right-aligned, skip cover
+- SUMÁRIO: 3 columns [number bold | title regular | page number], numbers injected by PyMuPDF
+- Watermark: 95% content width, 6% opacity, all pages except cover
 - Cover: service UPPERCASE above photo, vessel UPPERCASE below
-- Cover table: bold labels, normal values
 - All text: BLACK
 
 ## Frontend
@@ -26,6 +25,6 @@
 
 ## Backlog
 ### P1
-- Refactor backend/server.py (2060+ lines)
+- Refactor backend/server.py (2080+ lines)
 ### P2
 - Refactor edit-report.tsx, Offline Mode, EAS Build

@@ -1631,26 +1631,26 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             img_reader = ImageReader(logo_image)
             canvas_obj.saveState()
             canvas_obj.setFillAlpha(0.06)
-            wm_w = content_width * 0.95
+            wm_w = content_width * 1.05
             wm_h = wm_w * 0.35
             wm_x = content_left + (content_width - wm_w) / 2
             wm_y = (page_height - wm_h) / 2
             canvas_obj.drawImage(img_reader, wm_x, wm_y, width=wm_w, height=wm_h, preserveAspectRatio=True, mask='auto')
             canvas_obj.restoreState()
         
-        # === HEADER BOX (~0.53cm below page border top, 2.49cm tall) ===
-        header_top = page_height - border_margin - 0.53*cm
+        # === HEADER BOX (descido: 0.8cm abaixo da borda) ===
+        header_top = page_height - border_margin - 0.8*cm
         header_height = 2.49*cm
         header_bottom = header_top - header_height
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, header_bottom, content_width, header_height)
         
-        # Logo (fills header height)
+        # Logo (maior: 5.6cm)
         if logo_image:
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left + 0.15*cm, header_bottom + 0.15*cm, width=5.2*cm, height=2.2*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.1*cm, width=5.6*cm, height=2.3*cm, preserveAspectRatio=True)
         
         # Center title
         canvas_obj.setFont("Helvetica-Bold", 13)
@@ -1694,8 +1694,8 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.drawString(val_x, detail_y, "0")
         
-        # === FOOTER BOX ===
-        footer_bottom = border_margin + 0.4*cm
+        # === FOOTER BOX (subido: 0.7cm acima da borda) ===
+        footer_bottom = border_margin + 0.7*cm
         footer_height = 1.4*cm
         footer_top = footer_bottom + footer_height
         canvas_obj.setLineWidth(0.5)
@@ -1726,8 +1726,8 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        topMargin=border_margin + 3.2*cm,
-        bottomMargin=border_margin + 2.0*cm,
+        topMargin=border_margin + 3.5*cm,
+        bottomMargin=border_margin + 2.3*cm,
         leftMargin=content_left,
         rightMargin=content_right,
     )

@@ -1583,9 +1583,9 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     buffer = io.BytesIO()
     page_width, page_height = A4
-    border_margin = 0.3*cm
-    content_left = 1.2*cm
-    content_right = 1.2*cm
+    border_margin = 1.0*cm
+    content_left = 1.0*cm
+    content_right = 1.0*cm
     content_width = page_width - content_left - content_right
     
     # Preload logo
@@ -1623,8 +1623,22 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(border_margin, border_margin, page_width - 2*border_margin, page_height - 2*border_margin)
         
+        # === WATERMARK LOGO (all pages except cover) ===
+        if page_num > 1 and logo_image:
+            logo_image.seek(0)
+            from reportlab.lib.utils import ImageReader
+            img_reader = ImageReader(logo_image)
+            canvas_obj.saveState()
+            canvas_obj.setFillAlpha(0.06)
+            wm_w = content_width * 0.7
+            wm_h = wm_w * 0.4
+            wm_x = content_left + (content_width - wm_w) / 2
+            wm_y = (page_height - wm_h) / 2
+            canvas_obj.drawImage(img_reader, wm_x, wm_y, width=wm_w, height=wm_h, preserveAspectRatio=True, mask='auto')
+            canvas_obj.restoreState()
+        
         # === HEADER BOX ===
-        header_top = page_height - border_margin - 0.2*cm
+        header_top = page_height - border_margin - 0.1*cm
         header_height = 1.8*cm
         header_bottom = header_top - header_height
         canvas_obj.setLineWidth(0.5)
@@ -1635,15 +1649,15 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left + 0.15*cm, header_bottom + 0.1*cm, width=4.5*cm, height=1.6*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.05*cm, width=5.0*cm, height=1.7*cm, preserveAspectRatio=True)
         
-        # Title (no OS number in center)
+        # Title (no OS number in center) - all black
         canvas_obj.setFont("Helvetica-Bold", 12)
         canvas_obj.drawCentredString(page_width/2, header_bottom + 1.1*cm, report_title)
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.drawCentredString(page_width/2, header_bottom + 0.55*cm, "20-FR-01-03 (1)")
         
-        # Right side details
+        # Right side details - all black
         right_x = content_left + content_width - 0.2*cm
         detail_y = header_top - 0.35*cm
         canvas_obj.setFont("Helvetica-Bold", 6.5)
@@ -1657,7 +1671,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         canvas_obj.drawRightString(right_x, detail_y, f"{current_date}  |  Rev.: 0")
         
         # === FOOTER BOX ===
-        footer_bottom = border_margin + 0.2*cm
+        footer_bottom = border_margin + 0.1*cm
         footer_height = 1.4*cm
         footer_top = footer_bottom + footer_height
         canvas_obj.setLineWidth(0.5)
@@ -1688,17 +1702,17 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        topMargin=border_margin + 2.3*cm,
-        bottomMargin=border_margin + 1.8*cm,
+        topMargin=border_margin + 2.1*cm,
+        bottomMargin=border_margin + 1.7*cm,
         leftMargin=content_left,
         rightMargin=content_right,
     )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1a237e'), alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
-    section_style = ParagraphStyle('RSec', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a237e'), spaceBefore=14, spaceAfter=6, fontName='Helvetica-Bold')
-    subsec_style = ParagraphStyle('RSubSec', parent=styles['Heading3'], fontSize=11, spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4, alignment=TA_JUSTIFY)
+    title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.black, alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
+    section_style = ParagraphStyle('RSec', parent=styles['Heading2'], fontSize=12, textColor=colors.black, spaceBefore=14, spaceAfter=6, fontName='Helvetica-Bold')
+    subsec_style = ParagraphStyle('RSubSec', parent=styles['Heading3'], fontSize=11, textColor=colors.black, spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4, alignment=TA_JUSTIFY, textColor=colors.black)
     
     def format_content(text):
         """Convert plain text with line breaks and bullet markers to HTML for reportlab."""
@@ -1708,8 +1722,8 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
         text = html_mod.escape(text)
         text = text.replace('\n', '<br/>')
         return text
-    label_style = ParagraphStyle('RLabel', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), fontName='Helvetica-Bold')
-    value_style = ParagraphStyle('RValue', parent=styles['Normal'], fontSize=10, fontName='Helvetica')
+    label_style = ParagraphStyle('RLabel', parent=styles['Normal'], fontSize=9, textColor=colors.black, fontName='Helvetica-Bold')
+    value_style = ParagraphStyle('RValue', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black)
     
     elements = []
     
@@ -1743,15 +1757,15 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             logging.error(f"Failed to load photo {storage_path}: {e}")
             return None
 
-    caption_style = ParagraphStyle('PhotoCaption', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, textColor=colors.HexColor('#666666'), spaceAfter=6)
+    caption_style = ParagraphStyle('PhotoCaption', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, textColor=colors.black, spaceAfter=6)
 
     # ===== COVER PAGE =====
-    service_name = report.get("service", "")
-    vessel_name = report.get("location", "")
+    service_name = report.get("service", "").upper()
+    vessel_name = report.get("location", "").upper()
     
     elements.append(Spacer(1, 0.5*cm))
     # Service name above photo
-    service_cover_style = ParagraphStyle('ServiceCover', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.HexColor('#1a237e'), spaceAfter=12)
+    service_cover_style = ParagraphStyle('ServiceCover', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceAfter=12)
     elements.append(Paragraph(service_name, service_cover_style))
     elements.append(Spacer(1, 0.5*cm))
     
@@ -1764,7 +1778,7 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             elements.append(img)
     
     # Vessel name below photo
-    vessel_cover_style = ParagraphStyle('VesselCover', parent=styles['Normal'], fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.HexColor('#333333'), spaceBefore=12, spaceAfter=16)
+    vessel_cover_style = ParagraphStyle('VesselCover', parent=styles['Normal'], fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceBefore=12, spaceAfter=16)
     elements.append(Paragraph(vessel_name, vessel_cover_style))
     elements.append(Spacer(1, 0.5*cm))
     
@@ -1792,15 +1806,15 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     # ===== SUMÁRIO PAGE =====
     elements.append(PageBreak())
-    sumario_title_style = ParagraphStyle('SumarioTitle', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.HexColor('#1a237e'), spaceBefore=12, spaceAfter=24)
+    sumario_title_style = ParagraphStyle('SumarioTitle', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceBefore=12, spaceAfter=24)
     elements.append(Paragraph("SUMÁRIO", sumario_title_style))
     elements.append(Spacer(1, 0.5*cm))
     
     sections = report.get("sections", [])
     
-    toc_main_style = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', textColor=colors.HexColor('#333333'), spaceBefore=8, spaceAfter=4, leftIndent=0)
-    toc_sub_style = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.HexColor('#555555'), spaceBefore=3, spaceAfter=2, leftIndent=20)
-    toc_subsub_style = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.HexColor('#777777'), spaceBefore=2, spaceAfter=2, leftIndent=40)
+    toc_main_style = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=8, spaceAfter=4, leftIndent=0)
+    toc_sub_style = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=3, spaceAfter=2, leftIndent=20)
+    toc_subsub_style = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=40)
     
     def build_toc_entries(sec_list):
         entries = []
@@ -1938,21 +1952,54 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     doc.build(elements, onFirstPage=on_first_page, onLaterPages=on_later_pages)
     buffer.seek(0)
     
-    # Post-process: add "X de Y" page numbers using PyMuPDF (skip cover page)
+    # Post-process with PyMuPDF: page numbers (right-aligned in footer) + TOC page numbers
     import fitz
     pdf_doc = fitz.open(stream=buffer.read(), filetype="pdf")
     total = len(pdf_doc)
     total_numbered = total - 1  # Cover page not counted
-    for i in range(1, total):  # Skip page 0 (cover)
+    
+    # Find section page numbers by searching for section titles
+    section_pages = {}
+    for i in range(2, total):  # Skip cover (0) and summary (1)
         page = pdf_doc[i]
-        page_num = i  # Page 1 starts counting from index 1
+        text = page.get_text()
+        for entry in toc_entries:
+            search_text = f"{entry['number']}. {entry['title']}"
+            if search_text in text and search_text not in section_pages:
+                section_pages[search_text] = i  # page index (0-based), displayed as i (cover not counted)
+    
+    # Update SUMÁRIO page (page index 1) with page numbers
+    sumario_page = pdf_doc[1]
+    for entry in toc_entries:
+        search_text = f"{entry['number']}. {entry['title']}"
+        page_num = section_pages.get(search_text, "")
+        if page_num:
+            display_num = page_num  # Since cover is page 0, page index equals display number
+            # Find the dots line and add page number at the right
+            text_instances = sumario_page.search_for(entry['title'])
+            if text_instances:
+                rect = text_instances[0]
+                # Place page number at right margin (page_width is already in points)
+                right_x = page_width - content_right - 15
+                sumario_page.insert_text(
+                    fitz.Point(right_x, rect.y1),
+                    str(display_num),
+                    fontsize=9 if entry['level'] == 0 else 8,
+                    fontname="hebo" if entry['level'] == 0 else "helv",
+                    color=(0, 0, 0),
+                )
+    
+    # Add page numbers to footer (right-aligned), skip cover page
+    for i in range(1, total):
+        page = pdf_doc[i]
+        page_num = i  # Cover not counted
         text = f"{page_num} de {total_numbered}"
-        # Position: center bottom of the footer area
         rect = page.rect
-        x = rect.width / 2
-        y = (border_margin / 28.35 * 72) + 0.2 * 72 / 2.54  # Convert cm to points approx
+        # Right side of footer (page dimensions are already in points)
+        right_x = rect.width - content_right - 15
+        footer_y = border_margin + 0.2 * cm + 3
         page.insert_text(
-            fitz.Point(x - len(text) * 2, y),
+            fitz.Point(right_x - len(text) * 3.5, footer_y),
             text,
             fontsize=6,
             fontname="helv",

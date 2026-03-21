@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Query, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Query, Header, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse, Response
 from dotenv import load_dotenv
@@ -1576,7 +1576,28 @@ async def delete_report_photo(report_id: str, photo_id: str, user: dict = Depend
     return {"success": True}
 
 @api_router.get("/reports/{report_id}/pdf")
-async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_user)):
+async def generate_report_pdf(report_id: str, request: Request, token: str = Query(default=None)):
+    # Accept auth from query param OR Authorization header (for mobile browser direct URL access)
+    auth_token = token
+    if not auth_token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            auth_token = auth_header[7:]
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Token não fornecido")
+    try:
+        payload = jwt.decode(auth_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=401, detail="Usuário não encontrado")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
     report = await db.reports.find_one({"_id": ObjectId(report_id)})
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")

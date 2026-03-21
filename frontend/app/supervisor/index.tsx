@@ -120,8 +120,9 @@ export default function SupervisorDashboard() {
   const handleOpenReportPDF = async (report: Report) => {
     try {
       if (Platform.OS === 'web') {
-        const blob = await reportAPI.downloadPDF(report.id);
-        const url = URL.createObjectURL(blob);
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
+        const url = `${baseURL}/api/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`;
         window.open(url, '_blank');
       }
     } catch { if (Platform.OS === 'web') window.alert('Erro ao abrir PDF do relatório'); }
@@ -130,15 +131,16 @@ export default function SupervisorDashboard() {
   const handleDownloadReportPDF = async (report: Report) => {
     try {
       if (Platform.OS === 'web') {
-        const blob = await reportAPI.downloadPDF(report.id);
-        const url = URL.createObjectURL(blob);
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
+        const url = `${baseURL}/api/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`;
+        if (navigator.share) {
+          try { await navigator.share({ title: `Relatório ${report.os_number}`, url }); return; } catch {}
+        }
         const link = document.createElement('a');
-        link.href = url;
+        link.href = url; link.target = '_blank';
         link.download = `relatorio_${report.os_number}_${report.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
       }
     } catch { if (Platform.OS === 'web') window.alert('Erro ao baixar PDF do relatório'); }
   };

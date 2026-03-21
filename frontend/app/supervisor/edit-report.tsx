@@ -106,29 +106,21 @@ export default function EditReportScreen() {
     } catch (e: any) { showMsg('Erro ao salvar: ' + (e.message || '')); } finally { setSaving(false); }
   };
 
+  const getPdfUrl = () => {
+    const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
+    return `${baseUrl}/api/reports/${id}/pdf?token=${encodeURIComponent(token)}&t=${Date.now()}`;
+  };
+
   const handleOpenPDF = async () => {
     setPdfLoading(true);
     try {
       if (Platform.OS === 'web') {
-        // Open window immediately on user click to avoid popup blocker
-        const pdfWindow = window.open('', '_blank');
-        if (pdfWindow) {
-          pdfWindow.document.write('<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;color:#333"><p>Gerando PDF, aguarde...</p></body></html>');
-        }
-        try {
-          const blob = await reportAPI.downloadPDF(id!);
-          if (blob.size === 0) { if (pdfWindow) pdfWindow.close(); showMsg('PDF vazio retornado pelo servidor'); return; }
-          const url = URL.createObjectURL(blob);
-          if (pdfWindow) { pdfWindow.location.href = url; } else { window.location.href = url; }
-        } catch (e: any) {
-          if (pdfWindow) pdfWindow.close();
-          const detail = e?.response?.data ? await e.response.data.text?.() || e.message : e.message || 'Erro desconhecido';
-          showMsg('Erro ao gerar PDF: ' + detail);
-          console.error('PDF open error:', e);
-        }
+        const url = getPdfUrl();
+        window.open(url, '_blank');
       }
     } catch (e: any) {
       showMsg('Erro ao gerar PDF: ' + (e.message || ''));
+      console.error('PDF open error:', e);
     } finally { setPdfLoading(false); }
   };
 
@@ -136,16 +128,25 @@ export default function EditReportScreen() {
     setPdfLoading(true);
     try {
       if (Platform.OS === 'web') {
-        const blob = await reportAPI.downloadPDF(id!);
-        if (blob.size === 0) { showMsg('PDF vazio retornado pelo servidor'); return; }
-        const url = URL.createObjectURL(blob);
+        const url = getPdfUrl();
+        // Try native share API (works on mobile browsers)
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: `Relatório ${report?.os_number || ''}`, url });
+            return;
+          } catch (shareErr) {
+            // User cancelled or share not supported for URLs, fall back to download
+          }
+        }
+        // Fallback: direct link for download
         const link = document.createElement('a');
-        link.href = url; link.download = `relatorio_${report?.os_number || ''}.pdf`;
-        document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+        link.href = url;
+        link.target = '_blank';
+        link.download = `relatorio_${report?.os_number || ''}.pdf`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
       }
     } catch (e: any) {
-      const detail = e?.response?.data ? await e.response.data.text?.() || e.message : e.message || 'Erro desconhecido';
-      showMsg('Erro ao compartilhar PDF: ' + detail);
+      showMsg('Erro ao compartilhar PDF: ' + (e.message || ''));
       console.error('PDF share error:', e);
     } finally { setPdfLoading(false); }
   };

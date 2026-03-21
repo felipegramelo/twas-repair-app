@@ -112,25 +112,16 @@ export default function EditReportScreen() {
   };
 
   const handleOpenPDF = () => {
-    try {
-      if (Platform.OS === 'web') {
-        const url = getPdfUrl();
-        window.open(url, '_blank');
-      }
-    } catch (e: any) {
-      showMsg('Erro ao gerar PDF: ' + (e.message || ''));
+    if (Platform.OS === 'web') {
+      const url = getPdfUrl();
+      window.location.href = url;
     }
   };
 
   const handleSharePDF = () => {
-    try {
-      if (Platform.OS === 'web') {
-        const url = getPdfUrl();
-        // Use window.location.href - most reliable on iOS Safari
-        window.location.href = url;
-      }
-    } catch (e: any) {
-      showMsg('Erro ao compartilhar PDF: ' + (e.message || ''));
+    if (Platform.OS === 'web') {
+      const url = getPdfUrl();
+      window.location.href = url;
     }
   };
 

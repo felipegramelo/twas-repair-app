@@ -1819,53 +1819,53 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     
     sections = report.get("sections", [])
     
-    toc_main_style = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=11, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=0)
-    toc_main_title = ParagraphStyle('TOCMainT', parent=styles['Normal'], fontSize=11, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=0)
-    toc_sub_style = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=11, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=1, spaceAfter=1, leftIndent=0)
-    toc_sub_title = ParagraphStyle('TOCSubT', parent=styles['Normal'], fontSize=11, fontName='Helvetica', textColor=colors.black, spaceBefore=1, spaceAfter=1, leftIndent=0)
-    toc_page_style = ParagraphStyle('TOCPage', parent=styles['Normal'], fontSize=11, fontName='Helvetica', textColor=colors.black, alignment=2)
+    toc_style_main = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=11, fontName='Helvetica-Bold', textColor=colors.black, spaceBefore=4, spaceAfter=4)
+    toc_style_sub = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=15)
+    toc_style_subsub = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=30)
     
     def build_toc_entries(sec_list):
         entries = []
         for sec in sec_list:
             if sec.get("enabled", True):
-                entries.append({"number": sec["number"], "title": sec["title"], "level": 0})
+                entries.append({"number": sec["number"], "title": sec["title"], "level": 0, "key": sec.get("key","")})
                 for sub in sec.get("subsections", []):
                     if sub.get("enabled", True):
-                        entries.append({"number": sub["number"], "title": sub["title"], "level": 1})
+                        entries.append({"number": sub["number"], "title": sub["title"], "level": 1, "key": sub.get("key","")})
                         for subsub in sub.get("subsections", []):
                             if subsub.get("enabled", True):
-                                entries.append({"number": subsub["number"], "title": subsub["title"], "level": 2})
+                                entries.append({"number": subsub["number"], "title": subsub["title"], "level": 2, "key": subsub.get("key","")})
         return entries
     
     toc_entries = build_toc_entries(sections)
     
-    # Build TOC: [number bold] [title + dots] [page number right]
+    # Build TOC: single row per entry with dot leaders filling entire line
     toc_data = []
-    num_col_w = 1.5*cm
-    page_col_w = 1.2*cm
-    title_col_w = content_width - num_col_w - page_col_w
     for entry in toc_entries:
-        num_text = f"{entry['number']}."
-        title_text = entry['title']
-        # Calculate dot leaders to fill the space
-        max_chars = 55 - entry['level'] * 5
-        num_dots = max(3, max_chars - len(title_text))
-        dots = " " + "." * num_dots
-        toc_data.append([
-            Paragraph(f"<b>{num_text}</b>", toc_main_style),
-            Paragraph(f"{title_text}{dots}", toc_main_title),
-            Paragraph("", toc_page_style),
-        ])
+        label = f"{entry['number']}. {entry['title']}"
+        # Calculate chars available based on level indent
+        if entry['level'] == 0:
+            max_chars = 68
+        elif entry['level'] == 1:
+            max_chars = 65
+        else:
+            max_chars = 62
+        num_dots = max(3, max_chars - len(label))
+        line_text = f"{label} {'.' * num_dots}"
+        if entry['level'] == 0:
+            toc_data.append([Paragraph(f"<b>{line_text}</b>", toc_style_main)])
+        elif entry['level'] == 1:
+            toc_data.append([Paragraph(line_text, toc_style_sub)])
+        else:
+            toc_data.append([Paragraph(line_text, toc_style_subsub)])
     
     if toc_data:
-        toc_table = Table(toc_data, colWidths=[num_col_w, title_col_w, page_col_w])
+        toc_table = Table(toc_data, colWidths=[content_width])
         toc_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ('LEFTPADDING', (0, 0), (0, -1), 0),
-            ('RIGHTPADDING', (2, 0), (2, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
         ]))
         elements.append(toc_table)
     
@@ -1888,14 +1888,14 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
             content = sec.get("content", "")
             if content:
                 first_group.append(Paragraph(format_content(content), body_style))
-            first_img = load_photo_image(sec_photos[0]["storage_path"], content_width, 15*cm)
+            first_img = load_photo_image(sec_photos[0]["storage_path"], content_width, 19*cm)
             if first_img:
                 first_group.append(first_img)
             elements_list.append(KeepTogether(first_group))
             elements_list.append(PageBreak())
-            # Remaining photos: full page, max size
+            # Remaining photos: full page, max size (fill available area)
             for p in sec_photos[1:]:
-                img = load_photo_image(p["storage_path"], content_width, 20*cm)
+                img = load_photo_image(p["storage_path"], content_width, 22*cm)
                 if img:
                     elements_list.append(img)
                     elements_list.append(PageBreak())
@@ -1918,14 +1918,14 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                     sub_content = sub.get("content", "")
                     if sub_content:
                         first_group.append(Paragraph(format_content(sub_content), body_style))
-                    first_img = load_photo_image(sub_photos[0]["storage_path"], content_width, 15*cm)
+                    first_img = load_photo_image(sub_photos[0]["storage_path"], content_width, 19*cm)
                     if first_img:
                         first_group.append(first_img)
                     elements_list.append(KeepTogether(first_group))
                     elements_list.append(PageBreak())
-                    # Remaining photos: full size
+                    # Remaining photos: full size (fill available area)
                     for p in sub_photos[1:]:
-                        img = load_photo_image(p["storage_path"], content_width, 20*cm)
+                        img = load_photo_image(p["storage_path"], content_width, 22*cm)
                         if img:
                             elements_list.append(img)
                             elements_list.append(PageBreak())
@@ -1947,13 +1947,13 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
                             ss_content = subsub.get("content", "")
                             if ss_content:
                                 first_group.append(Paragraph(format_content(ss_content), body_style))
-                            first_img = load_photo_image(ss_photos[0]["storage_path"], content_width, 15*cm)
+                            first_img = load_photo_image(ss_photos[0]["storage_path"], content_width, 19*cm)
                             if first_img:
                                 first_group.append(first_img)
                             elements_list.append(KeepTogether(first_group))
                             elements_list.append(PageBreak())
                             for p in ss_photos[1:]:
-                                img = load_photo_image(p["storage_path"], content_width, 20*cm)
+                                img = load_photo_image(p["storage_path"], content_width, 22*cm)
                                 if img:
                                     elements_list.append(img)
                                     elements_list.append(PageBreak())
@@ -2036,34 +2036,51 @@ async def generate_report_pdf(report_id: str, user: dict = Depends(get_current_u
     total = len(pdf_doc)
     total_numbered = total - 1  # Cover page not counted
     
-    # Find section page numbers by searching for section titles
+    # Find section page numbers by searching for section number prefix on content pages
     section_pages = {}
     for i in range(2, total):  # Skip cover (0) and summary (1)
         page = pdf_doc[i]
         text = page.get_text()
         for entry in toc_entries:
-            search_text = f"{entry['number']}. {entry['title']}"
-            if search_text in text and search_text not in section_pages:
-                section_pages[search_text] = i  # page index (0-based), displayed as i (cover not counted)
+            search_key = f"{entry['number']}. {entry['title']}"
+            if search_key not in section_pages:
+                # Search by the section number at start of line
+                search_prefix = f"{entry['number']}."
+                for line in text.split('\n'):
+                    stripped = line.strip()
+                    if stripped.startswith(search_prefix) and entry['title'][:10] in stripped:
+                        section_pages[search_key] = i
+                        break
     
-    # Update SUMÁRIO page (page index 1) with page numbers
+    # Update SUMÁRIO page with page numbers at the end of dot leaders
     sumario_page = pdf_doc[1]
+    sumario_text = sumario_page.get_text('dict')
     for entry in toc_entries:
-        search_text = f"{entry['number']}. {entry['title']}"
-        page_num = section_pages.get(search_text, "")
-        if page_num:
-            display_num = page_num  # Since cover is page 0, page index = display number
-            text_instances = sumario_page.search_for(entry['title'])
-            if text_instances:
-                rect = text_instances[0]
-                # Place page number at right margin, matching reference x=532
-                sumario_page.insert_text(
-                    fitz.Point(532, rect.y1),
-                    str(display_num),
-                    fontsize=11,
-                    fontname="helv",
-                    color=(0, 0, 0),
-                )
+        search_key = f"{entry['number']}. {entry['title']}"
+        page_num = section_pages.get(search_key, "")
+        if not page_num:
+            continue
+        display_num = str(page_num)
+        # Find the dots line on the sumario page
+        for block in sumario_text['blocks']:
+            if 'lines' not in block:
+                continue
+            for line in block['lines']:
+                line_text = ''.join(s['text'] for s in line['spans'])
+                if entry['number'] + '.' in line_text and '...' in line_text:
+                    # Found the TOC line, place page number at right edge
+                    last_span = line['spans'][-1]
+                    # Right margin position
+                    right_x = content_left + content_width - 0.3*cm
+                    right_x_pts = right_x / cm * 28.35
+                    sumario_page.insert_text(
+                        fitz.Point(right_x_pts - len(display_num) * 4, last_span['origin'][1]),
+                        display_num,
+                        fontsize=last_span['size'],
+                        fontname="hebo" if entry['level'] == 0 else "helv",
+                        color=(0, 0, 0),
+                    )
+                    break
     
     # Add page numbers to footer (right-aligned), skip cover page
     # Reference: x=507, y=772, sz=8, format "X de Y"

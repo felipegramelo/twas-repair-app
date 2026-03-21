@@ -18,7 +18,7 @@ import io
 import re
 
 # Use the public URL for testing
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://repair-tracker-app-7.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://repair-tracker-app-9.preview.emergentagent.com')
 REPORT_ID = "69bd49d5d50559f19c945730"
 
 # Test credentials

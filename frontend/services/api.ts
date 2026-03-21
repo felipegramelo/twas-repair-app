@@ -191,6 +191,7 @@ export const reportAPI = {
     const response = await api.get(`/reports/${id}/pdf?t=${Date.now()}`, {
       responseType: 'blob',
       headers: { 'Cache-Control': 'no-cache' },
+      timeout: 120000,
     });
     return response.data;
   },

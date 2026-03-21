@@ -111,8 +111,7 @@ export default function EditReportScreen() {
     return `${baseUrl}/api/reports/${id}/pdf?token=${encodeURIComponent(token)}&t=${Date.now()}`;
   };
 
-  const handleOpenPDF = async () => {
-    setPdfLoading(true);
+  const handleOpenPDF = () => {
     try {
       if (Platform.OS === 'web') {
         const url = getPdfUrl();
@@ -120,35 +119,19 @@ export default function EditReportScreen() {
       }
     } catch (e: any) {
       showMsg('Erro ao gerar PDF: ' + (e.message || ''));
-      console.error('PDF open error:', e);
-    } finally { setPdfLoading(false); }
+    }
   };
 
-  const handleSharePDF = async () => {
-    setPdfLoading(true);
+  const handleSharePDF = () => {
     try {
       if (Platform.OS === 'web') {
         const url = getPdfUrl();
-        // Try native share API (works on mobile browsers)
-        if (navigator.share) {
-          try {
-            await navigator.share({ title: `Relatório ${report?.os_number || ''}`, url });
-            return;
-          } catch (shareErr) {
-            // User cancelled or share not supported for URLs, fall back to download
-          }
-        }
-        // Fallback: direct link for download
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.download = `relatorio_${report?.os_number || ''}.pdf`;
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        // Use window.location.href - most reliable on iOS Safari
+        window.location.href = url;
       }
     } catch (e: any) {
       showMsg('Erro ao compartilhar PDF: ' + (e.message || ''));
-      console.error('PDF share error:', e);
-    } finally { setPdfLoading(false); }
+    }
   };
 
   const triggerFileUpload = (sectionKey: string) => {

@@ -47,8 +47,9 @@ export default function SupervisorDashboard() {
   const [dupPeriodoInicio, setDupPeriodoInicio] = useState('');
   const [dupPeriodoFim, setDupPeriodoFim] = useState('');
   const [duplicating, setDuplicating] = useState(false);
+  const [authToken, setAuthToken] = useState('');
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); AsyncStorage.getItem('token').then(t => t && setAuthToken(t)); }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -117,30 +118,27 @@ export default function SupervisorDashboard() {
     }
   };
 
-  const handleOpenReportPDF = async (report: Report) => {
+  const getReportPdfUrl = (reportId: string) => {
+    const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
+    return `${baseURL}/api/reports/${reportId}/pdf?token=${encodeURIComponent(authToken)}&t=${Date.now()}`;
+  };
+
+  const handleOpenReportPDF = (report: Report) => {
     try {
       if (Platform.OS === 'web') {
-        const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
-        const url = `${baseURL}/api/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`;
+        const url = getReportPdfUrl(report.id);
+        // Synchronous call - no await before window.open to avoid iOS popup blocker
         window.open(url, '_blank');
       }
     } catch { if (Platform.OS === 'web') window.alert('Erro ao abrir PDF do relatório'); }
   };
 
-  const handleDownloadReportPDF = async (report: Report) => {
+  const handleDownloadReportPDF = (report: Report) => {
     try {
       if (Platform.OS === 'web') {
-        const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
-        const url = `${baseURL}/api/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`;
-        if (navigator.share) {
-          try { await navigator.share({ title: `Relatório ${report.os_number}`, url }); return; } catch {}
-        }
-        const link = document.createElement('a');
-        link.href = url; link.target = '_blank';
-        link.download = `relatorio_${report.os_number}_${report.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        const url = getReportPdfUrl(report.id);
+        // Use window.location.href as reliable fallback for iOS Safari
+        window.location.href = url;
       }
     } catch { if (Platform.OS === 'web') window.alert('Erro ao baixar PDF do relatório'); }
   };

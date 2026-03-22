@@ -1667,12 +1667,12 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, header_bottom, content_width, header_height)
         
-        # Logo (menor: 4.2cm, alinhada à esquerda)
+        # Logo (menor: 3.5cm, alinhada à esquerda)
         if logo_image:
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.15*cm, width=4.2*cm, height=2.2*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.15*cm, width=3.5*cm, height=2.2*cm, preserveAspectRatio=True)
         
         # Center title
         canvas_obj.setFont("Helvetica-Bold", 13)
@@ -1705,14 +1705,14 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         # === FOOTER BOX (subido: 0.7cm acima da borda) ===
         # === FOOTER BOX (subido: 1.0cm acima da borda, mais espaço) ===
         footer_bottom = border_margin + 1.0*cm
-        footer_height = 1.1*cm
+        footer_height = 1.4*cm
         footer_top = footer_bottom + footer_height
         canvas_obj.setStrokeColor(colors.HexColor('#777777'))
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, footer_bottom, content_width, footer_height)
         
         center_x = page_width / 2
-        y = footer_top - 0.25*cm
+        y = footer_top - 0.45*cm
         canvas_obj.setFont("Helvetica-Bold", 8)
         canvas_obj.drawCentredString(center_x, y, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA")
         y -= 0.3*cm

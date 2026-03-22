@@ -1641,7 +1641,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         canvas_obj.saveState()
         
         # === PAGE BORDER ===
-        canvas_obj.setStrokeColor(colors.HexColor('#AAAAAA'))
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(border_margin, border_margin, page_width - 2*border_margin, page_height - 2*border_margin)
         
@@ -1663,16 +1663,16 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         header_top = page_height - border_margin - 0.8*cm
         header_height = 2.49*cm
         header_bottom = header_top - header_height
-        canvas_obj.setStrokeColor(colors.HexColor('#AAAAAA'))
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, header_bottom, content_width, header_height)
         
-        # Logo (maior: 5.6cm)
+        # Logo (menor: 4.2cm, alinhada à esquerda)
         if logo_image:
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.1*cm, width=5.6*cm, height=2.3*cm, preserveAspectRatio=True)
+            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.15*cm, width=4.2*cm, height=2.2*cm, preserveAspectRatio=True)
         
         # Center title
         canvas_obj.setFont("Helvetica-Bold", 13)
@@ -1703,10 +1703,11 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         _draw_right_label("Rev:", "0", detail_y)
         
         # === FOOTER BOX (subido: 0.7cm acima da borda) ===
-        footer_bottom = border_margin + 0.7*cm
+        # === FOOTER BOX (subido: 1.0cm acima da borda, mais espaço) ===
+        footer_bottom = border_margin + 1.0*cm
         footer_height = 1.1*cm
         footer_top = footer_bottom + footer_height
-        canvas_obj.setStrokeColor(colors.HexColor('#AAAAAA'))
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, footer_bottom, content_width, footer_height)
         
@@ -1745,9 +1746,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.black, alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
-    section_style = ParagraphStyle('RSec', parent=styles['Heading2'], fontSize=12, textColor=colors.black, spaceBefore=14, spaceAfter=6, fontName='Helvetica-Bold')
-    subsec_style = ParagraphStyle('RSubSec', parent=styles['Heading3'], fontSize=11, textColor=colors.black, spaceBefore=10, spaceAfter=4, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4, alignment=TA_JUSTIFY, textColor=colors.black)
+    section_style = ParagraphStyle('RSec', parent=styles['Heading2'], fontSize=10, textColor=colors.black, spaceBefore=12, spaceAfter=5, fontName='Helvetica-Bold')
+    subsec_style = ParagraphStyle('RSubSec', parent=styles['Heading3'], fontSize=9, textColor=colors.black, spaceBefore=8, spaceAfter=3, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=9, leading=13, spaceAfter=3, alignment=TA_JUSTIFY, textColor=colors.black)
     
     def format_content(text):
         """Convert plain text with line breaks and bullet markers to HTML for reportlab."""
@@ -1834,7 +1835,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
         ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f0f0f0')),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
         ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cccccc')),
     ]))
     elements.append(info_table)
@@ -1847,9 +1848,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     sections = report.get("sections", [])
     
-    toc_style_main = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=11, fontName='Helvetica', textColor=colors.black, spaceBefore=4, spaceAfter=4)
-    toc_style_sub = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=15)
-    toc_style_subsub = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=30)
+    toc_style_main = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black, spaceBefore=3, spaceAfter=3)
+    toc_style_sub = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=15)
+    toc_style_subsub = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=30)
     
     def build_toc_entries(sec_list):
         entries = []
@@ -1876,15 +1877,15 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         # Calculate dots needed based on actual font widths
         if entry['level'] == 0:
             font_name = 'Helvetica'
-            font_size = 11
+            font_size = 10
             indent = 0
         elif entry['level'] == 1:
             font_name = 'Helvetica'
-            font_size = 10
+            font_size = 9
             indent = 15
         else:
             font_name = 'Helvetica'
-            font_size = 10
+            font_size = 9
             indent = 30
         # Bold number part width
         num_width = stringWidth(num_part, 'Helvetica-Bold', font_size)
@@ -2100,32 +2101,52 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     # Update SUMÁRIO page with page numbers at the end of dot leaders
     sumario_page = pdf_doc[1]
     sumario_text = sumario_page.get_text('dict')
+    
+    # Build a list of all TOC lines with their y-positions for precise matching
+    toc_lines = []
+    for block in sumario_text['blocks']:
+        if 'lines' not in block:
+            continue
+        for line in block['lines']:
+            line_text = ''.join(s['text'] for s in line['spans'])
+            if '...' in line_text:
+                toc_lines.append({
+                    'text': line_text,
+                    'y': line['spans'][-1]['origin'][1],
+                    'size': line['spans'][-1]['size'],
+                    'used': False
+                })
+    
     for entry in toc_entries:
         search_key = f"{entry['number']}. {entry['title']}"
         page_num = section_pages.get(search_key, "")
         if not page_num:
             continue
         display_num = str(page_num)
-        # Find the dots line on the sumario page
-        for block in sumario_text['blocks']:
-            if 'lines' not in block:
+        check_prefix = entry['number'] + '.'
+        
+        for toc_line in toc_lines:
+            if toc_line['used']:
                 continue
-            for line in block['lines']:
-                line_text = ''.join(s['text'] for s in line['spans'])
-                if entry['number'] + '.' in line_text and '...' in line_text:
-                    # Found the TOC line, place page number at right edge
-                    last_span = line['spans'][-1]
-                    # Right margin position
-                    right_x = content_left + content_width - 0.3*cm
-                    right_x_pts = right_x / cm * 28.35
-                    sumario_page.insert_text(
-                        fitz.Point(right_x_pts - len(display_num) * 4, last_span['origin'][1]),
-                        display_num,
-                        fontsize=last_span['size'],
-                        fontname="hebo" if entry['level'] == 0 else "helv",
-                        color=(0, 0, 0),
-                    )
-                    break
+            stripped = toc_line['text'].strip()
+            # Exact match: line must start with the entry number followed by non-digit
+            if stripped.startswith(check_prefix):
+                after = stripped[len(check_prefix):]
+                # Skip if next char is a digit (e.g., "4." matching "4.1.")
+                if after and after[0].isdigit():
+                    continue
+                # Found exact match - place page number at right edge
+                right_x_pts = content_left + content_width - 0.3*cm
+                num_w = len(display_num) * (toc_line['size'] * 0.55)
+                sumario_page.insert_text(
+                    fitz.Point(right_x_pts - num_w, toc_line['y']),
+                    display_num,
+                    fontsize=toc_line['size'],
+                    fontname="helv",
+                    color=(0, 0, 0),
+                )
+                toc_line['used'] = True
+                break
     
     # Add page numbers to footer (right-aligned), skip cover page
     # Reference: x=507, y=772, sz=8, format "X de Y"

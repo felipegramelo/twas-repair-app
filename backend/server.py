@@ -1745,8 +1745,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     # Calculate safe max image heights based on actual frame dimensions
     frame_available_height = page_height - (border_margin + 3.1*cm) - (border_margin + 2.1*cm) - 12  # 12pt frame padding
-    max_full_photo_height = frame_available_height - 0.5*cm   # standalone images (~20.9cm)
-    max_first_photo_height = frame_available_height - 3.5*cm   # images with title above (~17.9cm)
+    max_full_photo_height = frame_available_height - 0.2*cm   # standalone images - max size
+    max_first_photo_height = frame_available_height - 3*cm    # images with title above
     
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.black, alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
@@ -2102,6 +2102,31 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     elements.append(fields_table)
     elements.append(Spacer(1, 0.3*cm))
     
+    # Bilingual intro text (BEFORE table, as per reference)
+    aval_intro = (
+        "Prezado cliente,<br/>"
+        "Buscando meios para melhorar nossa qualidade, solicitamos a gentileza de preencher o questionário "
+        "abaixo, marque com um X a opção que melhor representa o desempenho de nossa equipe.<br/><br/>"
+        "<i>Dear client,<br/>"
+        "Seeking for means to improve our quality, please kindly fill in the questionnaire, mark with a \"X\" that "
+        "represent our team performance.</i>"
+    )
+    elements.append(Paragraph(aval_intro, ParagraphStyle('AvalIntro', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=8)))
+    
+    # Rating scale legend (each item on its own line, BEFORE table)
+    legend_style = ParagraphStyle('AvalLegend', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=1)
+    legend_items = [
+        "<b>A</b> = Muito bom / <i>Excellent</i>",
+        "<b>B</b> = Acima da expectativa / <i>Above Expectations</i>",
+        "<b>C</b> = Expectativas alcançadas / <i>Expectations achieved</i>",
+        "<b>D</b> = Regular / <i>Fair</i>",
+        "<b>E</b> = Não satisfatório / <i>Unsatisfatory</i>",
+        "<b>F</b> = N/A",
+    ]
+    for item in legend_items:
+        elements.append(Paragraph(item, legend_style))
+    elements.append(Spacer(1, 0.3*cm))
+    
     # Evaluation table
     eval_items = [
         ("1", "Comunicação entre o cliente e a TWAS repair", "Communication between the customer and TWAS repair"),
@@ -2145,40 +2170,19 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     elements.append(eval_table)
-    elements.append(Spacer(1, 0.4*cm))
-    
-    # Bilingual intro text (AFTER table, as per reference)
-    aval_intro = (
-        "Prezado cliente,<br/>"
-        "Buscando meios para melhorar nossa qualidade, solicitamos a gentileza de preencher o questionário "
-        "abaixo, marque com um X a opção que melhor representa o desempenho de nossa equipe.<br/><br/>"
-        "<i>Dear client,<br/>"
-        "Seeking for means to improve our quality, please kindly fill in the questionnaire, mark with a \"X\" that "
-        "represent our team performance.</i>"
-    )
-    elements.append(Paragraph(aval_intro, ParagraphStyle('AvalIntro', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=8)))
-    
-    # Rating scale legend (each item on its own line, as per reference)
-    legend_style = ParagraphStyle('AvalLegend', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=1)
-    legend_items = [
-        "<b>A</b> = Muito bom / <i>Excellent</i>",
-        "<b>B</b> = Acima da expectativa / <i>Above Expectations</i>",
-        "<b>C</b> = Expectativas alcançadas / <i>Expectations achieved</i>",
-        "<b>D</b> = Regular / <i>Fair</i>",
-        "<b>E</b> = Não satisfatório / <i>Unsatisfatory</i>",
-        "<b>F</b> = N/A",
-    ]
-    for item in legend_items:
-        elements.append(Paragraph(item, legend_style))
+    elements.append(Spacer(1, 0.3*cm))
     
     # ==================== PAGE 2: Comments + Date + Signatures ====================
     elements.append(PageBreak())
     
     elements.append(Paragraph("<b>Comentários adicionais / sugestões para melhoria de nossa qualidade:</b>", ParagraphStyle('AvalComm', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=2)))
-    elements.append(Paragraph("<b><i>Additional comments / suggestion to improve our quality:</i></b>", ParagraphStyle('AvalCommEn', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=6)))
+    elements.append(Paragraph("<b><i>Additional comments / suggestion to improve our quality:</i></b>", ParagraphStyle('AvalCommEn', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=8)))
     
-    # Empty space for comments
-    elements.append(Spacer(1, 6*cm))
+    # Ruled lines for handwritten comments (as per reference)
+    line_str = "_" * 95
+    line_style = ParagraphStyle('RuledLine', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#999999'), spaceAfter=10)
+    for _ in range(8):
+        elements.append(Paragraph(line_str, line_style))
     
     # Date (use periodo_fim as the date)
     date_str = ""

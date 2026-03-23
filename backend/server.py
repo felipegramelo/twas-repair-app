@@ -1659,20 +1659,23 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             canvas_obj.drawImage(img_reader, wm_x, wm_y, width=wm_w, height=wm_h, preserveAspectRatio=True, mask='auto')
             canvas_obj.restoreState()
         
-        # === HEADER BOX (descido: 0.8cm abaixo da borda) ===
-        header_top = page_height - border_margin - 0.8*cm
+        # === HEADER BOX (mais perto da borda: 0.4cm) ===
+        header_top = page_height - border_margin - 0.4*cm
         header_height = 2.49*cm
         header_bottom = header_top - header_height
         canvas_obj.setStrokeColor(colors.HexColor('#777777'))
         canvas_obj.setLineWidth(0.5)
         canvas_obj.rect(content_left, header_bottom, content_width, header_height)
         
-        # Logo (menor: 3.5cm, alinhada à esquerda)
+        # Logo (alinhada à esquerda, não ultrapassa linha Rev:0)
         if logo_image:
             logo_image.seek(0)
             from reportlab.lib.utils import ImageReader
             img_reader = ImageReader(logo_image)
-            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, header_bottom + 0.15*cm, width=3.5*cm, height=2.2*cm, preserveAspectRatio=True)
+            # Logo top aligns with first text line, bottom at Rev line
+            logo_h = 1.7*cm
+            logo_y = header_top - 0.25*cm - logo_h
+            canvas_obj.drawImage(img_reader, content_left + 0.1*cm, logo_y, width=3.5*cm, height=logo_h, preserveAspectRatio=True)
         
         # Center title
         canvas_obj.setFont("Helvetica-Bold", 13)
@@ -1702,9 +1705,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         detail_y -= line_h
         _draw_right_label("Rev:", "0", detail_y)
         
-        # === FOOTER BOX (subido: 0.7cm acima da borda) ===
-        # === FOOTER BOX (subido: 1.0cm acima da borda, mais espaço) ===
-        footer_bottom = border_margin + 1.0*cm
+        # === FOOTER BOX (mais perto da borda: 0.5cm) ===
+        footer_bottom = border_margin + 0.5*cm
         footer_height = 1.4*cm
         footer_top = footer_bottom + footer_height
         canvas_obj.setStrokeColor(colors.HexColor('#777777'))
@@ -1733,14 +1735,14 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        topMargin=border_margin + 3.5*cm,
-        bottomMargin=border_margin + 2.3*cm,
+        topMargin=border_margin + 3.1*cm,
+        bottomMargin=border_margin + 2.1*cm,
         leftMargin=content_left,
         rightMargin=content_right,
     )
     
     # Calculate safe max image heights based on actual frame dimensions
-    frame_available_height = page_height - (border_margin + 3.5*cm) - (border_margin + 2.3*cm) - 12  # 12pt frame padding
+    frame_available_height = page_height - (border_margin + 3.1*cm) - (border_margin + 2.1*cm) - 12  # 12pt frame padding
     max_full_photo_height = frame_available_height - 0.5*cm   # standalone images (~20.9cm)
     max_first_photo_height = frame_available_height - 3.5*cm   # images with title above (~17.9cm)
     

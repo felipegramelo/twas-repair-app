@@ -1661,7 +1661,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         
         # === HEADER BOX (mais perto da borda: 0.4cm) ===
         header_top = page_height - border_margin - 0.4*cm
-        header_height = 2.49*cm
+        header_height = 2.1*cm
         header_bottom = header_top - header_height
         canvas_obj.setStrokeColor(colors.HexColor('#777777'))
         canvas_obj.setLineWidth(0.5)

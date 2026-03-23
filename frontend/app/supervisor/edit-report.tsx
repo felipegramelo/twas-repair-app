@@ -75,6 +75,7 @@ export default function EditReportScreen() {
   const [periodoInicio, setPeriodoInicio] = useState('');
   const [periodoFim, setPeriodoFim] = useState('');
   const [executadoPor, setExecutadoPor] = useState('');
+  const [ocWo, setOcWo] = useState('');
   const [showSectionsModal, setShowSectionsModal] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [addingSectionTitle, setAddingSectionTitle] = useState('');
@@ -94,14 +95,14 @@ export default function EditReportScreen() {
     try {
       const [data, photosData] = await Promise.all([reportAPI.getById(id!), reportAPI.getPhotos(id!)]);
       setReport(data); setPeriodoInicio(data.periodo_inicio || ''); setPeriodoFim(data.periodo_fim || '');
-      setExecutadoPor(data.executado_por || ''); setSections(data.sections || []); setPhotos(photosData);
+      setExecutadoPor(data.executado_por || ''); setOcWo(data.oc_wo || ''); setSections(data.sections || []); setPhotos(photosData);
     } catch { showMsg('Erro ao carregar relatório'); } finally { setLoading(false); }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, sections });
+      await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, oc_wo: ocWo, sections });
       showMsg('Relatório salvo com sucesso!'); router.push('/supervisor');
     } catch (e: any) { showMsg('Erro ao salvar: ' + (e.message || '')); } finally { setSaving(false); }
   };
@@ -294,6 +295,12 @@ export default function EditReportScreen() {
           <TouchableOpacity style={[styles.pdfSolidBtn, pdfLoading && { opacity: 0.6 }]} onPress={handleSharePDF} disabled={pdfLoading}>
             {pdfLoading ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="download-outline" size={20} color="#fff" /><Text style={styles.pdfSolidText}>Baixar PDF</Text></>}
           </TouchableOpacity>
+
+          {/* Campo OC/WO (opcional) */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4 }}>OC / WO (opcional)</Text>
+            <TextInput style={[styles.textInput, { height: 40 }]} value={ocWo} onChangeText={setOcWo} placeholder="Ex: 12345" placeholderTextColor="#aaa" />
+          </View>
 
           {/* Índice do Relatório */}
           <View style={styles.indexHeader}>

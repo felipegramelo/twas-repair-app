@@ -248,6 +248,7 @@ class ReportUpdate(BaseModel):
     periodo_inicio: Optional[str] = None
     periodo_fim: Optional[str] = None
     executado_por: Optional[str] = None
+    oc_wo: Optional[str] = None
     sections: Optional[List[dict]] = None
     status: Optional[str] = None
 
@@ -1263,6 +1264,7 @@ async def get_reports(user: dict = Depends(get_current_user)):
             "periodo_inicio": doc.get("periodo_inicio", doc.get("periodo", "")),
             "periodo_fim": doc.get("periodo_fim", ""),
             "executado_por": doc.get("executado_por", ""),
+            "oc_wo": doc.get("oc_wo", ""),
             "sections": doc.get("sections", []),
             "cover_photo": doc.get("cover_photo", ""),
             "status": doc.get("status", "draft"),
@@ -1303,7 +1305,7 @@ async def update_report(report_id: str, update: ReportUpdate, user: dict = Depen
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     
     update_data = {}
-    for field in ["periodo_inicio", "periodo_fim", "executado_por", "sections", "status"]:
+    for field in ["periodo_inicio", "periodo_fim", "executado_por", "oc_wo", "sections", "status"]:
         value = getattr(update, field, None)
         if value is not None:
             update_data[field] = value
@@ -1869,6 +1871,13 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     toc_entries = build_toc_entries(sections)
     
+    # Add AVALIAÇÃO DO CLIENTE as the last TOC entry (always last section)
+    # Calculate next main section number from enabled top-level sections
+    enabled_main_count = sum(1 for s in sections if s.get("enabled", True))
+    aval_sec_num = str(enabled_main_count + 1)
+    aval_title = "AVALIAÇÃO DO CLIENTE / CLIENT EVALUATION"
+    toc_entries.append({"number": aval_sec_num, "title": aval_title, "level": 0, "key": "_avaliacao_"})
+    
     # Build TOC: single row per entry with dot leaders filling entire line
     from reportlab.pdfbase.pdfmetrics import stringWidth
     toc_data = []
@@ -2064,16 +2073,174 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     for sec in sections:
         render_section(sec, elements)
     
-    # Signature section
-    elements.append(Spacer(1, 2*cm))
-    sig_data = [
-        [Paragraph("_" * 40, ParagraphStyle('SigLine', alignment=TA_CENTER, fontSize=10))],
-        [Paragraph(report.get("supervisor_name", ""), ParagraphStyle('SigName', alignment=TA_CENTER, fontSize=10, fontName='Helvetica-Bold'))],
-        [Paragraph("Supervisor", ParagraphStyle('SigRole', alignment=TA_CENTER, fontSize=9, textColor=colors.gray))],
+    # ==================== AVALIAÇÃO DO CLIENTE (always last section) ====================
+    elements.append(PageBreak())
+    elements.append(Paragraph(f"{aval_sec_num}. {aval_title}", section_style))
+    elements.append(Spacer(1, 0.4*cm))
+    
+    # Dynamic fields from report
+    oc_wo_val = report.get("oc_wo", "")
+    aval_fields = [
+        f"<b>PARA / TO:</b> {report.get('client', '')}",
+        f"<b>EMBARCAÇÃO / VESSEL:</b> {report.get('location', '')}",
+        f"<b>SERVIÇO / SERVICE:</b> {report.get('service', '')}",
+        f"<b>PERÍODO / PERIOD:</b> {periodo_inicio} à {periodo_fim}",
     ]
-    sig_table = Table(sig_data, colWidths=[8*cm])
-    sig_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+    if oc_wo_val:
+        aval_fields.append(f"<b>OC / WO:</b> {oc_wo_val}")
+    
+    for field_text in aval_fields:
+        elements.append(Paragraph(field_text, ParagraphStyle('AvalField', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.black, spaceAfter=2)))
+    
+    elements.append(Spacer(1, 0.4*cm))
+    
+    # Bilingual intro text
+    aval_intro = (
+        "Prezado cliente,<br/><br/>"
+        "Buscando meios para melhorar nossa qualidade, solicitamos a gentileza de preencher o questionário "
+        "abaixo, marque com um X a opção que melhor representa o desempenho de nossa equipe.<br/><br/>"
+        "<i>Dear client,<br/>"
+        "Seeking for means to improve our quality, please kindly fill in the questionnaire, mark with a \"X\" that "
+        "represent our team performance.</i>"
+    )
+    elements.append(Paragraph(aval_intro, ParagraphStyle('AvalIntro', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=6)))
+    
+    elements.append(Spacer(1, 0.2*cm))
+    
+    # Rating scale legend
+    legend = (
+        "<b>A</b> = Muito bom / Excellent &nbsp;&nbsp;&nbsp; "
+        "<b>B</b> = Acima da expectativa / Above Expectations &nbsp;&nbsp;&nbsp; "
+        "<b>C</b> = Expectativas alcançadas / Expectations achieved<br/>"
+        "<b>D</b> = Regular / Fair &nbsp;&nbsp;&nbsp; "
+        "<b>E</b> = Não satisfatório / Unsatisfatory &nbsp;&nbsp;&nbsp; "
+        "<b>F</b> = N/A"
+    )
+    elements.append(Paragraph(legend, ParagraphStyle('AvalLegend', parent=styles['Normal'], fontSize=8, leading=11, textColor=colors.black, spaceAfter=6)))
+    
+    elements.append(Spacer(1, 0.2*cm))
+    
+    # Evaluation table
+    eval_items = [
+        ("1", "Comunicação entre o cliente e a TWAS repair", "Communication between the customer and TWAS repair"),
+        ("2", "Atendimento aos requisitos técnicos e contratuais do cliente", "Attendance to customer's technical and contractual requirements"),
+        ("3", "Qualidade do Serviço executado", "Quality of work executed"),
+        ("4", "Atendimento aos requisitos de saúde, segurança e meio ambiente", "Met the requirement of health, safety and environment \"HSE\""),
+        ("5", "Pontualidade no atendimento às necessidades do cliente", "Punctuality in meeting customer needs"),
+        ("6", "Qualidade e conteúdo dos relatórios técnicos pós-serviço", "Quality and content of report after completion service"),
+    ]
+    
+    eval_cell_style = ParagraphStyle('EvalCell', parent=styles['Normal'], fontSize=8, leading=10, textColor=colors.black)
+    eval_header_style = ParagraphStyle('EvalHdr', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black)
+    
+    eval_header = [
+        Paragraph("<b>Nº</b>", eval_header_style),
+        Paragraph("<b>ITEM AVALIADO / EVALUATED ITEM</b>", eval_header_style),
+        Paragraph("<b>A</b>", eval_header_style),
+        Paragraph("<b>B</b>", eval_header_style),
+        Paragraph("<b>C</b>", eval_header_style),
+        Paragraph("<b>D</b>", eval_header_style),
+        Paragraph("<b>E</b>", eval_header_style),
+        Paragraph("<b>F</b>", eval_header_style),
+    ]
+    eval_data = [eval_header]
+    for num, pt_text, en_text in eval_items:
+        eval_data.append([
+            Paragraph(num, ParagraphStyle('EvalN', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER)),
+            Paragraph(f"{pt_text}<br/><i>{en_text}</i>", eval_cell_style),
+            "", "", "", "", "", ""
+        ])
+    
+    col_w = 0.7*cm
+    eval_table = Table(eval_data, colWidths=[0.8*cm, content_width - 0.8*cm - 6*col_w] + [col_w]*6)
+    eval_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EEEEEE')),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(eval_table)
+    
+    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Paragraph("<b>COMENTÁRIOS ADICIONAIS / SUGESTÕES PARA MELHORIA DE NOSSA QUALIDADE:</b>", ParagraphStyle('AvalComm', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black)))
+    elements.append(Paragraph("<b><i>ADDITIONAL COMMENTS / SUGGESTION TO IMPROVE OUR QUALITY:</i></b>", ParagraphStyle('AvalCommEn', parent=styles['Normal'], fontSize=8, leading=11, textColor=colors.gray, spaceAfter=6)))
+    elements.append(Spacer(1, 2*cm))
+    
+    # Date (use periodo_fim as the date)
+    date_str = ""
+    if periodo_fim:
+        try:
+            from datetime import datetime as dt_parse
+            # Try YYYY-MM-DD first, then DD/MM/YYYY
+            for fmt in ["%Y-%m-%d", "%d/%m/%Y"]:
+                try:
+                    d = dt_parse.strptime(periodo_fim, fmt)
+                    months_pt = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
+                    date_str = f"{d.day} de {months_pt[d.month-1]} de {d.year}."
+                    break
+                except ValueError:
+                    continue
+            if not date_str:
+                date_str = periodo_fim
+        except:
+            date_str = periodo_fim
+    if date_str:
+        elements.append(Paragraph(date_str, ParagraphStyle('AvalDate', parent=styles['Normal'], fontSize=9, textColor=colors.black, spaceAfter=4)))
+    
+    # ==================== SIGNATURE PAGE ====================
+    elements.append(PageBreak())
+    elements.append(Spacer(1, 3*cm))
+    
+    # OC/WO line if present
+    if oc_wo_val:
+        elements.append(Paragraph(f"<b>OC/WO:</b> {oc_wo_val}", ParagraphStyle('SigOC', parent=styles['Normal'], fontSize=10, textColor=colors.black, spaceAfter=12)))
+        elements.append(Spacer(1, 1*cm))
+    
+    # Signature block - two columns: Client and Supervisor
+    sig_line = "_" * 35
+    sig_line_style = ParagraphStyle('SigLine', alignment=TA_CENTER, fontSize=10, spaceAfter=2)
+    sig_name_style = ParagraphStyle('SigName', alignment=TA_CENTER, fontSize=9, fontName='Helvetica-Bold')
+    sig_detail_style = ParagraphStyle('SigDetail', alignment=TA_CENTER, fontSize=8, textColor=colors.gray)
+    
+    supervisor_name = report.get("supervisor_name", "")
+    client_name = report.get("client", "")
+    
+    sig_data = [
+        [
+            Paragraph(sig_line, sig_line_style),
+            Paragraph(sig_line, sig_line_style),
+        ],
+        [
+            Paragraph(f"Representante do Cliente / <i>Client Representative</i>", sig_detail_style),
+            Paragraph(f"<b>{supervisor_name}</b>", sig_name_style),
+        ],
+        [
+            Paragraph(f"{client_name}", sig_name_style),
+            Paragraph("TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA", sig_detail_style),
+        ],
+        [
+            Paragraph("", sig_detail_style),
+            Paragraph("CNPJ: 32.272.148/0001-71", sig_detail_style),
+        ],
+    ]
+    
+    half_w = content_width / 2
+    sig_table = Table(sig_data, colWidths=[half_w, half_w], rowHeights=[0.8*cm, 0.5*cm, 0.5*cm, 0.4*cm])
+    sig_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0.5*cm),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0.5*cm),
+    ]))
     elements.append(sig_table)
+    
+    # Date
+    elements.append(Spacer(1, 1.5*cm))
+    if date_str:
+        elements.append(Paragraph(f"<b>Data / Date:</b> {date_str}", ParagraphStyle('SigDate', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, textColor=colors.black)))
     
     doc.build(elements, onFirstPage=on_first_page, onLaterPages=on_later_pages)
     buffer.seek(0)

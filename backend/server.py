@@ -1784,13 +1784,19 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             pil = PILImage.open(img_buf)
             if pil.mode != 'RGB':
                 pil = pil.convert('RGB')
-            # Calculate proportional size
+            # Resize large images to reduce PDF file size (max 1400px on longest side)
             w, h = pil.size
+            max_px = 1400
+            if max(w, h) > max_px:
+                scale = max_px / max(w, h)
+                pil = pil.resize((int(w * scale), int(h * scale)), PILImage.LANCZOS)
+                w, h = pil.size
+            # Calculate proportional size for ReportLab
             ratio = min(max_width / w, max_height / h)
             new_w = w * ratio
             new_h = h * ratio
             out = io.BytesIO()
-            pil.save(out, format='JPEG', quality=45)
+            pil.save(out, format='JPEG', quality=35)
             out.seek(0)
             return RLImage(out, width=new_w, height=new_h)
         except Exception as e:
@@ -1938,9 +1944,16 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         sec_photos = report_photos.get(sec_key, [])
         is_fp = sec_key in FULL_PAGE_KEYS or sec_key.startswith('sub_') or sec_key.startswith('subsub_') or sec_key.startswith('custom_')
         
-        # If section has full-page photos, use KeepTogether for title + first photo
+        # Check if any subsection has photos (to decide KeepTogether with section title)
+        subs = [s for s in sec.get("subsections", []) if s.get("enabled", True)]
+        first_sub_with_photos = None
+        for sub in subs:
+            sub_key = sub.get("key", "")
+            if report_photos.get(sub_key, []):
+                first_sub_with_photos = sub
+                break
+        
         if is_fp and sec_photos:
-            # First page: section title + first photo (smaller to fit with title)
             first_group = [Paragraph(f"{sec['number']}. {sec['title']}", style)]
             content = sec.get("content", "")
             if content:
@@ -1950,12 +1963,14 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 first_group.append(first_img)
             elements_list.append(KeepTogether(first_group))
             elements_list.append(PageBreak())
-            # Remaining photos: full page, max size (fill available area)
             for p in sec_photos[1:]:
                 img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                 if img:
                     elements_list.append(img)
                     elements_list.append(PageBreak())
+        elif first_sub_with_photos and not sec_photos:
+            # Don't add section title separately - it will be included in the first sub's KeepTogether
+            pass
         else:
             elements_list.append(Paragraph(f"{sec['number']}. {sec['title']}", style))
             content = sec.get("content", "")
@@ -1963,63 +1978,69 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 elements_list.append(Paragraph(format_content(content), body_style))
             _render_photos(sec_key, elements_list)
         
-        for sub in sec.get("subsections", []):
-            if sub.get("enabled", True):
-                sub_key = sub.get("key", "")
-                sub_photos = report_photos.get(sub_key, [])
-                sub_is_fp = sub_key in FULL_PAGE_KEYS or sub_key.startswith('sub_') or sub_key.startswith('subsub_') or sub_key.startswith('custom_')
-                
-                if sub_is_fp and sub_photos:
-                    # KeepTogether: parent section + subsection title + first photo
-                    first_group = [Paragraph(f"{sub['number']}. {sub['title']}", subsec_style)]
-                    sub_content = sub.get("content", "")
-                    if sub_content:
-                        first_group.append(Paragraph(format_content(sub_content), body_style))
-                    first_img = load_photo_image(sub_photos[0]["storage_path"], content_width, max_first_photo_height)
-                    if first_img:
-                        first_group.append(first_img)
-                    elements_list.append(KeepTogether(first_group))
-                    elements_list.append(PageBreak())
-                    # Remaining photos: full size (fill available area)
-                    for p in sub_photos[1:]:
-                        img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
-                        if img:
-                            elements_list.append(img)
-                            elements_list.append(PageBreak())
-                else:
-                    elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", subsec_style))
-                    sub_content = sub.get("content", "")
-                    if sub_content:
-                        elements_list.append(Paragraph(format_content(sub_content), body_style))
-                    _render_photos(sub_key, elements_list)
-                
-                for subsub in sub.get("subsections", []):
-                    if subsub.get("enabled", True):
-                        ss_key = subsub.get("key", "")
-                        ss_photos = report_photos.get(ss_key, [])
-                        ss_is_fp = ss_key in FULL_PAGE_KEYS or ss_key.startswith('sub_') or ss_key.startswith('subsub_') or ss_key.startswith('custom_')
-                        
-                        if ss_is_fp and ss_photos:
-                            first_group = [Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style)]
-                            ss_content = subsub.get("content", "")
-                            if ss_content:
-                                first_group.append(Paragraph(format_content(ss_content), body_style))
-                            first_img = load_photo_image(ss_photos[0]["storage_path"], content_width, max_first_photo_height)
-                            if first_img:
-                                first_group.append(first_img)
-                            elements_list.append(KeepTogether(first_group))
-                            elements_list.append(PageBreak())
-                            for p in ss_photos[1:]:
-                                img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
-                                if img:
-                                    elements_list.append(img)
-                                    elements_list.append(PageBreak())
-                        else:
-                            elements_list.append(Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style))
-                            ss_content = subsub.get("content", "")
-                            if ss_content:
-                                elements_list.append(Paragraph(format_content(ss_content), body_style))
-                            _render_photos(ss_key, elements_list)
+        section_title_included = False
+        for sub in subs:
+            sub_key = sub.get("key", "")
+            sub_photos = report_photos.get(sub_key, [])
+            sub_is_fp = sub_key in FULL_PAGE_KEYS or sub_key.startswith('sub_') or sub_key.startswith('subsub_') or sub_key.startswith('custom_')
+            
+            if sub_is_fp and sub_photos:
+                first_group = []
+                # Include parent section title in first subsection's KeepTogether
+                if not section_title_included and first_sub_with_photos == sub and not sec_photos:
+                    first_group.append(Paragraph(f"{sec['number']}. {sec['title']}", style))
+                    content = sec.get("content", "")
+                    if content:
+                        first_group.append(Paragraph(format_content(content), body_style))
+                    section_title_included = True
+                first_group.append(Paragraph(f"{sub['number']}. {sub['title']}", subsec_style))
+                sub_content = sub.get("content", "")
+                if sub_content:
+                    first_group.append(Paragraph(format_content(sub_content), body_style))
+                first_img = load_photo_image(sub_photos[0]["storage_path"], content_width, max_first_photo_height)
+                if first_img:
+                    first_group.append(first_img)
+                elements_list.append(KeepTogether(first_group))
+                elements_list.append(PageBreak())
+                for p in sub_photos[1:]:
+                    img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
+                    if img:
+                        elements_list.append(img)
+                        elements_list.append(PageBreak())
+            else:
+                elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", subsec_style))
+                sub_content = sub.get("content", "")
+                if sub_content:
+                    elements_list.append(Paragraph(format_content(sub_content), body_style))
+                _render_photos(sub_key, elements_list)
+            
+            for subsub in sub.get("subsections", []):
+                if subsub.get("enabled", True):
+                    ss_key = subsub.get("key", "")
+                    ss_photos = report_photos.get(ss_key, [])
+                    ss_is_fp = ss_key in FULL_PAGE_KEYS or ss_key.startswith('sub_') or ss_key.startswith('subsub_') or ss_key.startswith('custom_')
+                    
+                    if ss_is_fp and ss_photos:
+                        first_group = [Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style)]
+                        ss_content = subsub.get("content", "")
+                        if ss_content:
+                            first_group.append(Paragraph(format_content(ss_content), body_style))
+                        first_img = load_photo_image(ss_photos[0]["storage_path"], content_width, max_first_photo_height)
+                        if first_img:
+                            first_group.append(first_img)
+                        elements_list.append(KeepTogether(first_group))
+                        elements_list.append(PageBreak())
+                        for p in ss_photos[1:]:
+                            img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
+                            if img:
+                                elements_list.append(img)
+                                elements_list.append(PageBreak())
+                    else:
+                        elements_list.append(Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style))
+                        ss_content = subsub.get("content", "")
+                        if ss_content:
+                            elements_list.append(Paragraph(format_content(ss_content), body_style))
+                        _render_photos(ss_key, elements_list)
     
     # Image-only sections: render full-page images (one per page)
     FULL_PAGE_KEYS = {'ndt', 'pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'}
@@ -2178,8 +2199,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     elements.append(Paragraph("<b>Comentários adicionais / sugestões para melhoria de nossa qualidade:</b>", ParagraphStyle('AvalComm', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=2)))
     elements.append(Paragraph("<b><i>Additional comments / suggestion to improve our quality:</i></b>", ParagraphStyle('AvalCommEn', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=8)))
     
-    # Ruled lines for handwritten comments (as per reference)
-    line_str = "_" * 95
+    # Ruled lines for handwritten comments (shorter to fit within margins)
+    line_str = "_" * 82
     line_style = ParagraphStyle('RuledLine', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#999999'), spaceAfter=10)
     for _ in range(8):
         elements.append(Paragraph(line_str, line_style))
@@ -2215,17 +2236,22 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     supervisor_name = report.get("supervisor_name", "")
     client_name = report.get("client", "")
     
-    # Client signature area
-    elements.append(Paragraph("Nome, assinatura e carimbo do representante do cliente.", ParagraphStyle('SigLabel', parent=styles['Normal'], fontSize=9, textColor=colors.black, spaceAfter=2)))
-    elements.append(Paragraph(f"<i>Name, signature and stamp of the client representative.</i>", ParagraphStyle('SigLabelEn', parent=styles['Normal'], fontSize=8, textColor=colors.gray, spaceAfter=4)))
+    # Client signature area - line first, then label below, then company name
+    sig_line = "_" * 40
+    sig_name_style = ParagraphStyle('SigName', alignment=TA_LEFT, fontSize=9, fontName='Helvetica-Bold')
+    sig_detail_style = ParagraphStyle('SigDetail', alignment=TA_LEFT, fontSize=8, textColor=colors.gray)
+    
+    elements.append(Paragraph(sig_line, ParagraphStyle('SigLineClient', fontSize=10, spaceAfter=2)))
+    elements.append(Paragraph("Nome, assinatura e carimbo do representante do cliente.", ParagraphStyle('SigLabel', parent=styles['Normal'], fontSize=9, textColor=colors.black, spaceAfter=1)))
+    elements.append(Paragraph(f"<i>Name, signature and stamp of the client representative.</i>", ParagraphStyle('SigLabelEn', parent=styles['Normal'], fontSize=8, textColor=colors.gray, spaceAfter=1)))
     elements.append(Paragraph(f"<b>{client_name}</b>", sig_name_style))
-    elements.append(Spacer(1, 1.5*cm))
+    elements.append(Spacer(1, 2*cm))
     
     # Supervisor / TWAS signature area
-    elements.append(Paragraph(sig_line, ParagraphStyle('SigLineSup', alignment=TA_CENTER, fontSize=10, spaceAfter=2)))
+    elements.append(Paragraph(sig_line, ParagraphStyle('SigLineSup', fontSize=10, spaceAfter=2)))
     elements.append(Paragraph(f"<b>{supervisor_name}</b>", sig_name_style))
     elements.append(Paragraph("TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA", sig_detail_style))
-    elements.append(Paragraph("CNPJ: 32.272.148/0001-71", sig_detail_style))
+    elements.append(Paragraph("CNPJ: 31.839.501/0001-90", sig_detail_style))
     
     doc.build(elements, onFirstPage=on_first_page, onLaterPages=on_later_pages)
     buffer.seek(0)

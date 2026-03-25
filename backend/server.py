@@ -138,6 +138,7 @@ class UserResponse(BaseModel):
     email: str
     role: str
     name: str
+    bm_access: Optional[bool] = False
 
 
 class Token(BaseModel):
@@ -185,6 +186,7 @@ class ServiceOrderCreate(BaseModel):
     location: str
     service: str
     employees: List[SOEmployee] = []
+    schedule_type: Optional[str] = "07-19"
 
 
 class TimesheetEntry(BaseModel):
@@ -304,7 +306,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 
@@ -341,7 +343,8 @@ async def register(user_data: UserCreate):
             id=user_dict["_id"],
             email=user_dict["email"],
             role=user_dict["role"],
-            name=user_dict["name"]
+            name=user_dict["name"],
+            bm_access=user_dict.get("bm_access", False)
         )
     )
 
@@ -362,19 +365,21 @@ async def login(user_data: UserLogin):
             id=user_id,
             email=user["email"],
             role=user["role"],
-            name=user["name"]
+            name=user["name"],
+            bm_access=user.get("bm_access", False)
         )
     )
 
 
-@api_router.get("/auth/me", response_model=UserResponse)
+@api_router.get("/auth/me")
 async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
-    return UserResponse(
-        id=current_user["_id"],
-        email=current_user["email"],
-        role=current_user["role"],
-        name=current_user["name"]
-    )
+    return {
+        "id": current_user["_id"],
+        "email": current_user["email"],
+        "role": current_user["role"],
+        "name": current_user["name"],
+        "bm_access": current_user.get("bm_access", False),
+    }
 
 
 # ==================== USER MANAGEMENT ENDPOINTS (Admin only) ====================
@@ -728,6 +733,494 @@ async def get_os_archive(current_user: Dict[str, Any] = Depends(get_admin_user))
         })
     
     return result
+
+
+
+# ==================== BM ACCESS CONTROL ====================
+
+async def get_bm_admin_user(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    if current_user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    if not current_user.get("bm_access", False):
+        raise HTTPException(status_code=403, detail="Acesso ao Boletim de Medição não autorizado")
+    return current_user
+
+# ==================== CLIENT PRICE TABLE ENDPOINTS ====================
+
+class ClientPriceEntry(BaseModel):
+    function_code: str
+    function_name: str
+    day_rate: float
+    night_rate: float
+
+class ClientPriceTableCreate(BaseModel):
+    client_name: str
+    prices: List[ClientPriceEntry]
+
+@api_router.get("/client-prices")
+async def get_client_prices(current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    tables = await db.client_prices.find().sort("client_name", 1).to_list(100)
+    for t in tables:
+        t["id"] = str(t.pop("_id"))
+        t.pop("_id", None)
+    return tables
+
+@api_router.post("/client-prices")
+async def create_client_price(data: ClientPriceTableCreate, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    doc = data.model_dump()
+    doc["created_at"] = datetime.utcnow()
+    result = await db.client_prices.insert_one(doc)
+    doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
+    doc["created_at"] = doc["created_at"].isoformat()
+    return doc
+
+@api_router.put("/client-prices/{price_id}")
+async def update_client_price(price_id: str, data: ClientPriceTableCreate, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    result = await db.client_prices.update_one(
+        {"_id": ObjectId(price_id)},
+        {"$set": data.model_dump()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Tabela não encontrada")
+    return {"message": "Atualizado com sucesso"}
+
+@api_router.delete("/client-prices/{price_id}")
+async def delete_client_price(price_id: str, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    result = await db.client_prices.delete_one({"_id": ObjectId(price_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Tabela não encontrada")
+    return {"message": "Excluído com sucesso"}
+
+# ==================== BM CALCULATION ====================
+
+FUNCTION_NAMES = {
+    "Sup": "SUPERVISOR",
+    "T": "TÉCNICO",
+    "M": "MECÂNICO",
+    "E": "ELETRICISTA",
+    "EN": "ENCANADOR",
+    "TS": "TÉCNICO DE SEGURANÇA",
+}
+
+def parse_date_sortable(d: str) -> str:
+    try:
+        parts = d.split("/")
+        if len(parts) == 3:
+            return f"{parts[2]}-{parts[1]}-{parts[0]}"
+    except:
+        pass
+    return d
+
+@api_router.get("/bm/calculate/{os_id}")
+async def calculate_bm(os_id: str, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    so = await db.service_orders.find_one({"_id": ObjectId(os_id)})
+    if not so:
+        raise HTTPException(status_code=404, detail="O.S. não encontrada")
+
+    schedule_type = so.get("schedule_type", "07-19")
+    if schedule_type == "06-18":
+        day_start, day_end = 6, 18
+    else:
+        day_start, day_end = 7, 19
+
+    timesheets = await db.timesheets.find({"os_id": os_id}).to_list(500)
+
+    # Count unique employee+date per function per shift
+    function_days = {}
+    all_dates = []
+
+    for ts in timesheets:
+        for entry in ts.get("entries", []):
+            func = entry.get("employee_function", "T")
+            date = entry.get("date", "")
+            start_str = entry.get("service_start", "")
+            if not start_str or not date:
+                continue
+            all_dates.append(date)
+            try:
+                start_hour = int(start_str.split(":")[0])
+            except:
+                continue
+            is_day = day_start <= start_hour < day_end
+            shift = "day" if is_day else "night"
+            key = f"{func}_{shift}"
+            if key not in function_days:
+                function_days[key] = set()
+            emp_date = f"{entry.get('employee_id', '')}_{date}"
+            function_days[key].add(emp_date)
+
+    # Sort dates
+    sorted_dates = sorted(set(all_dates), key=parse_date_sortable)
+    data_inicial = sorted_dates[0] if sorted_dates else ""
+    data_final = sorted_dates[-1] if sorted_dates else ""
+
+    # Get client prices
+    client_name = so.get("client", "")
+    price_table = await db.client_prices.find_one({"client_name": client_name})
+
+    items = []
+    for key in sorted(function_days.keys()):
+        dates_set = function_days[key]
+        func_code, shift = key.rsplit("_", 1)
+        func_name = FUNCTION_NAMES.get(func_code, func_code)
+        qtd = len(dates_set)
+        rate = 0.0
+        if price_table:
+            for p in price_table.get("prices", []):
+                if p["function_code"] == func_code:
+                    rate = p["day_rate"] if shift == "day" else p["night_rate"]
+                    break
+        display_name = func_name if shift == "day" else f"{func_name} (NOTURNO)"
+        items.append({
+            "function_code": func_code,
+            "function_name": display_name,
+            "shift": shift,
+            "data_inicial": data_inicial,
+            "data_final": data_final,
+            "valor_und": rate,
+            "qtd": qtd,
+            "valor_total": round(rate * qtd, 2),
+        })
+
+    subtotal = sum(item["valor_total"] for item in items)
+    return {
+        "os_id": os_id,
+        "os_number": so.get("os_number", ""),
+        "client": client_name,
+        "location": so.get("location", ""),
+        "service": so.get("service", ""),
+        "schedule_type": schedule_type,
+        "data_inicial": data_inicial,
+        "data_final": data_final,
+        "items": items,
+        "subtotal": round(subtotal, 2),
+        "has_price_table": price_table is not None,
+    }
+
+# ==================== BM CRUD ====================
+
+class BMCreate(BaseModel):
+    os_id: str
+    periodo: str
+    data: str
+    rev: str = "0"
+    po_number: str = ""
+    proposta: str = ""
+    cod: str = ""
+    items: List[dict]
+    subtotal: float
+    impostos: float = 0.0
+    valor_total: float
+
+@api_router.post("/bm")
+async def create_bm(data: BMCreate, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    so = await db.service_orders.find_one({"_id": ObjectId(data.os_id)})
+    if not so:
+        raise HTTPException(status_code=404, detail="O.S. não encontrada")
+    doc = data.model_dump()
+    doc["os_number"] = so.get("os_number", "")
+    doc["client"] = so.get("client", "")
+    doc["location"] = so.get("location", "")
+    doc["service"] = so.get("service", "")
+    doc["created_by"] = current_user["_id"]
+    doc["created_at"] = datetime.utcnow()
+    doc["updated_at"] = datetime.utcnow()
+    result = await db.boletins_medicao.insert_one(doc)
+    doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
+    doc["created_at"] = doc["created_at"].isoformat()
+    doc["updated_at"] = doc["updated_at"].isoformat()
+    return doc
+
+@api_router.get("/bm")
+async def list_bm(current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    bms = await db.boletins_medicao.find().sort("created_at", -1).to_list(500)
+    for bm in bms:
+        bm["id"] = str(bm.pop("_id"))
+        bm.pop("_id", None)
+        for field in ["created_at", "updated_at"]:
+            val = bm.get(field, "")
+            bm[field] = val.isoformat() if hasattr(val, "isoformat") else str(val)
+    return bms
+
+@api_router.get("/bm/{bm_id}")
+async def get_bm_detail(bm_id: str, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    bm = await db.boletins_medicao.find_one({"_id": ObjectId(bm_id)})
+    if not bm:
+        raise HTTPException(status_code=404, detail="BM não encontrado")
+    bm["id"] = str(bm.pop("_id"))
+    bm.pop("_id", None)
+    for field in ["created_at", "updated_at"]:
+        val = bm.get(field, "")
+        bm[field] = val.isoformat() if hasattr(val, "isoformat") else str(val)
+    return bm
+
+@api_router.delete("/bm/{bm_id}")
+async def delete_bm(bm_id: str, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    result = await db.boletins_medicao.delete_one({"_id": ObjectId(bm_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="BM não encontrado")
+    return {"message": "BM excluído com sucesso"}
+
+# ==================== BM ACCESS MANAGEMENT ====================
+
+@api_router.put("/users/admins/{user_id}/bm-access")
+async def toggle_bm_access(user_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user or user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=404, detail="Administrador não encontrado")
+    new_access = not user.get("bm_access", False)
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"bm_access": new_access}})
+    return {"bm_access": new_access}
+
+# ==================== BM PDF GENERATION ====================
+
+def format_currency(value: float) -> str:
+    formatted = f"{value:,.2f}"
+    formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {formatted}"
+
+@api_router.get("/bm/{bm_id}/pdf")
+async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))):
+    # Auth via token query param or header
+    actual_token = token
+    if not actual_token and credentials:
+        actual_token = credentials.credentials
+    if not actual_token:
+        raise HTTPException(status_code=401, detail="Token required")
+    try:
+        payload = jwt.decode(actual_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user or user.get("role") != UserRole.ADMIN or not user.get("bm_access", False):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    bm = await db.boletins_medicao.find_one({"_id": ObjectId(bm_id)})
+    if not bm:
+        raise HTTPException(status_code=404, detail="BM não encontrado")
+
+    buf = io.BytesIO()
+    page_w, page_h = A4[1], A4[0]  # Landscape
+    margin = 1.2 * cm
+
+    doc = SimpleDocTemplate(buf, pagesize=(page_w, page_h),
+                            leftMargin=margin, rightMargin=margin,
+                            topMargin=margin, bottomMargin=margin)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    content_width = page_w - 2 * margin
+
+    # ---- HEADER SECTION ----
+    # Build header as a table: [Logo | Company Info | BM Title + Metadata]
+    logo_path = ROOT_DIR / "logo.png"
+    if logo_path.exists():
+        logo = RLImage(str(logo_path), width=4 * cm, height=1.5 * cm)
+    else:
+        logo = Paragraph("<b>TWAS REPAIR</b>", ParagraphStyle('LogoFallback', fontSize=14, textColor=colors.HexColor('#1a237e')))
+
+    company_style = ParagraphStyle('CompanyInfo', fontSize=8, leading=10, textColor=colors.black)
+    company_info = Paragraph(
+        "<b>Razão Social:</b> TWAS REPAIR Serviços Navais e Industriais Ltda.<br/>"
+        "<b>CNPJ:</b> 31.839.501/0001-90<br/>"
+        "<b>Endereço:</b> Av. Frederico Marques, 84 - Boa Vista, São Gonçalo - RJ, 24466-180<br/>"
+        "<b>Financeiro:</b> financeiro@twasrepair.com<br/>"
+        "<b>Comercial:</b> daniel.gussen@twasrepair.com<br/>"
+        "<b>Comercial:</b> 21 988020417",
+        company_style
+    )
+
+    title_style = ParagraphStyle('BMTitle', fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black)
+    subtitle_style = ParagraphStyle('BMSubtitle', fontSize=7, alignment=TA_CENTER, textColor=colors.gray)
+    meta_style = ParagraphStyle('MetaInfo', fontSize=8, leading=10, textColor=colors.black)
+
+    bm_title = Paragraph("BOLETIM DE MEDIÇÃO", title_style)
+    bm_subtitle = Paragraph("Anexo 02_formulário - Boletim de Medição", subtitle_style)
+
+    meta_info = Paragraph(
+        f"<b>Data:</b> {bm.get('data', '')}<br/>"
+        f"<b>Rev.:</b> {bm.get('rev', '0')}<br/>"
+        f"<b>Local do serviço:</b> {bm.get('location', '')}<br/>"
+        f"<b>Período:</b> {bm.get('periodo', '')}",
+        meta_style
+    )
+
+    right_col = []
+    right_col.append(bm_title)
+    right_col.append(Spacer(1, 2))
+    right_col.append(bm_subtitle)
+    right_col.append(Spacer(1, 6))
+    right_col.append(meta_info)
+
+    from reportlab.platypus import TableStyle as TS
+
+    header_table = Table(
+        [[logo, company_info, right_col]],
+        colWidths=[4.5 * cm, content_width * 0.42, content_width * 0.42]
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 8))
+
+    # ---- CLIENT INFO ----
+    client_style = ParagraphStyle('ClientInfo', fontSize=9, leading=12, textColor=colors.black)
+    client_info = Table([
+        [Paragraph(f"<b>Cliente:</b> {bm.get('client', '')}", client_style),
+         Paragraph(f"<b>P.O.:</b> {bm.get('po_number', '')}", client_style),
+         Paragraph(f"<b>Proposta:</b> {bm.get('proposta', '')}", client_style)]
+    ], colWidths=[content_width * 0.4, content_width * 0.3, content_width * 0.3])
+    client_info.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(client_info)
+    elements.append(Spacer(1, 8))
+
+    # ---- SERVICE SCOPE ----
+    scope_style = ParagraphStyle('ScopeStyle', fontSize=9, fontName='Helvetica-Bold', textColor=colors.black)
+    scope_table = Table([
+        [Paragraph("<b>ESCOPO DE SERVIÇOS:</b>", scope_style),
+         Paragraph(f"<b>{bm.get('service', '')}</b>", scope_style)]
+    ], colWidths=[content_width * 0.25, content_width * 0.75])
+    scope_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F5F5F5')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(scope_table)
+    elements.append(Spacer(1, 4))
+
+    # ---- MAIN TABLE ----
+    th_style = ParagraphStyle('TH', fontSize=8, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black)
+    td_style = ParagraphStyle('TD', fontSize=8, alignment=TA_CENTER, textColor=colors.black)
+    td_right = ParagraphStyle('TDRight', fontSize=8, alignment=TA_RIGHT, textColor=colors.black)
+    td_left = ParagraphStyle('TDLeft', fontSize=8, alignment=TA_LEFT, textColor=colors.black)
+
+    col_widths = [
+        content_width * 0.10,  # Data Inicial
+        content_width * 0.10,  # Data Final
+        content_width * 0.07,  # PO/AC
+        content_width * 0.10,  # CÓD.
+        content_width * 0.28,  # Descrição
+        content_width * 0.13,  # Valor und
+        content_width * 0.07,  # Qtd
+        content_width * 0.15,  # Valor total
+    ]
+
+    header_row = [
+        Paragraph("Data Inicial", th_style),
+        Paragraph("Data Final", th_style),
+        Paragraph("PO/ AC", th_style),
+        Paragraph("CÓD.", th_style),
+        Paragraph("Descrição das Atividades", th_style),
+        Paragraph("Valor und", th_style),
+        Paragraph("Qtd", th_style),
+        Paragraph("Valor total", th_style),
+    ]
+
+    table_data = [header_row]
+    items = bm.get("items", [])
+
+    for idx, item in enumerate(items):
+        row = [
+            Paragraph(item.get("data_inicial", ""), td_style),
+            Paragraph(item.get("data_final", ""), td_style),
+            Paragraph(str(idx + 1), td_style),
+            Paragraph(bm.get("cod", ""), td_style),
+            Paragraph(item.get("function_name", ""), td_left),
+            Paragraph(format_currency(item.get("valor_und", 0)), td_right),
+            Paragraph(str(item.get("qtd", 0)), td_style),
+            Paragraph(format_currency(item.get("valor_total", 0)), td_right),
+        ]
+        table_data.append(row)
+
+    # Add empty rows to fill space (min 12 rows total)
+    empty_rows_needed = max(0, 12 - len(items))
+    for _ in range(empty_rows_needed):
+        table_data.append([
+            Paragraph("", td_style), Paragraph("", td_style), Paragraph("", td_style),
+            Paragraph("", td_style), Paragraph("", td_style), Paragraph("", td_right),
+            Paragraph("", td_style), Paragraph("R$", td_right),
+        ])
+
+    # Subtotal, Impostos, Valor Total
+    bold_right = ParagraphStyle('BoldRight', fontSize=9, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=colors.black)
+
+    table_data.append([
+        "", "", "", "", Paragraph("<b>Subtotal</b>", bold_right), "", "",
+        Paragraph(f"<b>{format_currency(bm.get('subtotal', 0))}</b>", bold_right),
+    ])
+    table_data.append([
+        "", "", "", "", Paragraph("<b>Impostos</b>", bold_right), "", "",
+        Paragraph(format_currency(bm.get("impostos", 0)), td_right),
+    ])
+    table_data.append([
+        "", "", "", "", Paragraph("<b>Valor Total</b>", bold_right), "", "",
+        Paragraph(f"<b>{format_currency(bm.get('valor_total', 0))}</b>", bold_right),
+    ])
+
+    main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    num_data_rows = len(items) + empty_rows_needed
+    table_style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E8EAF6')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ('INNERGRID', (0, 0), (-1, num_data_rows), 0.5, colors.HexColor('#DDDDDD')),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        # Subtotal/Total styling
+        ('LINEABOVE', (0, num_data_rows + 1), (-1, num_data_rows + 1), 1, colors.HexColor('#1a237e')),
+        ('SPAN', (0, num_data_rows + 1), (4, num_data_rows + 1)),
+        ('SPAN', (5, num_data_rows + 1), (6, num_data_rows + 1)),
+        ('SPAN', (0, num_data_rows + 2), (4, num_data_rows + 2)),
+        ('SPAN', (5, num_data_rows + 2), (6, num_data_rows + 2)),
+        ('SPAN', (0, num_data_rows + 3), (4, num_data_rows + 3)),
+        ('SPAN', (5, num_data_rows + 3), (6, num_data_rows + 3)),
+        ('BACKGROUND', (0, num_data_rows + 3), (-1, num_data_rows + 3), colors.HexColor('#E8EAF6')),
+    ]
+    # Alternate row colors for data rows
+    for i in range(1, num_data_rows + 1):
+        if i % 2 == 0:
+            table_style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8F8F8')))
+
+    main_table.setStyle(TableStyle(table_style_cmds))
+    elements.append(main_table)
+
+    doc.build(elements)
+    buf.seek(0)
+
+    filename = f"BM_{bm.get('os_number', 'N')}_{bm.get('client', '')}.pdf".replace(" ", "_")
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        }
+    )
 
 
 
@@ -1586,7 +2079,7 @@ async def get_photo(path: str, auth: str = Query(None), authorization: str = Hea
         raise HTTPException(status_code=401, detail="Authentication required")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
     try:
@@ -1649,7 +2142,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             raise HTTPException(status_code=401, detail="Usuário não encontrado")
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
     report = await db.reports.find_one({"_id": ObjectId(report_id)})

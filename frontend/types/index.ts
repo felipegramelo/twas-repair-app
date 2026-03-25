@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   role: 'admin' | 'supervisor';
+  bm_access?: boolean;
 }
 
 export interface Employee {

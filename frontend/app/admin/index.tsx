@@ -58,6 +58,18 @@ export default function AdminDashboard() {
             <Text style={styles.cardDescription}>Todos os documentos por Ordem de Serviço</Text>
           </TouchableOpacity>
 
+          {user?.bm_access && (
+            <TouchableOpacity
+              style={[styles.card, { borderWidth: 2, borderColor: '#ff6f00' }]}
+              onPress={() => router.push('/admin/boletim-medicao')}
+              data-testid="admin-bm-card"
+            >
+              <Ionicons name="calculator" size={40} color="#ff6f00" />
+              <Text style={styles.cardTitle}>Boletim de Medição</Text>
+              <Text style={styles.cardDescription}>Gerar e gerenciar BMs</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push('/admin/service-orders')}

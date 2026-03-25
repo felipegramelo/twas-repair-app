@@ -167,6 +167,54 @@ export const archiveAPI = {
   },
 };
 
+// Client Price Table API
+export const clientPriceAPI = {
+  getAll: async () => {
+    const response = await api.get('/client-prices');
+    return response.data;
+  },
+  create: async (data: any) => {
+    const response = await api.post('/client-prices', data);
+    return response.data;
+  },
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/client-prices/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/client-prices/${id}`);
+    return response.data;
+  },
+};
+
+// Boletim de Medição API
+export const bmAPI = {
+  calculate: async (osId: string) => {
+    const response = await api.get(`/bm/calculate/${osId}`);
+    return response.data;
+  },
+  create: async (data: any) => {
+    const response = await api.post('/bm', data);
+    return response.data;
+  },
+  list: async () => {
+    const response = await api.get('/bm');
+    return response.data;
+  },
+  get: async (id: string) => {
+    const response = await api.get(`/bm/${id}`);
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/bm/${id}`);
+    return response.data;
+  },
+  toggleBMAccess: async (userId: string) => {
+    const response = await api.put(`/users/admins/${userId}/bm-access`);
+    return response.data;
+  },
+};
+
 export default api;
 
 // Report API (local backend)

@@ -1786,7 +1786,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 pil = pil.convert('RGB')
             # Resize large images to reduce PDF file size (max 1400px on longest side)
             w, h = pil.size
-            max_px = 1400
+            max_px = 1100
             if max(w, h) > max_px:
                 scale = max_px / max(w, h)
                 pil = pil.resize((int(w * scale), int(h * scale)), PILImage.LANCZOS)
@@ -1796,7 +1796,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             new_w = w * ratio
             new_h = h * ratio
             out = io.BytesIO()
-            pil.save(out, format='JPEG', quality=35)
+            pil.save(out, format='JPEG', quality=28)
             out.seek(0)
             return RLImage(out, width=new_w, height=new_h)
         except Exception as e:
@@ -1815,12 +1815,14 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     elements.append(Paragraph(service_name, service_cover_style))
     elements.append(Spacer(1, 0.5*cm))
     
-    # Cover photo
+    # Cover photo (larger, centered)
     cover_photos = report_photos.get("cover", [])
     if cover_photos:
         photo = cover_photos[0]
-        img = load_photo_image(photo["storage_path"], content_width, 10*cm)
+        img = load_photo_image(photo["storage_path"], content_width, 12*cm)
         if img:
+            # Center the image
+            img.hAlign = 'CENTER'
             elements.append(img)
     
     # Vessel name below photo
@@ -2236,19 +2238,15 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     supervisor_name = report.get("supervisor_name", "")
     client_name = report.get("client", "")
     
-    # Client signature area - line first, then label below, then company name
-    sig_line = "_" * 40
-    sig_name_style = ParagraphStyle('SigName', alignment=TA_LEFT, fontSize=9, fontName='Helvetica-Bold')
-    sig_detail_style = ParagraphStyle('SigDetail', alignment=TA_LEFT, fontSize=8, textColor=colors.gray)
-    
-    elements.append(Paragraph(sig_line, ParagraphStyle('SigLineClient', fontSize=10, spaceAfter=2)))
-    elements.append(Paragraph("Nome, assinatura e carimbo do representante do cliente.", ParagraphStyle('SigLabel', parent=styles['Normal'], fontSize=9, textColor=colors.black, spaceAfter=1)))
-    elements.append(Paragraph(f"<i>Name, signature and stamp of the client representative.</i>", ParagraphStyle('SigLabelEn', parent=styles['Normal'], fontSize=8, textColor=colors.gray, spaceAfter=1)))
+    # Client signature area - line first, then label below, then company name (centered)
+    elements.append(Paragraph(sig_line, sig_line_style))
+    elements.append(Paragraph("Nome, assinatura e carimbo do representante do cliente.", ParagraphStyle('SigLabel', parent=styles['Normal'], fontSize=9, textColor=colors.black, spaceAfter=1, alignment=TA_CENTER)))
+    elements.append(Paragraph(f"<i>Name, signature and stamp of the client representative.</i>", ParagraphStyle('SigLabelEn', parent=styles['Normal'], fontSize=8, textColor=colors.gray, spaceAfter=1, alignment=TA_CENTER)))
     elements.append(Paragraph(f"<b>{client_name}</b>", sig_name_style))
     elements.append(Spacer(1, 2*cm))
     
-    # Supervisor / TWAS signature area
-    elements.append(Paragraph(sig_line, ParagraphStyle('SigLineSup', fontSize=10, spaceAfter=2)))
+    # Supervisor / TWAS signature area (centered)
+    elements.append(Paragraph(sig_line, sig_line_style))
     elements.append(Paragraph(f"<b>{supervisor_name}</b>", sig_name_style))
     elements.append(Paragraph("TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA", sig_detail_style))
     elements.append(Paragraph("CNPJ: 31.839.501/0001-90", sig_detail_style))

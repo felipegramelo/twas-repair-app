@@ -115,7 +115,8 @@ export default function EditReportScreen() {
   const handleOpenPDF = () => {
     if (Platform.OS === 'web') {
       const url = getPdfUrl();
-      window.location.href = url;
+      window.open(url, '_blank');
+      showMsg('PDF aberto com sucesso!');
     }
   };
 
@@ -290,10 +291,6 @@ export default function EditReportScreen() {
           {/* PDF Action Buttons */}
           <TouchableOpacity style={[styles.pdfOutlinedBtn, pdfLoading && { opacity: 0.6 }]} onPress={handleOpenPDF} disabled={pdfLoading}>
             {pdfLoading ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="eye-outline" size={20} color="#1a237e" /><Text style={styles.pdfOutlinedText}>Visualizar PDF</Text></>}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.pdfSolidBtn, pdfLoading && { opacity: 0.6 }]} onPress={handleSharePDF} disabled={pdfLoading}>
-            {pdfLoading ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="download-outline" size={20} color="#fff" /><Text style={styles.pdfSolidText}>Baixar PDF</Text></>}
           </TouchableOpacity>
 
           {/* Campo OC/WO (opcional) */}

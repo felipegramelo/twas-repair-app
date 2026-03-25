@@ -13,7 +13,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://repair-tracker-app-9.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://report-pdf-engine.preview.emergentagent.com')
 REPORT_ID = "69bc105ec78c3af52993e9ba"
 
 @pytest.fixture(scope="module")

@@ -18,7 +18,7 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - Evaluation signatures: centered alignment (TA_CENTER)
 - Evaluation intro: left-aligned
 - Fill-in lines: 82 underscores within margins
-- Signature structure: Line → Label → Company Name
+- Signature structure: Line -> Label -> Company Name
 - CNPJ: 31.839.501/0001-90
 - Image compression: quality=60 for uploads, quality=28 for cover rendering
 
@@ -28,13 +28,14 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - "Adicionar Subseção" only on parent sections
 - Only "Visualizar PDF" button (no download button)
 - Success toast "PDF aberto com sucesso!" after viewing PDF
+- Admin: "Arquivo por O.S." page with search and expandable OS cards
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
 ## Architecture
-- Backend: FastAPI + MongoDB (motor) - server.py monolith (~2390 lines)
+- Backend: FastAPI + MongoDB (motor) - server.py monolith (~2440 lines)
 - Frontend: Expo (React Native for Web) + TypeScript
 - PDF: ReportLab (layout) + PyMuPDF/fitz (post-processing page numbers + TOC)
 - Storage: emergentintegrations object storage
@@ -55,14 +56,21 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - [x] Evaluation section: 2-page layout with table + signatures
 - [x] Evaluation signatures centered (TA_CENTER)
 - [x] CNPJ updated to 31.839.501/0001-90
-- [x] Signature structure: Line → Label → Company
+- [x] Signature structure: Line -> Label -> Company
 - [x] Frontend: removed download button, added success toast
 - [x] OC/WO field in report editing
 - [x] Mobile iOS Safari compatibility (no-cache headers, sync actions)
+- [x] **Admin: Arquivo por O.S.** - Documents grouped by Service Order (NEW)
+
+## Key API Endpoints
+- GET /api/admin/os-archive - Returns all OS with nested timesheets/reports (admin only)
+- GET /api/reports/{id}/pdf - PDF generation with token auth
+- PUT /api/reports/{id} - Update report
+- GET /api/service-orders - List service orders
 
 ## Backlog
 ### P1
-- Refactor backend/server.py (~2390 lines) into modular structure (routes/, models/, pdf_utils/, services/)
+- Refactor backend/server.py (~2440 lines) into modular structure (routes/, models/, pdf_utils/, services/)
 ### P2
 - Refactor edit-report.tsx into smaller components
 - Offline Mode (AsyncStorage + sync queue)

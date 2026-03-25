@@ -7,38 +7,35 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - Page border: 1.0cm from edge, color #AAAAAA
 - Header box: 0.8cm below border, 2.49cm tall, logo 5.6cm, border #AAAAAA
 - Footer box: 0.7cm above border, 1.1cm tall, border #AAAAAA
-- Header right: labels right-aligned (Cliente:, Rig/Vessel:, Equipamento:, OS:, Rev:)
-- Page numbers: "X de Y" at (507, 772) right bottom, skip cover
-- SUMÁRIO: dot leaders calculated with stringWidth, numbers bold, titles normal weight
+- Page numbers: "X de Y", skip cover
+- SUMÁRIO: dot leaders, numbers bold
 - Watermark: 115% content width, 6% opacity
-- Image heights: dynamically calculated from frame dimensions
-- Section+first photo: KeepTogether
-- Cover: service UPPERCASE above, vessel UPPERCASE below, info table border #AAAAAA, photo 12cm centered
-- All text BLACK
-- Evaluation signatures: centered alignment (TA_CENTER)
-- Evaluation intro: left-aligned
-- Fill-in lines: 82 underscores within margins
-- Signature structure: Line -> Label -> Company Name
+- Evaluation signatures: centered (TA_CENTER)
 - CNPJ: 31.839.501/0001-90
-- Image compression: quality=60 for uploads, quality=28 for cover rendering
+- Image compression: quality=60
 
-## Frontend
-- Edit report: no Período card, no upload success message
-- Multiple file selection, PDF+image upload
-- "Adicionar Subseção" only on parent sections
-- Only "Visualizar PDF" button (no download button)
-- Success toast "PDF aberto com sucesso!" after viewing PDF
-- Admin dashboard: Supervisores, Funcionários, Arquivo por O.S., Ordens de Serviço, Administradores, Alterar Senha
-- Admin "Arquivo por O.S." page: search + expandable OS cards with all documents
+## Boletim de Medição (BM) - NEW
+- Linked to timesheets via Service Order
+- Calculates days worked per function (Supervisor, Técnico, Mecânico, Eletricista, etc.)
+- Separate day/night shift counting based on OS schedule_type (06-18 or 07-19)
+- Client-specific price tables with day/night rates per function
+- PDF generation: A4 landscape, company header, client info, service scope table
+- Access restricted to admins with `bm_access: true` flag
+- Supervisor role has NO access
+
+## Access Control
+- **Admin**: Full access to all features
+- **Admin + bm_access**: Additional access to Boletim de Medição and client price tables
+- **Supervisor**: Timesheet/Report CRUD, NO access to BM
 
 ## Credentials
-- Admin: admin@twasrepair.com / admin123
+- Admin: admin@twasrepair.com / admin123 (bm_access=true)
 - Supervisor: supervisor@twasrepair.com / super123
 
 ## Architecture
-- Backend: FastAPI + MongoDB (motor) - server.py monolith (~2440 lines)
+- Backend: FastAPI + MongoDB (motor) - server.py (~2930 lines)
 - Frontend: Expo (React Native for Web) + TypeScript
-- PDF: ReportLab (layout) + PyMuPDF/fitz (post-processing page numbers + TOC)
+- PDF: ReportLab + PyMuPDF/fitz
 - Storage: emergentintegrations object storage
 
 ## Completed (as of 2026-03-25)
@@ -49,31 +46,45 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - [x] PDF generation with cover, TOC, content, signature
 - [x] PyMuPDF post-processing for accurate page numbers
 - [x] KeepTogether for section titles + first photos
-- [x] Fix LayoutError crash (dynamic image height calculation)
-- [x] Fix TOC formatting (bold numbers only, stringWidth dot leaders)
-- [x] Fix lighter border colors (#AAAAAA)
-- [x] Image compression (quality=60 for uploads)
-- [x] Cover photo 12cm centered
-- [x] Evaluation section: 2-page layout with table + signatures
-- [x] Evaluation signatures centered (TA_CENTER)
-- [x] CNPJ updated to 31.839.501/0001-90
-- [x] Signature structure: Line -> Label -> Company
-- [x] Frontend: removed download button, added success toast
-- [x] OC/WO field in report editing
-- [x] Mobile iOS Safari compatibility (no-cache headers, sync actions)
-- [x] Admin: Arquivo por O.S. - Documents grouped by Service Order
-- [x] Admin: Removed Timesheets/Service Reports/Daily Reports cards (consolidated into Arquivo por O.S.)
-- [x] Admin: Fixed back button on OS Archive page
+- [x] Evaluation section: 2-page layout with centered signatures
+- [x] Image compression, cover photo 12cm centered
+- [x] Mobile iOS Safari compatibility
+- [x] Admin: Arquivo por O.S. (documents grouped by Service Order)
+- [x] Admin: Removed flat list cards (Timesheets/Service Reports/Daily Reports)
+- [x] **Boletim de Medição**: Complete feature with:
+  - [x] BM access flag on admin users
+  - [x] Client price table CRUD (day/night rates per function)
+  - [x] BM calculation from timesheets (group by function + shift)
+  - [x] BM CRUD (create, list, delete)
+  - [x] BM PDF generation (A4 landscape)
+  - [x] Frontend: Dashboard card (conditional on bm_access)
+  - [x] Frontend: BM management page with tabs (Boletins / Tabela de Preços)
+  - [x] Frontend: Create BM modal with OS selection + calculation
+  - [x] Frontend: Price table management with day/night rates
+  - [x] Bug fix: jwt.JWTError → jwt.PyJWTError
 
 ## Key API Endpoints
-- GET /api/admin/os-archive - Returns all OS with nested timesheets/reports (admin only)
-- GET /api/reports/{id}/pdf - PDF generation with token auth
-- PUT /api/reports/{id} - Update report
-- GET /api/service-orders - List service orders
+- GET /api/admin/os-archive - All OS with nested documents
+- GET /api/client-prices - Client price tables (bm_access required)
+- POST /api/client-prices - Create price table
+- GET /api/bm/calculate/{os_id} - Calculate BM from timesheets
+- POST /api/bm - Create BM
+- GET /api/bm - List BMs
+- GET /api/bm/{id}/pdf - Generate BM PDF
+- PUT /api/users/admins/{id}/bm-access - Toggle BM access
+
+## Key DB Collections
+- `users`: { email, password_hash, role, name, bm_access }
+- `service_orders`: { os_number, client, location, service, employees, schedule_type }
+- `timesheets`: { os_id, entries: [{date, employee_id, employee_function, service_start, service_end, ...}] }
+- `reports`: { os_id, os_number, client, sections, ... }
+- `client_prices`: { client_name, prices: [{function_code, function_name, day_rate, night_rate}] }
+- `boletins_medicao`: { os_id, os_number, client, periodo, items, subtotal, impostos, valor_total }
 
 ## Backlog
 ### P1
-- Refactor backend/server.py (~2440 lines) into modular structure (routes/, models/, pdf_utils/, services/)
+- Refactor backend/server.py (~2930 lines) into modular structure
+- Add schedule_type field to Service Orders UI (currently API-only)
 ### P2
 - Refactor edit-report.tsx into smaller components
 - Offline Mode (AsyncStorage + sync queue)

@@ -1,179 +1,150 @@
-<analysis>**original_problem_statement:**
-The user wants to unify two separate applications—a Timesheet Tracker and a Service/Daily Report app—into a single TWAS REPAIR app. The application requires role-based authentication, full CRUD (Create, Read, Update, Delete) functionalities for Timesheets and Reports, and an advanced, highly customized A4 PDF generation system. This system must produce reports with specific headers, footers, watermarks, a dynamic table of contents, and the ability to attach photos and other PDF documents. The project has involved numerous iterative refinements to the PDF layout and functionality based on detailed user feedback.
+<analysis>**original_problem_statement**: 
+The user wants to unify two separate applications (a Timesheet Tracker and a Service/Daily Report app) into a single TWAS REPAIR app. The application requires role-based authentication (Admin/Supervisor), full CRUD functionalities for Timesheets and Reports, and an advanced A4 PDF generation system with custom headers, footers, watermarks, dynamic tables of contents, and photo/PDF attachments.
 
 PRODUCT REQUIREMENTS:
 - Role-based authentication (Admin, Supervisor).
-- Full CRUD for Timesheet and Service/Daily Report entities.
-- A complex PDF generation engine for reports featuring:
-    - Custom headers, footers, and page borders.
-    - Dynamic watermarks.
-    - A multi-level Table of Contents (SUMÁRIO) with accurate page numbers.
-    - A dynamically generated, two-page Customer Satisfaction Evaluation section that always appears last.
-    - Support for attaching images and PDFs, which are rendered within the main report.
-    - Specific layout rules () to ensure related content (like section titles and their first images) stay on the same page.
-- A frontend interface (built with Expo for Web) for managing and editing reports, including uploading attachments.
-- A backend (FastAPI) to handle all business logic, database interactions (MongoDB), and PDF generation (ReportLab/PyMuPDF).
+- Full CRUD for Timesheet, Service Orders, and Service/Daily Report entities.
+- Advanced PDF generation engine (ReportLab/PyMuPDF) managing complex page breaks, custom borders, multi-level TOC, embedded images, and signatures.
+- Boletim de Medição (Measurement Bulletin) feature for billing calculation based on timesheet functions and dynamic client pricing.
+- Granular administrative permissions to hide/show specific financial or structural panels.
 
 **User's preferred language**: Portuguese (pt-BR). INSTRUCT next agent to respond in the user's preferred language only.
 
-**what currently exists?**
-A full-stack application using React Native (Expo Web) for the frontend, FastAPI for the backend, and MongoDB as the database. The core features are implemented, including the unification of timesheet and report functionalities. The PDF generation is highly sophisticated, using a combination of ReportLab for layout and PyMuPDF () for post-processing tasks like injecting accurate page numbers (X de Y) and creating the dynamic Table of Contents. The system supports object storage for file uploads, authentication via query parameters for mobile browser compatibility, and includes image compression to manage PDF file sizes. Numerous layout adjustments have been completed based on user feedback.
+**what currently exists?** 
+A full-stack application with a React Native (Expo Web) frontend, a FastAPI backend, and MongoDB. The core functionalities for Reports, Timesheets, and Service Orders are complete. The PDF generation is sophisticated and stable. Recent additions include an Arquivo por O.S. (consolidated document view per Service Order) and a Boletim de Medição (BM) system that automatically calculates service costs based on timesheets and generates landscape billing PDFs. Granular admin controls are implemented.
 
 **Last working item**:
-    - Last item agent was working: Implementing a large batch of 10 specific UI/UX and functionality requests from the user, primarily related to the final PDF layout and frontend behavior.
-    - Status: IN PROGRESS (The agent's implementation is complete, but user verification is pending).
-    - Agent Testing Done: Y
-    - Which testing method agent to use? backend testing agent
+    - Last item agent was working: Modifying the Boletim de Medição (BM) calculation flow. The user requested two things: 1) The ability to select *specific* timesheets (via checkboxes) belonging to an OS to include in the BM calculation, rather than calculating all of them automatically. 2) Adding calendar date pickers for selecting the Data Início and Data Fim (Start and End dates) of the BM period.
+    - Status: IN PROGRESS (Just started analyzing files before context limit).
+    - Agent Testing Done: N
+    - Which testing method agent to use? both (Frontend for the calendar and timesheet selection UI, Backend for the modified  endpoint payload).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  Issue 1:  Verify Final PDF Layout & Functionality Changes (P0)
-  
-  Issues Detail:
-  - Issue 1: 
-     - Attempted fixes: The agent has implemented fixes for all 10 of the user's latest requests:
-        1. **Image Compression:** Image quality for JPEGs was reduced from 75 to 50 in  to decrease final PDF size.
-        2. **PDF/Image Size:** The available height for attached images was increased in  to make them larger on the page, almost reaching the footer.
-        3. **Evaluation Alignment:** The intro text on the customer evaluation page was set to be left-aligned.
-        4. **Evaluation Signature Lines:** The width of the manual fill-in lines was adjusted to respect the page content margins.
-        5. **CNPJ Update:** The company CNPJ was corrected to  in the signature block.
-        6. **Signature Restructure:** The signature block layout was changed to: Signature Line -> Name, signature... text -> Company Name.
-        7. **KeepTogether Logic:** The logic in  within  was refactored to group a main section title, its first subsection title, and that subsection's first image together to prevent page breaks.
-        8. **Cover Photo:** The cover photo was made larger () and centered.
-        9. **Centered Signatures:** The signature blocks in the evaluation section were centered.
-        10. **Frontend UI:** The Baixar PDF (Download PDF) button was removed from , and a success message (PDF aberto com sucesso!) was added after the Visualizar PDF (View PDF) button is clicked.
-     - Next debug checklist: with file & method reference
-        - **File**: , 
-        - **Action**: The next agent must thoroughly test all 10 fixes. Generate a complex report PDF and visually inspect every detail.
-        - **Verification Checklist**:
-            - **Performance**: Is the PDF noticeably faster to open? Is the file size smaller (e.g., below 3MB)?
-            - **Layout**: Are attached images/PDFs larger? Is the cover photo larger and centered?
-            - **Evaluation Page 1**: Is all text strictly left-aligned? Is the table positioned lower on the page?
-            - **Evaluation Page 2**: Are the fill-in lines contained within the page margins? Are the signature blocks centered?
-            - **Signatures**: Is the CNPJ correct? Is the signature block structure (Line -> Label -> Company) correct?
-            - **Content Flow**: Does the  logic work correctly (e.g., section 5, subsection 5.1, and its first image all start on a new page together)?
-            - **Frontend**: Is the Download PDF button gone? Does the success toast appear after clicking View PDF?
-     - Why fix this issue and what will be achieved with the fix? To finalize the application's core feature by meeting all of the user's detailed design specifications.
-     - Status:  IN PROGRESS
-     - Is recurring issue? Y
+  Issue 1: BM Timesheet Selection & Calendar Pickers (P0)
+     - Attempted fixes: The agent just checked  and the  endpoint in  to prepare for the changes. No code modifications were made yet.
+     - Next debug checklist: 
+       - : Modify  to optionally accept a list of  (or change to a  endpoint to accept payload), and adjust the date parsing. Also, create an endpoint to fetch available timesheets for a specific OS.
+       - : Add UI to fetch and list available timesheets for the selected OS, allow the user to check/uncheck them, and implement Calendar components (e.g., HTML date inputs or React Native date pickers) for the period selection.
+     - Why fix this issue and what will be achieved with the fix? Gives admins precise control over which timesheets are billed in a specific BM, avoiding duplicate billing if multiple BMs are generated for the same OS over different periods.
+     - Status: IN PROGRESS
+     - Is recurring issue? N
      - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: None
 
 **In progress Task List**:
-  None.
+  Task 1: Allow timesheet selection & add calendar for BM calculation (P0)
+     - Where to resume: Modify the  endpoint logic in  and the calculation UI modal in .
+     - What will be achieved with this? Precise measurement calculations.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on something: None
 
-**Upcoming and Future Tasks**
- Upcoming Tasks:
-- **Refactor  (P1)**: This file is now over 2400 lines and is a significant source of technical debt, making it difficult and risky to maintain. It must be broken down into a modular structure (e.g., , , , ). The user has implicitly approved this by continuing to request complex changes that are hard to implement in the current monolith.
+**Upcoming and Future Tasks**:
+  Upcoming Tasks:
+  - Add  (06-18 / 07-19) in the Service Orders (OS) UI (P1).
+  - Refactor  (P1): The file is now approaching 3000 lines. It urgently needs to be modularized (e.g., , , ).
+  
+  Future Tasks:
+  - Refactor  into smaller, reusable components (P2).
+  - Offline Mode (P2): Implement  and a synchronization queue for offline functionality.
+  - EAS Build (P2): Prepare  and  for App Store and Play Store deployment.
 
- Future Tasks:
-- **Refactor  (P2)**: This large UI component should be broken into smaller, reusable components to improve maintainability.
-- **Offline Mode (P2)**: Implement local storage (AsyncStorage) and a synchronization queue for offline functionality.
-- **EAS Build (P2)**: Prepare  and  for future deployment to the Apple App Store and Google Play Store.
+**Completed work in this session**:
+- Tested and verified 10 pending PDF layout changes from the previous fork (signatures, borders, alignment).
+- Implemented **Arquivo por O.S.** for admins to view consolidated Timesheets and Reports under a specific Service Order. Cleaned up the Admin dashboard.
+- Implemented **Boletim de Medição (BM)** system:
+  - Added Client Price Tables (CRUD).
+  - Automated calculation mapping timesheet functions to daily rates.
+  - Implemented automatic +20% calculation for night shift functions.
+  - Built a new landscape PDF generation system specifically for BMs with the TWAS logo and custom layout.
+- Added **Granular Admin Access Controls**: Added  and  flags. Added UI toggles in the Admins page to grant/revoke these permissions dynamically.
+- Implemented a visual UI toast notification replacing  for PDF success messages.
 
-**Completed work in this session**
-- **Critical Bug Fixes**:
-  - Resolved the  crash that blocked PDF generation for reports with photos.
-  - Fixed a persistent and frustrating bug on iOS Safari where PDFs failed to open due to popup blockers and aggressive caching. This involved backend changes (auth via query token), frontend changes (synchronous actions, direct URL opening), and environment changes ( headers for the Metro bundler).
-  - Corrected a bug that caused duplicated, overlapping page numbers in the Table of Contents.
-- **New Feature Implementation**:
-  - Designed and implemented a dynamic, two-page Customer Satisfaction Evaluation section that is automatically added as the final part of every report.
-- **PDF Layout & Formatting (Multiple Iterations)**:
-  - Implemented image compression to reduce final PDF file size.
-  - Adjusted TOC formatting (bolding, dot leaders, font sizes).
-  - Fine-tuned PDF border colors.
-  - Adjusted logo size and position.
-  - Modified header and footer positions and spacing.
-  - Added company CNPJ to the supervisor's signature block.
-- **Frontend/Backend Enhancements**:
-  - Added a new  field to the report data model and editing UI.
+**Earlier issues found/mentioned but not fixed**:
+  - None active. The app performs well, but the user noticed minor slowness when generating PDFs. The agent noted this is due to preview environment constraints and will be faster in production, but no explicit optimization fix was applied yet.
 
-**Earlier issues found/mentioned but not fixed**
-   - None. All known issues are captured in the pending list.
+**Known issue recurrence from previous fork**:
+  - Issue recurrence in previous fork: **Aggressive Expo Metro Caching**.
+  - Recurrence count: 3+
+  - Status: IN PROGRESS (Agent frequently had to use  and  bash commands to force the UI to update during testing).
+  - Note: Next agent must proactively restart Expo using bash if UI changes do not appear in screenshots.
 
-**Known issue recurrence from previous fork**
-  - **Expo/Metro Caching**: The Expo Metro bundler's caching, especially on mobile browsers like iOS Safari, is extremely aggressive and frequently serves stale code.
-  - Recurrence count: Multiple times this session.
-  - Status: MITIGATED. The agent added a middleware to  to force  headers, which should prevent this. However, the next agent should be aware of this as a potential source of phantom bugs where the user sees old behavior.
-
-**Code Architecture**
+**Code Architecture**:
 
 
-**Key Technical Concepts**
+**Key Technical Concepts**:
+- **Frontend**: React Native for Web (Expo Router), TypeScript.
 - **Backend**: FastAPI, MongoDB ().
-- **Frontend**: Expo (React Native for Web), TypeScript.
-- **PDF Generation**: A hybrid system using  for initial document structure and drawing, and usage: pymupdf [-h]
-               {show,clean,join,extract,embed-info,embed-add,embed-del,embed-upd,embed-extract,embed-copy,gettext,internal}
-               ...
+- **PDF Generation**: ReportLab (layout/drawing) + PyMuPDF ( - for post-processing and page numbering).
+- **Authentication**: JWT-based, stored in AsyncStorage, passed via HTTP Bearer and query strings (for mobile PDF handling).
 
-------------------------- Basic PyMuPDF Functions -------------------------
+**key DB schema**:
+  - : { , , , ,  (bool),  (bool) }
+  - : { , , , , , , ... }
+  - : { , , ,  (employee, function, times), ... }
+  - : { , , : { :  } }
+  -  (Boletim de Medição): { , , , , , ... }
 
-options:
-  -h, --help            show this help message and exit
+**changes in tech stack**:
+  - None.
 
-Subcommands:
-  {show,clean,join,extract,embed-info,embed-add,embed-del,embed-upd,embed-extract,embed-copy,gettext,internal}
-                        Enter 'command -h' for subcommand specific help () for post-processing page numbers and manipulating the final PDF buffer.
-- **Image Handling**:  (PIL) is used for image compression () before they are placed in the PDF to manage file size.
-- **Mobile Web Compatibility**: Key issue addressed by avoiding  before user-initiated actions () and using direct backend URLs with query parameter authentication to bypass popup blockers and blob handling issues on iOS.
-- **Dev Server Configuration**:  was modified to include a custom server middleware that sets  headers on bundled assets to combat aggressive browser caching.
-
-**key DB schema**
-  - : { , , , , , , , ,  (new), : , ... }
-
-**changes in tech stack**
-- No new technologies were added, but the use of  for image compression and the modification of  are notable changes in the implementation strategy.
-
-**All files of reference**
-- : The location for all PDF generation logic and API endpoints. All recent changes were made here.
-- : The location for the report editing UI, including the PDF action buttons.
-- : The main dashboard UI, also contains PDF action buttons.
-- : Contains the critical fix for the browser caching issue.
+**All files of reference**:
+  - : Contains endpoints for BM () and PDF logic.
+  - : BM dashboard and calculation modal.
+  - : Admin permission management.
+  - : UI for report editing (recently updated with toast).
 
 **Areas that need refactoring**:
--  is the highest priority for refactoring. Its size and complexity make new feature implementation and bug fixing slow and error-prone.
+  - : P1 Priority. Needs split into routes, models, and PDF utils.
+  - : Very large component, needs splitting.
 
-**key api endpoints**
-- : The main endpoint for PDF generation. It now accepts an optional  query parameter for authentication.
-- : The endpoint for updating a report. It now accepts the  field.
+**key api endpoints**:
+  - : Evaluates timesheets for an OS and calculates the billing amount. (CURRENTLY BEING MODIFIED).
+  - : Generates the landscape BM PDF.
+  - : Fetches consolidated documents by OS.
 
-**Critical Info for New Agent**
-- **Verify All 10 Points First**: Before any new work, you must thoroughly test and confirm that all 10 of the user's latest requests have been correctly implemented. Create a complex report and scrutinize the generated PDF against each requirement.
-- **Assume Cache Issues on Frontend**: If the user reports that a frontend change isn't visible, your first assumption should be browser caching. The  header fix in  should help, but you may still need to instruct the user to clear their cache or use a private browsing tab to confirm. Do not spend time debugging the code until caching is ruled out.
-- **PDF Generation is the Product**: The user's primary focus is the pixel-perfect and functional output of the PDF. Treat every layout request with the highest priority.
-- **Prioritize Refactoring **: After the current set of fixes is verified by the user, the very next task should be to propose and execute a plan to refactor the monolithic . This is essential for the long-term health and maintainability of the project.
+**Critical Info for New Agent**:
+  - The immediate task is to update the BM calculation flow. You need an endpoint to list timesheets for an OS so the user can select them via checkboxes in . Then, pass those selected IDs and calendar dates to the backend to calculate the total.
+  - The night shift +20% calculation rule is already implemented in the backend; you do not need to build it again, just maintain it when altering the  endpoint.
+  - Restart the Expo server manually via bash (expo: ERROR (not running)
+expo: started or stopping/starting via bash script) if your frontend changes aren't rendering.
 
-**documents and test reports created in this job**
-  -  (updated)
+**documents and test reports created in this job**:
+  - 
+  - 
+  - 
+  - 
   - 
 
-**Last 10 User Messages and any pending HUMAN messages** 
-1. **(PENDING)** User requests 10 new changes: reduce PDF size, increase image dimensions, fix various alignments in the evaluation section, update CNPJ, restructure signature block, fix  logic, make cover photo bigger, and change frontend buttons.
-2. User requests a second page for the customer evaluation, larger attached PDFs, and a specific legend format.
-3. User asks for several PDF layout tweaks: darker border, fix jumbled TOC numbers, smaller/left-aligned logo, smaller fonts, and adjust footer spacing.
-4. User confirms PDF caching issue is resolved and provides link to the app.
-5. User reports intermittent PDF opening errors on mobile, with screenshots. This led to the final synchronous UI action fix.
-6. User asks for the preview link.
-7. User confirms the PDF still won't open on mobile, which triggered the investigation into popup blockers.
-8. User reports that after the backend  was fixed, the frontend now fails to open/share the PDF.
-9. Agent finishes the  fix and asks for verification.
-10. User reports the initial  crash when opening/sharing PDFs with photos.
+**Last 10 User Messages and any pending HUMAN messages**:
+1. **(PENDING)** User requests modifications to the BM: Select specific timesheets for an OS to calculate, and use calendar pickers for the start and end dates.
+2. User says pode (yes) to proceed with the BM calculation changes.
+3. User notices Encanador is missing from timesheet but shouldn't be in BM. Requests +20% automatic calculation for night shift functions and adding the TWAS logo to the BM PDF header.
+4. User complains the PDF success message isn't showing and PDFs are slow to open.
+5. User asks for the preview link.
+6. User requests granular permissions for Boletim de Medição and Arquivo por O.S. per admin, and requests the BM PDF to be in landscape with the TWAS logo, similar to the service report border.
+7. User requests removing Timesheets, Service Reports, and Daily Reports cards from the admin dashboard since Arquivo por OS handles this, and reports the back button in Arquivo por OS is broken.
+8. User asks to create a Boletim de Medição card in the Admin dashboard, sharing a PDF model and rules (different pricing per client/day/night).
+9. User asks if there is a storage limit for the app (Object Storage).
+10. User asks for the preview link.
 
-**Project Health Check:**
-Mocked: The core PDF generation is working, but the final implementation of the user's 10 latest requests has been done but not yet verified. The system's stability depends on these changes being correct.
+**Project Health Check**:
+- **Working**: Backend, PDF generation, OS Archive, BM calculation.
+- **In Progress/Needs Work**: The new timesheet selector and calendar picker for BM calculation.
 
-**3rd Party Integrations**
+**3rd Party Integrations**:
 - Emergent Object Storage — uses Emergent LLM Key.
 
-**Testing status**
-  - Testing agent used after significant changes: YES
+**Testing status**:
+  - Testing agent used after significant changes: YES (Iterations 19-22)
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: 
-  - Known regressions: None, but the last batch of fixes is extensive and unverified.
+  - Test files created:  to .
+  - Known regressions: None active.
 
-**Credentials to test flow:**
+**Credentials to test flow**:
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
-**What agent forgot to execute**
-The agent correctly identified and attempted to fix all user requests. The main miss in the session was underestimating the severity of mobile browser limitations (popup blocking, caching), which led to a prolonged debugging cycle. The agent eventually solved this by implementing synchronous UI actions and forcing no-cache headers.</analysis>
+**What agent forgot to execute**:
+The agent stopped exactly after agreeing to the user's request to add timesheet selection and calendar date pickers for the BM calculation. No actual code modifications were started for this specific feature yet.</analysis>

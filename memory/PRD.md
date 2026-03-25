@@ -12,17 +12,13 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 
 ## Boletim de Medição (BM)
 - Linked to timesheets via Service Order
-- Calculates days worked per function (Supervisor, Técnico, etc.)
+- Calculates days worked per function from timesheets
+- Functions: SUPERVISOR (Sup), TÉCNICO (T), MECÂNICO (M), ELETRICISTA (E), TÉCNICO DE SEGURANÇA (TS)
+- NO Encanador (EN) - not in timesheets
 - Day/night shift counting based on OS schedule_type (06-18 or 07-19)
-- Client-specific price tables with day/night rates per function
-- PDF: A4 landscape, report-style border, header with logo + "BOLETIM DE MEDIÇÃO", footer with company info
-
-## PDF Layout (Reports)
-- Page border: 1.0cm, color #AAAAAA
-- KeepTogether for section titles + first photos
-- Evaluation signatures: centered (TA_CENTER)
-- CNPJ: 31.839.501/0001-90
-- Image compression: quality=60
+- **Night rate = day rate + 20% (automatic)**
+- Client price table stores only day_rate per function
+- PDF: A4 landscape, report-style border, logo header + "BOLETIM DE MEDIÇÃO", report-style footer
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123 (bm_access=true, os_archive_access=true)
@@ -42,30 +38,23 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - [x] PDF generation with cover, TOC, content, signature, evaluation
 - [x] Admin: Arquivo por O.S. (conditional on os_archive_access)
 - [x] Boletim de Medição: full feature (conditional on bm_access)
-- [x] Per-admin access control: bm_access + os_archive_access toggles
-- [x] BM PDF: report-style border/header/footer in landscape
-- [x] Visual toast "PDF aberto com sucesso!" (green banner, not window.alert)
+- [x] Per-admin access control toggles (bm_access + os_archive_access)
+- [x] BM PDF: report-style border/header with logo/footer in landscape
+- [x] BM night rate: automatic +20% over day rate
+- [x] Functions aligned with timesheet (no Encanador)
+- [x] Visual toast "PDF aberto com sucesso!" (green banner)
 - [x] Mobile iOS Safari compatibility
 
 ## Key API Endpoints
 - PUT /api/users/admins/{id}/bm-access - Toggle BM access
 - PUT /api/users/admins/{id}/os-archive-access - Toggle OS Archive access
-- GET /api/admin/os-archive - Documents by OS
-- GET /api/bm/calculate/{os_id} - Calculate BM from timesheets
+- GET /api/bm/calculate/{os_id} - Calculate BM (night = day * 1.2)
 - POST /api/bm - Create BM
-- GET /api/bm/{id}/pdf - Generate BM PDF
-
-## Key DB Collections
-- users: { email, password_hash, role, name, bm_access, os_archive_access }
-- service_orders: { os_number, client, location, service, employees, schedule_type }
-- client_prices: { client_name, prices: [{function_code, function_name, day_rate, night_rate}] }
-- boletins_medicao: { os_id, os_number, client, periodo, items, subtotal, impostos, valor_total }
+- GET /api/bm/{id}/pdf - Generate BM PDF with logo
 
 ## Backlog
 ### P1
 - Refactor backend/server.py into modular structure
 - Add schedule_type field to Service Orders UI
 ### P2
-- Refactor edit-report.tsx into smaller components
-- Offline Mode (AsyncStorage + sync queue)
-- EAS Build for App Store/Play Store
+- Offline Mode / EAS Build

@@ -811,7 +811,6 @@ FUNCTION_NAMES = {
     "T": "TÉCNICO",
     "M": "MECÂNICO",
     "E": "ELETRICISTA",
-    "EN": "ENCANADOR",
     "TS": "TÉCNICO DE SEGURANÇA",
 }
 
@@ -881,7 +880,11 @@ async def calculate_bm(os_id: str, current_user: Dict[str, Any] = Depends(get_bm
         if price_table:
             for p in price_table.get("prices", []):
                 if p["function_code"] == func_code:
-                    rate = p["day_rate"] if shift == "day" else p["night_rate"]
+                    day_rate = p.get("day_rate", 0)
+                    if shift == "day":
+                        rate = day_rate
+                    else:
+                        rate = round(day_rate * 1.2, 2)  # Noturno = diurno + 20%
                     break
         display_name = func_name if shift == "day" else f"{func_name} (NOTURNO)"
         items.append({
@@ -1051,11 +1054,19 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
         canvas_obj.rect(content_left, header_bottom, content_width, header_height)
         
         # Logo
-        logo_path = ROOT_DIR / "logo.png"
+        logo_path = ROOT_DIR / "../logo.bmp"
         if logo_path.exists():
-            logo_w = 4.0 * cm
-            logo_h = 1.4 * cm
-            canvas_obj.drawImage(str(logo_path), content_left + 0.3 * cm, header_bottom + (header_height - logo_h) / 2, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
+            try:
+                from reportlab.lib.utils import ImageReader
+                pil_img = PILImage.open(logo_path)
+                temp_logo = io.BytesIO()
+                pil_img.save(temp_logo, format='JPEG')
+                temp_logo.seek(0)
+                logo_w = 4.0 * cm
+                logo_h = 1.4 * cm
+                canvas_obj.drawImage(ImageReader(temp_logo), content_left + 0.3 * cm, header_bottom + (header_height - logo_h) / 2, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
         
         # Vertical line after logo
         sep_x = content_left + 4.6 * cm

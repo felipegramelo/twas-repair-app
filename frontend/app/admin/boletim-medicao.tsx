@@ -104,7 +104,7 @@ export default function BMScreen() {
   const FUNCTION_OPTIONS = [
     { code: 'Sup', name: 'SUPERVISOR' }, { code: 'T', name: 'TÉCNICO' },
     { code: 'M', name: 'MECÂNICO' }, { code: 'E', name: 'ELETRICISTA' },
-    { code: 'EN', name: 'ENCANADOR' }, { code: 'TS', name: 'TÉCNICO DE SEGURANÇA' },
+    { code: 'TS', name: 'TÉCNICO DE SEGURANÇA' },
   ];
 
   const openPriceForm = (existing?: any) => {
@@ -113,7 +113,7 @@ export default function BMScreen() {
       setPriceForm({ client_name: existing.client_name, prices: existing.prices || [] });
     } else {
       setEditingPriceId(null);
-      setPriceForm({ client_name: '', prices: FUNCTION_OPTIONS.map(f => ({ function_code: f.code, function_name: f.name, day_rate: 0, night_rate: 0 })) });
+      setPriceForm({ client_name: '', prices: FUNCTION_OPTIONS.map(f => ({ function_code: f.code, function_name: f.name, day_rate: 0 })) });
     }
     setShowPriceForm(true);
   };
@@ -219,7 +219,7 @@ export default function BMScreen() {
                   <View key={i} style={s.priceRow}>
                     <Text style={s.priceFunc}>{p.function_name}</Text>
                     <Text style={s.priceVal}>Diurno: {formatCurrency(p.day_rate)}</Text>
-                    <Text style={s.priceVal}>Noturno: {formatCurrency(p.night_rate)}</Text>
+                    <Text style={s.priceVal}>Noturno: {formatCurrency(p.day_rate * 1.2)}</Text>
                   </View>
                 ))}
                 <View style={s.cardActions}>
@@ -317,12 +317,12 @@ export default function BMScreen() {
                   <Text style={s.priceFormLabel}>{p.function_name}</Text>
                   <View style={s.priceFormInputs}>
                     <View style={s.priceFormField}>
-                      <Text style={s.priceFormSublabel}>Diurno (R$)</Text>
+                      <Text style={s.priceFormSublabel}>Valor Diurno (R$)</Text>
                       <TextInput style={s.priceFormInput} value={String(p.day_rate || '')} onChangeText={v => updatePriceRow(i, 'day_rate', v)} keyboardType="numeric" />
                     </View>
                     <View style={s.priceFormField}>
-                      <Text style={s.priceFormSublabel}>Noturno (R$)</Text>
-                      <TextInput style={s.priceFormInput} value={String(p.night_rate || '')} onChangeText={v => updatePriceRow(i, 'night_rate', v)} keyboardType="numeric" />
+                      <Text style={s.priceFormSublabel}>Noturno (+20%)</Text>
+                      <Text style={[s.priceFormInput, { paddingVertical: 11, color: '#666', backgroundColor: '#f5f5f5' }]}>{formatCurrency((p.day_rate || 0) * 1.2)}</Text>
                     </View>
                   </View>
                 </View>

@@ -68,35 +68,6 @@ export default function AdminDashboard() {
             <Text style={styles.cardDescription}>Gerenciar O.S.</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => router.push('/admin/timesheets')}
-            data-testid="admin-timesheets-card"
-          >
-            <Ionicons name="time" size={40} color="#1a237e" />
-            <Text style={styles.cardTitle}>Timesheets</Text>
-            <Text style={styles.cardDescription}>Ver todos os timesheets</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => router.push('/admin/service-reports')}
-            data-testid="admin-service-reports-card"
-          >
-            <Ionicons name="construct" size={40} color="#1a237e" />
-            <Text style={styles.cardTitle}>Relatórios de Serviço</Text>
-            <Text style={styles.cardDescription}>Ver relatórios técnicos</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => router.push('/admin/daily-reports')}
-            data-testid="admin-daily-reports-card"
-          >
-            <Ionicons name="calendar" size={40} color="#1a237e" />
-            <Text style={styles.cardTitle}>Relatórios Diários</Text>
-            <Text style={styles.cardDescription}>Ver relatórios diários</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.card}

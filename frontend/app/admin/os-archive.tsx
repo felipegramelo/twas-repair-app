@@ -205,7 +205,7 @@ export default function OSArchiveScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} data-testid="archive-back-btn">
+        <TouchableOpacity onPress={() => router.replace('/admin')} style={s.backBtn} data-testid="archive-back-btn">
           <Ionicons name="arrow-back" size={24} color="#1a237e" />
         </TouchableOpacity>
         <Text style={s.title}>Arquivo por O.S.</Text>

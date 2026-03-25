@@ -28,7 +28,8 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - "Adicionar Subseção" only on parent sections
 - Only "Visualizar PDF" button (no download button)
 - Success toast "PDF aberto com sucesso!" after viewing PDF
-- Admin: "Arquivo por O.S." page with search and expandable OS cards
+- Admin dashboard: Supervisores, Funcionários, Arquivo por O.S., Ordens de Serviço, Administradores, Alterar Senha
+- Admin "Arquivo por O.S." page: search + expandable OS cards with all documents
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123
@@ -60,7 +61,9 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - [x] Frontend: removed download button, added success toast
 - [x] OC/WO field in report editing
 - [x] Mobile iOS Safari compatibility (no-cache headers, sync actions)
-- [x] **Admin: Arquivo por O.S.** - Documents grouped by Service Order (NEW)
+- [x] Admin: Arquivo por O.S. - Documents grouped by Service Order
+- [x] Admin: Removed Timesheets/Service Reports/Daily Reports cards (consolidated into Arquivo por O.S.)
+- [x] Admin: Fixed back button on OS Archive page
 
 ## Key API Endpoints
 - GET /api/admin/os-archive - Returns all OS with nested timesheets/reports (admin only)

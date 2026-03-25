@@ -679,6 +679,58 @@ async def delete_service_order(so_id: str, current_user: Dict[str, Any] = Depend
     return {"message": "Service Order deleted successfully"}
 
 
+
+# ==================== OS ARCHIVE ENDPOINT ====================
+
+@api_router.get("/admin/os-archive")
+async def get_os_archive(current_user: Dict[str, Any] = Depends(get_admin_user)):
+    """Get all service orders with their related documents (timesheets + reports)"""
+    service_orders = await db.service_orders.find().sort("os_number", 1).to_list(500)
+    
+    result = []
+    for so in service_orders:
+        so_id = str(so["_id"])
+        
+        # Get timesheets for this OS
+        timesheets = await db.timesheets.find({"os_id": so_id}).sort("created_at", -1).to_list(100)
+        ts_list = []
+        for ts in timesheets:
+            ts["id"] = str(ts.pop("_id"))
+            ts.pop("_id", None)
+            ts["created_at"] = ts.get("created_at", "").isoformat() if hasattr(ts.get("created_at", ""), "isoformat") else str(ts.get("created_at", ""))
+            ts["updated_at"] = ts.get("updated_at", "").isoformat() if hasattr(ts.get("updated_at", ""), "isoformat") else str(ts.get("updated_at", ""))
+            ts_list.append(ts)
+        
+        # Get reports for this OS
+        reports = await db.reports.find({"os_id": so_id}).sort("created_at", -1).to_list(100)
+        report_list = []
+        for r in reports:
+            r["id"] = str(r.pop("_id"))
+            r.pop("_id", None)
+            r["created_at"] = r.get("created_at", "").isoformat() if hasattr(r.get("created_at", ""), "isoformat") else str(r.get("created_at", ""))
+            r["updated_at"] = r.get("updated_at", "").isoformat() if hasattr(r.get("updated_at", ""), "isoformat") else str(r.get("updated_at", ""))
+            report_list.append(r)
+        
+        service_reports = [r for r in report_list if r.get("report_type") == "service"]
+        daily_reports = [r for r in report_list if r.get("report_type") == "daily"]
+        
+        result.append({
+            "id": so_id,
+            "os_number": so.get("os_number", ""),
+            "client": so.get("client", ""),
+            "location": so.get("location", ""),
+            "service": so.get("service", ""),
+            "employees": so.get("employees", []),
+            "timesheets": ts_list,
+            "service_reports": service_reports,
+            "daily_reports": daily_reports,
+            "total_documents": len(ts_list) + len(report_list),
+        })
+    
+    return result
+
+
+
 # ==================== TIMESHEET ENDPOINTS ====================
 
 @api_router.post("/timesheets", response_model=dict)

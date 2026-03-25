@@ -49,6 +49,16 @@ export default function AdminDashboard() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.card, { borderWidth: 2, borderColor: '#1a237e' }]}
+            onPress={() => router.push('/admin/os-archive')}
+            data-testid="admin-os-archive-card"
+          >
+            <Ionicons name="folder-open" size={40} color="#1a237e" />
+            <Text style={styles.cardTitle}>Arquivo por O.S.</Text>
+            <Text style={styles.cardDescription}>Todos os documentos por Ordem de Serviço</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.card}
             onPress={() => router.push('/admin/service-orders')}
             data-testid="admin-service-orders-card"

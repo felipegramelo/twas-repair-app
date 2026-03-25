@@ -1,0 +1,102 @@
+{
+  "summary": "Tested new OS Archive feature (iteration 20). All 13 backend tests passed (100%). Frontend verification confirmed: Admin dashboard has 'Arquivo por O.S.' card with folder-open icon, OS Archive page loads correctly with search/filter, OS cards expand to show documents grouped by type (Timesheets, Relatórios de Serviço, Relatórios Diários), each document has view PDF and download PDF buttons.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_os_archive_iteration_20.py",
+    "/app/test_reports/pytest/test_iteration_20.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_os_archive_iteration_20.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 pytest tests passed)",
+    "frontend": "100% (all UI verifications passed)"
+  },
+  "test_credentials": {
+    "admin": "admin@twasrepair.com / admin123",
+    "supervisor": "supervisor@twasrepair.com / super123"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "OS Archive feature fully implemented and tested. Backend endpoint /api/admin/os-archive returns list of OS with nested timesheets, service_reports, daily_reports. Endpoint requires admin role (403 for supervisor). Frontend page at /admin/os-archive shows searchable, expandable OS cards with PDF action buttons.",
+  "tested_features": {
+    "backend_authentication": {
+      "os_archive_requires_auth": "PASS - Returns 401/403 without token",
+      "admin_can_access": "PASS - Returns 200 with admin token",
+      "supervisor_forbidden": "PASS - Returns 403 with supervisor token"
+    },
+    "backend_response_structure": {
+      "returns_list": "PASS - Response is array of OS objects",
+      "os_has_required_fields": "PASS - id, os_number, client, location, service, timesheets, service_reports, daily_reports, total_documents",
+      "timesheets_array": "PASS - Each OS has timesheets array",
+      "service_reports_array": "PASS - Each OS has service_reports array",
+      "daily_reports_array": "PASS - Each OS has daily_reports array",
+      "total_documents_calculation": "PASS - total_documents = len(timesheets) + len(service_reports) + len(daily_reports)"
+    },
+    "backend_document_counts": {
+      "os_2602_14": "PASS - Has 3 timesheets + 1 service report = 4 docs",
+      "os_2602_12": "PASS - Has 2 timesheets = 2 docs",
+      "os_test_99": "PASS - Has 0 documents"
+    },
+    "backend_sorting": {
+      "sorted_by_os_number": "PASS - OS list sorted alphabetically by os_number"
+    },
+    "frontend_admin_dashboard": {
+      "arquivo_por_os_card": "PASS - Card visible with folder-open icon",
+      "card_has_border": "PASS - Card has blue border (borderWidth: 2, borderColor: #1a237e)",
+      "card_description": "PASS - Shows 'Todos os documentos por Ordem de Serviço'"
+    },
+    "frontend_os_archive_page": {
+      "page_title": "PASS - 'Arquivo por O.S.' title displayed",
+      "search_input": "PASS - Search input with placeholder 'Buscar por O.S., cliente, local...'",
+      "search_filter_works": "PASS - Typing '2602' filters to show only matching OS",
+      "os_cards_displayed": "PASS - OS cards show os_number badge, client, location, service, doc count"
+    },
+    "frontend_os_expand": {
+      "click_to_expand": "PASS - Clicking OS card expands to show documents",
+      "timesheets_section": "PASS - Shows 'Timesheets (N)' with time-outline icon",
+      "service_reports_section": "PASS - Shows 'Relatórios de Serviço (N)' with construct-outline icon",
+      "document_cards": "PASS - Each document shows supervisor name, date range, entry count",
+      "status_badge": "PASS - Reports show status badge (Rascunho/Concluído)",
+      "view_pdf_button": "PASS - Eye icon button for viewing PDF",
+      "download_pdf_button": "PASS - Download icon button for downloading PDF",
+      "zero_docs_message": "PASS - TEST-99 shows 'Nenhum documento vinculado a esta O.S.'"
+    }
+  },
+  "frontend_verification": {
+    "admin_dashboard_card": {
+      "visible": true,
+      "icon": "folder-open",
+      "title": "Arquivo por O.S.",
+      "description": "Todos os documentos por Ordem de Serviço"
+    },
+    "os_archive_page": {
+      "url": "/admin/os-archive",
+      "title": "Arquivo por O.S.",
+      "search_works": true,
+      "os_cards_count": 3
+    },
+    "os_2602_14_expanded": {
+      "timesheets_count": 3,
+      "service_reports_count": 1,
+      "daily_reports_count": 0,
+      "total_documents": 4,
+      "pdf_buttons_visible": true
+    },
+    "test_99_expanded": {
+      "total_documents": 0,
+      "no_docs_message": "Nenhum documento vinculado a esta O.S."
+    }
+  }
+}

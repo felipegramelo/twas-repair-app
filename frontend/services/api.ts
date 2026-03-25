@@ -159,6 +159,14 @@ export const timesheetAPI = {
   },
 };
 
+// Admin Archive API
+export const archiveAPI = {
+  getOSArchive: async () => {
+    const response = await api.get('/admin/os-archive');
+    return response.data;
+  },
+};
+
 export default api;
 
 // Report API (local backend)

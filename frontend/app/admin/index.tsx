@@ -48,15 +48,17 @@ export default function AdminDashboard() {
             <Text style={styles.cardDescription}>Gerenciar funcionários</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.card, { borderWidth: 2, borderColor: '#1a237e' }]}
-            onPress={() => router.push('/admin/os-archive')}
-            data-testid="admin-os-archive-card"
-          >
-            <Ionicons name="folder-open" size={40} color="#1a237e" />
-            <Text style={styles.cardTitle}>Arquivo por O.S.</Text>
-            <Text style={styles.cardDescription}>Todos os documentos por Ordem de Serviço</Text>
-          </TouchableOpacity>
+          {user?.os_archive_access && (
+            <TouchableOpacity
+              style={[styles.card, { borderWidth: 2, borderColor: '#1a237e' }]}
+              onPress={() => router.push('/admin/os-archive')}
+              data-testid="admin-os-archive-card"
+            >
+              <Ionicons name="folder-open" size={40} color="#1a237e" />
+              <Text style={styles.cardTitle}>Arquivo por O.S.</Text>
+              <Text style={styles.cardDescription}>Todos os documentos por Ordem de Serviço</Text>
+            </TouchableOpacity>
+          )}
 
           {user?.bm_access && (
             <TouchableOpacity

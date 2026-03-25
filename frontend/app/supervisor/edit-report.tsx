@@ -88,6 +88,7 @@ export default function EditReportScreen() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentUploadSection, setCurrentUploadSection] = useState('cover');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfSuccess, setPdfSuccess] = useState(false);
 
   useEffect(() => { loadReport(); AsyncStorage.getItem('token').then(t => t && setToken(t)); }, []);
 
@@ -116,7 +117,8 @@ export default function EditReportScreen() {
     if (Platform.OS === 'web') {
       const url = getPdfUrl();
       window.open(url, '_blank');
-      showMsg('PDF aberto com sucesso!');
+      setPdfSuccess(true);
+      setTimeout(() => setPdfSuccess(false), 4000);
     }
   };
 
@@ -289,6 +291,12 @@ export default function EditReportScreen() {
           </View>
 
           {/* PDF Action Buttons */}
+          {pdfSuccess && (
+            <View style={{ backgroundColor: '#e8f5e9', padding: 12, borderRadius: 8, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }} data-testid="pdf-success-toast">
+              <Ionicons name="checkmark-circle" size={20} color="#4caf50" />
+              <Text style={{ color: '#2e7d32', fontSize: 14, fontWeight: '500', marginLeft: 8 }}>PDF aberto com sucesso!</Text>
+            </View>
+          )}
           <TouchableOpacity style={[styles.pdfOutlinedBtn, pdfLoading && { opacity: 0.6 }]} onPress={handleOpenPDF} disabled={pdfLoading}>
             {pdfLoading ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="eye-outline" size={20} color="#1a237e" /><Text style={styles.pdfOutlinedText}>Visualizar PDF</Text></>}
           </TouchableOpacity>

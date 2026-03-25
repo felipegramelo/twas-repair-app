@@ -4,6 +4,7 @@ export interface User {
   name: string;
   role: 'admin' | 'supervisor';
   bm_access?: boolean;
+  os_archive_access?: boolean;
 }
 
 export interface Employee {

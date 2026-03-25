@@ -6,7 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { adminAPI } from '../../services/api';
+import { adminAPI, bmAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { User } from '../../types';
 
@@ -107,6 +107,20 @@ export default function AdminsScreen() {
     }
   };
 
+  const toggleBMAccess = async (admin: User) => {
+    try {
+      await bmAPI.toggleBMAccess(admin.id);
+      loadAdmins();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao alterar acesso'); }
+  };
+
+  const toggleOSArchiveAccess = async (admin: User) => {
+    try {
+      const response = await import('../../services/api').then(m => m.default.put(`/users/admins/${admin.id}/os-archive-access`));
+      loadAdmins();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao alterar acesso'); }
+  };
+
   const renderAdmin = ({ item }: { item: User }) => (
     <View style={s.card} data-testid={`admin-card-${item.id}`}>
       <View style={s.cardContent}>
@@ -116,6 +130,16 @@ export default function AdminsScreen() {
           <Text style={s.cardSub}>{item.email}</Text>
           {item.id === currentUser?.id && <Text style={s.youBadge}>Você</Text>}
         </View>
+      </View>
+      <View style={s.permRow}>
+        <TouchableOpacity style={[s.permBadge, item.bm_access && s.permActive]} onPress={() => toggleBMAccess(item)} data-testid={`toggle-bm-${item.id}`}>
+          <Ionicons name="calculator" size={14} color={item.bm_access ? '#fff' : '#999'} />
+          <Text style={[s.permText, item.bm_access && s.permTextActive]}>BM</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.permBadge, item.os_archive_access && s.permActive]} onPress={() => toggleOSArchiveAccess(item)} data-testid={`toggle-os-archive-${item.id}`}>
+          <Ionicons name="folder-open" size={14} color={item.os_archive_access ? '#fff' : '#999'} />
+          <Text style={[s.permText, item.os_archive_access && s.permTextActive]}>Arquivo O.S.</Text>
+        </TouchableOpacity>
       </View>
       <View style={s.cardActions}>
         <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionBtn} data-testid={`edit-admin-${item.id}`}>
@@ -207,11 +231,16 @@ const s = StyleSheet.create({
   backBtn: { padding: 8 },
   title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
   addBtn: { backgroundColor: '#1a237e', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
   cardContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardSub: { fontSize: 14, color: '#666', marginTop: 4 },
   youBadge: { fontSize: 11, color: '#1a237e', fontWeight: '700', marginTop: 4 },
+  permRow: { flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 8 },
+  permBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#ddd' },
+  permActive: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  permText: { fontSize: 12, color: '#999', fontWeight: '600' },
+  permTextActive: { color: '#fff' },
   cardActions: { flexDirection: 'row', gap: 8 },
   actionBtn: { padding: 8 },
   empty: { alignItems: 'center', paddingVertical: 64 },

@@ -139,6 +139,7 @@ class UserResponse(BaseModel):
     role: str
     name: str
     bm_access: Optional[bool] = False
+    os_archive_access: Optional[bool] = False
 
 
 class Token(BaseModel):
@@ -344,7 +345,8 @@ async def register(user_data: UserCreate):
             email=user_dict["email"],
             role=user_dict["role"],
             name=user_dict["name"],
-            bm_access=user_dict.get("bm_access", False)
+            bm_access=user_dict.get("bm_access", False),
+            os_archive_access=user_dict.get("os_archive_access", False)
         )
     )
 
@@ -366,7 +368,8 @@ async def login(user_data: UserLogin):
             email=user["email"],
             role=user["role"],
             name=user["name"],
-            bm_access=user.get("bm_access", False)
+            bm_access=user.get("bm_access", False),
+            os_archive_access=user.get("os_archive_access", False)
         )
     )
 
@@ -379,6 +382,7 @@ async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
         "role": current_user["role"],
         "name": current_user["name"],
         "bm_access": current_user.get("bm_access", False),
+        "os_archive_access": current_user.get("os_archive_access", False),
     }
 
 
@@ -516,7 +520,9 @@ async def get_admins(current_user: Dict[str, Any] = Depends(get_admin_user)):
         id=str(user["_id"]),
         email=user["email"],
         role=user["role"],
-        name=user["name"]
+        name=user["name"],
+        bm_access=user.get("bm_access", False),
+        os_archive_access=user.get("os_archive_access", False)
     ) for user in admins]
 
 
@@ -529,12 +535,16 @@ async def create_admin(admin_data: SupervisorCreate, current_user: Dict[str, Any
     user_dict["password_hash"] = get_password_hash(user_dict.pop("password"))
     user_dict["role"] = UserRole.ADMIN
     user_dict["created_at"] = datetime.utcnow()
+    user_dict["bm_access"] = False
+    user_dict["os_archive_access"] = False
     result = await db.users.insert_one(user_dict)
     return UserResponse(
         id=str(result.inserted_id),
         email=user_dict["email"],
         role=user_dict["role"],
-        name=user_dict["name"]
+        name=user_dict["name"],
+        bm_access=False,
+        os_archive_access=False
     )
 
 
@@ -557,7 +567,9 @@ async def update_admin(user_id: str, admin_data: SupervisorUpdate, current_user:
         id=str(updated_user["_id"]),
         email=updated_user["email"],
         role=updated_user["role"],
-        name=updated_user["name"]
+        name=updated_user["name"],
+        bm_access=updated_user.get("bm_access", False),
+        os_archive_access=updated_user.get("os_archive_access", False)
     )
 
 
@@ -974,6 +986,15 @@ async def toggle_bm_access(user_id: str, current_user: Dict[str, Any] = Depends(
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"bm_access": new_access}})
     return {"bm_access": new_access}
 
+@api_router.put("/users/admins/{user_id}/os-archive-access")
+async def toggle_os_archive_access(user_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user or user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=404, detail="Administrador não encontrado")
+    new_access = not user.get("os_archive_access", False)
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"os_archive_access": new_access}})
+    return {"os_archive_access": new_access}
+
 # ==================== BM PDF GENERATION ====================
 
 def format_currency(value: float) -> str:
@@ -1004,73 +1025,107 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
 
     buf = io.BytesIO()
     page_w, page_h = A4[1], A4[0]  # Landscape
-    margin = 1.2 * cm
-
-    doc = SimpleDocTemplate(buf, pagesize=(page_w, page_h),
-                            leftMargin=margin, rightMargin=margin,
-                            topMargin=margin, bottomMargin=margin)
+    border_margin = 1.0 * cm
+    border_color = colors.HexColor('#AAAAAA')
+    
+    content_left = border_margin + 0.3 * cm
+    content_right = border_margin + 0.3 * cm
+    content_width = page_w - content_left - content_right
+    
+    page_counter = [0]
+    
+    def draw_bm_page(canvas_obj, doc_obj, page_num):
+        canvas_obj.saveState()
+        
+        # === PAGE BORDER ===
+        canvas_obj.setStrokeColor(border_color)
+        canvas_obj.setLineWidth(1)
+        canvas_obj.rect(border_margin, border_margin, page_w - 2 * border_margin, page_h - 2 * border_margin)
+        
+        # === HEADER BOX ===
+        header_top = page_h - border_margin - 0.5 * cm
+        header_height = 2.0 * cm
+        header_bottom = header_top - header_height
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(content_left, header_bottom, content_width, header_height)
+        
+        # Logo
+        logo_path = ROOT_DIR / "logo.png"
+        if logo_path.exists():
+            logo_w = 4.0 * cm
+            logo_h = 1.4 * cm
+            canvas_obj.drawImage(str(logo_path), content_left + 0.3 * cm, header_bottom + (header_height - logo_h) / 2, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
+        
+        # Vertical line after logo
+        sep_x = content_left + 4.6 * cm
+        canvas_obj.line(sep_x, header_bottom, sep_x, header_top)
+        
+        # Title "BOLETIM DE MEDIÇÃO"
+        title_x = sep_x + (content_width - 4.6 * cm) / 2
+        canvas_obj.setFont("Helvetica-Bold", 11)
+        canvas_obj.drawCentredString(title_x, header_top - 0.6 * cm, "BOLETIM DE MEDIÇÃO")
+        canvas_obj.setFont("Helvetica", 7)
+        canvas_obj.drawCentredString(title_x, header_top - 0.95 * cm, "Anexo 02_formulário - Boletim de Medição")
+        
+        # Right side details
+        detail_x = page_w - content_right - 0.3 * cm
+        line_h = 0.32 * cm
+        detail_y = header_top - 0.4 * cm
+        
+        def _draw_right_label(label, value, y):
+            canvas_obj.setFont("Helvetica-Bold", 7)
+            canvas_obj.drawRightString(detail_x, y, f"{label} {value}")
+        
+        _draw_right_label("Data:", bm.get('data', ''), detail_y)
+        detail_y -= line_h
+        _draw_right_label("Rev.:", bm.get('rev', '0'), detail_y)
+        detail_y -= line_h
+        _draw_right_label("Período:", bm.get('periodo', ''), detail_y)
+        detail_y -= line_h
+        _draw_right_label("OS:", bm.get('os_number', ''), detail_y)
+        
+        # === FOOTER BOX ===
+        footer_bottom = border_margin + 0.5 * cm
+        footer_height = 1.4 * cm
+        footer_top = footer_bottom + footer_height
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(content_left, footer_bottom, content_width, footer_height)
+        
+        center_x = page_w / 2
+        y = footer_top - 0.45 * cm
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawCentredString(center_x, y, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA")
+        y -= 0.3 * cm
+        canvas_obj.setFont("Helvetica", 7)
+        canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N\u00b0 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24.466-180.")
+        y -= 0.28 * cm
+        canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com - www.twasrepair.com")
+        
+        # Page number
+        canvas_obj.setFont("Helvetica", 7)
+        canvas_obj.drawRightString(page_w - border_margin - 0.5 * cm, border_margin + 0.2 * cm, f"{page_num}")
+        
+        canvas_obj.restoreState()
+    
+    def on_first_page_bm(c, d):
+        page_counter[0] = 1
+        draw_bm_page(c, d, 1)
+    
+    def on_later_pages_bm(c, d):
+        page_counter[0] += 1
+        draw_bm_page(c, d, page_counter[0])
+    
+    doc = SimpleDocTemplate(
+        buf, pagesize=(page_w, page_h),
+        topMargin=border_margin + 2.8 * cm,
+        bottomMargin=border_margin + 2.1 * cm,
+        leftMargin=content_left,
+        rightMargin=content_right,
+    )
     styles = getSampleStyleSheet()
     elements = []
-
-    content_width = page_w - 2 * margin
-
-    # ---- HEADER SECTION ----
-    # Build header as a table: [Logo | Company Info | BM Title + Metadata]
-    logo_path = ROOT_DIR / "logo.png"
-    if logo_path.exists():
-        logo = RLImage(str(logo_path), width=4 * cm, height=1.5 * cm)
-    else:
-        logo = Paragraph("<b>TWAS REPAIR</b>", ParagraphStyle('LogoFallback', fontSize=14, textColor=colors.HexColor('#1a237e')))
-
-    company_style = ParagraphStyle('CompanyInfo', fontSize=8, leading=10, textColor=colors.black)
-    company_info = Paragraph(
-        "<b>Razão Social:</b> TWAS REPAIR Serviços Navais e Industriais Ltda.<br/>"
-        "<b>CNPJ:</b> 31.839.501/0001-90<br/>"
-        "<b>Endereço:</b> Av. Frederico Marques, 84 - Boa Vista, São Gonçalo - RJ, 24466-180<br/>"
-        "<b>Financeiro:</b> financeiro@twasrepair.com<br/>"
-        "<b>Comercial:</b> daniel.gussen@twasrepair.com<br/>"
-        "<b>Comercial:</b> 21 988020417",
-        company_style
-    )
-
-    title_style = ParagraphStyle('BMTitle', fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black)
-    subtitle_style = ParagraphStyle('BMSubtitle', fontSize=7, alignment=TA_CENTER, textColor=colors.gray)
-    meta_style = ParagraphStyle('MetaInfo', fontSize=8, leading=10, textColor=colors.black)
-
-    bm_title = Paragraph("BOLETIM DE MEDIÇÃO", title_style)
-    bm_subtitle = Paragraph("Anexo 02_formulário - Boletim de Medição", subtitle_style)
-
-    meta_info = Paragraph(
-        f"<b>Data:</b> {bm.get('data', '')}<br/>"
-        f"<b>Rev.:</b> {bm.get('rev', '0')}<br/>"
-        f"<b>Local do serviço:</b> {bm.get('location', '')}<br/>"
-        f"<b>Período:</b> {bm.get('periodo', '')}",
-        meta_style
-    )
-
-    right_col = []
-    right_col.append(bm_title)
-    right_col.append(Spacer(1, 2))
-    right_col.append(bm_subtitle)
-    right_col.append(Spacer(1, 6))
-    right_col.append(meta_info)
-
-    from reportlab.platypus import TableStyle as TS
-
-    header_table = Table(
-        [[logo, company_info, right_col]],
-        colWidths=[4.5 * cm, content_width * 0.42, content_width * 0.42]
-    )
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
-    ]))
-    elements.append(header_table)
-    elements.append(Spacer(1, 8))
 
     # ---- CLIENT INFO ----
     client_style = ParagraphStyle('ClientInfo', fontSize=9, leading=12, textColor=colors.black)
@@ -1081,14 +1136,14 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     ], colWidths=[content_width * 0.4, content_width * 0.3, content_width * 0.3])
     client_info.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ('BOX', (0, 0), (-1, -1), 0.5, border_color),
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(client_info)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 6))
 
     # ---- SERVICE SCOPE ----
     scope_style = ParagraphStyle('ScopeStyle', fontSize=9, fontName='Helvetica-Bold', textColor=colors.black)
@@ -1098,7 +1153,7 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     ], colWidths=[content_width * 0.25, content_width * 0.75])
     scope_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ('BOX', (0, 0), (-1, -1), 0.5, border_color),
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F5F5F5')),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
@@ -1114,32 +1169,23 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     td_left = ParagraphStyle('TDLeft', fontSize=8, alignment=TA_LEFT, textColor=colors.black)
 
     col_widths = [
-        content_width * 0.10,  # Data Inicial
-        content_width * 0.10,  # Data Final
-        content_width * 0.07,  # PO/AC
-        content_width * 0.10,  # CÓD.
-        content_width * 0.28,  # Descrição
-        content_width * 0.13,  # Valor und
-        content_width * 0.07,  # Qtd
-        content_width * 0.15,  # Valor total
+        content_width * 0.10, content_width * 0.10, content_width * 0.07,
+        content_width * 0.10, content_width * 0.28, content_width * 0.13,
+        content_width * 0.07, content_width * 0.15,
     ]
 
     header_row = [
-        Paragraph("Data Inicial", th_style),
-        Paragraph("Data Final", th_style),
-        Paragraph("PO/ AC", th_style),
-        Paragraph("CÓD.", th_style),
-        Paragraph("Descrição das Atividades", th_style),
-        Paragraph("Valor und", th_style),
-        Paragraph("Qtd", th_style),
-        Paragraph("Valor total", th_style),
+        Paragraph("Data Inicial", th_style), Paragraph("Data Final", th_style),
+        Paragraph("PO/ AC", th_style), Paragraph("CÓD.", th_style),
+        Paragraph("Descrição das Atividades", th_style), Paragraph("Valor und", th_style),
+        Paragraph("Qtd", th_style), Paragraph("Valor total", th_style),
     ]
 
     table_data = [header_row]
     items = bm.get("items", [])
 
     for idx, item in enumerate(items):
-        row = [
+        table_data.append([
             Paragraph(item.get("data_inicial", ""), td_style),
             Paragraph(item.get("data_final", ""), td_style),
             Paragraph(str(idx + 1), td_style),
@@ -1148,50 +1194,31 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
             Paragraph(format_currency(item.get("valor_und", 0)), td_right),
             Paragraph(str(item.get("qtd", 0)), td_style),
             Paragraph(format_currency(item.get("valor_total", 0)), td_right),
-        ]
-        table_data.append(row)
-
-    # Add empty rows to fill space (min 12 rows total)
-    empty_rows_needed = max(0, 12 - len(items))
-    for _ in range(empty_rows_needed):
-        table_data.append([
-            Paragraph("", td_style), Paragraph("", td_style), Paragraph("", td_style),
-            Paragraph("", td_style), Paragraph("", td_style), Paragraph("", td_right),
-            Paragraph("", td_style), Paragraph("R$", td_right),
         ])
 
-    # Subtotal, Impostos, Valor Total
-    bold_right = ParagraphStyle('BoldRight', fontSize=9, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=colors.black)
+    empty_rows_needed = max(0, 8 - len(items))
+    for _ in range(empty_rows_needed):
+        table_data.append([Paragraph("", td_style)] * 7 + [Paragraph("", td_right)])
 
-    table_data.append([
-        "", "", "", "", Paragraph("<b>Subtotal</b>", bold_right), "", "",
-        Paragraph(f"<b>{format_currency(bm.get('subtotal', 0))}</b>", bold_right),
-    ])
-    table_data.append([
-        "", "", "", "", Paragraph("<b>Impostos</b>", bold_right), "", "",
-        Paragraph(format_currency(bm.get("impostos", 0)), td_right),
-    ])
-    table_data.append([
-        "", "", "", "", Paragraph("<b>Valor Total</b>", bold_right), "", "",
-        Paragraph(f"<b>{format_currency(bm.get('valor_total', 0))}</b>", bold_right),
-    ])
+    bold_right = ParagraphStyle('BoldRight', fontSize=9, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=colors.black)
+    table_data.append(["", "", "", "", Paragraph("<b>Subtotal</b>", bold_right), "", "", Paragraph(f"<b>{format_currency(bm.get('subtotal', 0))}</b>", bold_right)])
+    table_data.append(["", "", "", "", Paragraph("<b>Impostos</b>", bold_right), "", "", Paragraph(format_currency(bm.get("impostos", 0)), td_right)])
+    table_data.append(["", "", "", "", Paragraph("<b>Valor Total</b>", bold_right), "", "", Paragraph(f"<b>{format_currency(bm.get('valor_total', 0))}</b>", bold_right)])
 
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     num_data_rows = len(items) + empty_rows_needed
     table_style_cmds = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E8EAF6')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#AAAAAA')),
+        ('BOX', (0, 0), (-1, -1), 0.5, border_color),
         ('INNERGRID', (0, 0), (-1, num_data_rows), 0.5, colors.HexColor('#DDDDDD')),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        # Subtotal/Total styling
         ('LINEABOVE', (0, num_data_rows + 1), (-1, num_data_rows + 1), 1, colors.HexColor('#1a237e')),
         ('SPAN', (0, num_data_rows + 1), (4, num_data_rows + 1)),
         ('SPAN', (5, num_data_rows + 1), (6, num_data_rows + 1)),
@@ -1201,15 +1228,13 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
         ('SPAN', (5, num_data_rows + 3), (6, num_data_rows + 3)),
         ('BACKGROUND', (0, num_data_rows + 3), (-1, num_data_rows + 3), colors.HexColor('#E8EAF6')),
     ]
-    # Alternate row colors for data rows
     for i in range(1, num_data_rows + 1):
         if i % 2 == 0:
             table_style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8F8F8')))
-
     main_table.setStyle(TableStyle(table_style_cmds))
     elements.append(main_table)
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=on_first_page_bm, onLaterPages=on_later_pages_bm)
     buf.seek(0)
 
     filename = f"BM_{bm.get('os_number', 'N')}_{bm.get('client', '')}.pdf".replace(" ", "_")

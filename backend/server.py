@@ -823,8 +823,39 @@ def parse_date_sortable(d: str) -> str:
         pass
     return d
 
-@api_router.get("/bm/calculate/{os_id}")
-async def calculate_bm(os_id: str, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+@api_router.get("/bm/timesheets/{os_id}")
+async def list_timesheets_for_bm(os_id: str, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    """List available timesheets for a specific OS so user can select which to include in BM."""
+    so = await db.service_orders.find_one({"_id": ObjectId(os_id)})
+    if not so:
+        raise HTTPException(status_code=404, detail="O.S. não encontrada")
+    timesheets = await db.timesheets.find({"os_id": os_id}).to_list(500)
+    result = []
+    for ts in timesheets:
+        entries = ts.get("entries", [])
+        dates = sorted(set(e.get("date", "") for e in entries if e.get("date")), key=parse_date_sortable)
+        employees = sorted(set(e.get("employee_name", "") for e in entries if e.get("employee_name")))
+        result.append({
+            "id": str(ts["_id"]),
+            "os_number": ts.get("os_number", ""),
+            "supervisor_name": ts.get("supervisor_name", ""),
+            "entries_count": len(entries),
+            "dates": dates,
+            "date_range": f"{dates[0]} - {dates[-1]}" if dates else "",
+            "employees": employees,
+            "created_at": str(ts.get("created_at", "")),
+        })
+    return result
+
+
+class BMCalculateRequest(BaseModel):
+    timesheet_ids: List[str] = []
+    data_inicio: str = ""
+    data_fim: str = ""
+
+
+@api_router.post("/bm/calculate/{os_id}")
+async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
     so = await db.service_orders.find_one({"_id": ObjectId(os_id)})
     if not so:
         raise HTTPException(status_code=404, detail="O.S. não encontrada")
@@ -835,7 +866,20 @@ async def calculate_bm(os_id: str, current_user: Dict[str, Any] = Depends(get_bm
     else:
         day_start, day_end = 7, 19
 
-    timesheets = await db.timesheets.find({"os_id": os_id}).to_list(500)
+    # Fetch only selected timesheets or all if none specified
+    if body.timesheet_ids:
+        ts_object_ids = [ObjectId(tid) for tid in body.timesheet_ids]
+        timesheets = await db.timesheets.find({"_id": {"$in": ts_object_ids}, "os_id": os_id}).to_list(500)
+    else:
+        timesheets = await db.timesheets.find({"os_id": os_id}).to_list(500)
+
+    # Parse date filters if provided
+    date_filter_start = None
+    date_filter_end = None
+    if body.data_inicio:
+        date_filter_start = parse_date_sortable(body.data_inicio)
+    if body.data_fim:
+        date_filter_end = parse_date_sortable(body.data_fim)
 
     # Count unique employee+date per function per shift
     function_days = {}
@@ -848,6 +892,13 @@ async def calculate_bm(os_id: str, current_user: Dict[str, Any] = Depends(get_bm
             start_str = entry.get("service_start", "")
             if not start_str or not date:
                 continue
+            # Apply date filter
+            if date_filter_start or date_filter_end:
+                date_sortable = parse_date_sortable(date)
+                if date_filter_start and date_sortable < date_filter_start:
+                    continue
+                if date_filter_end and date_sortable > date_filter_end:
+                    continue
             all_dates.append(date)
             try:
                 start_hour = int(start_str.split(":")[0])
@@ -863,8 +914,9 @@ async def calculate_bm(os_id: str, current_user: Dict[str, Any] = Depends(get_bm
 
     # Sort dates
     sorted_dates = sorted(set(all_dates), key=parse_date_sortable)
-    data_inicial = sorted_dates[0] if sorted_dates else ""
-    data_final = sorted_dates[-1] if sorted_dates else ""
+    # Use user-provided dates or auto-detect from data
+    data_inicial = body.data_inicio if body.data_inicio else (sorted_dates[0] if sorted_dates else "")
+    data_final = body.data_fim if body.data_fim else (sorted_dates[-1] if sorted_dates else "")
 
     # Get client prices
     client_name = so.get("client", "")

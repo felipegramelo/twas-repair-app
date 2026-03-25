@@ -30,6 +30,14 @@ export default function BMScreen() {
   const [calcLoading, setCalcLoading] = useState(false);
   const [bmForm, setBmForm] = useState({ periodo: '', data: '', rev: '0', po_number: '', proposta: '', cod: '', impostos: '0' });
 
+  // Timesheet selection state
+  const [availableTimesheets, setAvailableTimesheets] = useState<any[]>([]);
+  const [selectedTimesheets, setSelectedTimesheets] = useState<string[]>([]);
+  const [loadingTimesheets, setLoadingTimesheets] = useState(false);
+  // Date filter state
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
+
   // Price table state
   const [showPriceForm, setShowPriceForm] = useState(false);
   const [priceForm, setPriceForm] = useState({ client_name: '', prices: [] as any[] });
@@ -49,11 +57,46 @@ export default function BMScreen() {
     finally { setLoading(false); }
   };
 
+  const handleSelectOS = async (osId: string) => {
+    setSelectedOS(osId);
+    setCalcResult(null);
+    setSelectedTimesheets([]);
+    setDataInicio('');
+    setDataFim('');
+    setLoadingTimesheets(true);
+    try {
+      const ts = await bmAPI.getTimesheets(osId);
+      setAvailableTimesheets(ts);
+      // Select all by default
+      setSelectedTimesheets(ts.map((t: any) => t.id));
+    } catch { showMsg('Erro ao carregar timesheets'); }
+    finally { setLoadingTimesheets(false); }
+  };
+
+  const toggleTimesheet = (id: string) => {
+    setSelectedTimesheets(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAllTimesheets = () => {
+    if (selectedTimesheets.length === availableTimesheets.length) {
+      setSelectedTimesheets([]);
+    } else {
+      setSelectedTimesheets(availableTimesheets.map((t: any) => t.id));
+    }
+  };
+
   const handleCalculate = async () => {
     if (!selectedOS) return showMsg('Selecione uma O.S.');
+    if (selectedTimesheets.length === 0) return showMsg('Selecione ao menos uma timesheet');
     setCalcLoading(true);
     try {
-      const result = await bmAPI.calculate(selectedOS);
+      const result = await bmAPI.calculate(selectedOS, {
+        timesheet_ids: selectedTimesheets,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+      });
       setCalcResult(result);
       if (!result.has_price_table) showMsg('Atenção: Não há tabela de preços cadastrada para o cliente ' + result.client + '. Os valores estarão zerados.');
     } catch { showMsg('Erro ao calcular BM'); }
@@ -83,6 +126,10 @@ export default function BMScreen() {
       setShowCreate(false);
       setCalcResult(null);
       setSelectedOS('');
+      setAvailableTimesheets([]);
+      setSelectedTimesheets([]);
+      setDataInicio('');
+      setDataFim('');
       setBmForm({ periodo: '', data: '', rev: '0', po_number: '', proposta: '', cod: '', impostos: '0' });
       loadData();
     } catch { showMsg('Erro ao criar BM'); }
@@ -246,11 +293,110 @@ export default function BMScreen() {
               <Text style={s.label}>Ordem de Serviço</Text>
               <View style={s.pickerWrap}>
                 {serviceOrders.map(so => (
-                  <TouchableOpacity key={so.id} style={[s.soOption, selectedOS === so.id && s.soOptionActive]} onPress={() => setSelectedOS(so.id)}>
+                  <TouchableOpacity key={so.id} style={[s.soOption, selectedOS === so.id && s.soOptionActive]} onPress={() => handleSelectOS(so.id)}>
                     <Text style={[s.soOptionText, selectedOS === so.id && { color: '#fff' }]}>{so.os_number} - {so.client}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* Timesheet selection */}
+              {selectedOS && loadingTimesheets && (
+                <ActivityIndicator style={{ marginTop: 12 }} color="#1a237e" />
+              )}
+              {selectedOS && !loadingTimesheets && availableTimesheets.length > 0 && (
+                <>
+                  <View style={s.tsHeaderRow}>
+                    <Text style={s.sectionTitle}>Timesheets ({selectedTimesheets.length}/{availableTimesheets.length})</Text>
+                    <TouchableOpacity onPress={toggleAllTimesheets} data-testid="toggle-all-timesheets">
+                      <Text style={s.selectAllText}>
+                        {selectedTimesheets.length === availableTimesheets.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {availableTimesheets.map((ts: any) => (
+                    <TouchableOpacity
+                      key={ts.id}
+                      style={[s.tsItem, selectedTimesheets.includes(ts.id) && s.tsItemActive]}
+                      onPress={() => toggleTimesheet(ts.id)}
+                      data-testid={`ts-check-${ts.id}`}
+                    >
+                      <Ionicons
+                        name={selectedTimesheets.includes(ts.id) ? 'checkbox' : 'square-outline'}
+                        size={22}
+                        color={selectedTimesheets.includes(ts.id) ? '#1a237e' : '#999'}
+                      />
+                      <View style={s.tsInfo}>
+                        <Text style={s.tsDate}>{ts.date_range || 'Sem datas'}</Text>
+                        <Text style={s.tsMeta}>{ts.entries_count} registro(s) | {ts.supervisor_name}</Text>
+                        <Text style={s.tsEmployees} numberOfLines={1}>{ts.employees.join(', ')}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+              {selectedOS && !loadingTimesheets && availableTimesheets.length === 0 && (
+                <Text style={{ color: '#999', marginTop: 12, textAlign: 'center' }}>Nenhuma timesheet encontrada para esta O.S.</Text>
+              )}
+
+              {/* Date pickers */}
+              {selectedOS && availableTimesheets.length > 0 && (
+                <View style={s.dateRow}>
+                  <View style={s.dateField}>
+                    <Text style={s.label}>Data Início</Text>
+                    {Platform.OS === 'web' ? (
+                      <input
+                        type="date"
+                        value={dataInicio ? dataInicio.split('/').reverse().join('-') : ''}
+                        onChange={(e: any) => {
+                          const val = e.target.value;
+                          if (val) {
+                            const [y, m, d] = val.split('-');
+                            setDataInicio(`${d}/${m}/${y}`);
+                          } else {
+                            setDataInicio('');
+                          }
+                        }}
+                        style={{ border: '1px solid #ddd', borderRadius: 8, padding: '10px 12px', fontSize: 14, width: '100%', boxSizing: 'border-box' } as any}
+                        data-testid="date-inicio-picker"
+                      />
+                    ) : (
+                      <TextInput
+                        style={s.input}
+                        value={dataInicio}
+                        onChangeText={setDataInicio}
+                        placeholder="DD/MM/AAAA"
+                      />
+                    )}
+                  </View>
+                  <View style={s.dateField}>
+                    <Text style={s.label}>Data Fim</Text>
+                    {Platform.OS === 'web' ? (
+                      <input
+                        type="date"
+                        value={dataFim ? dataFim.split('/').reverse().join('-') : ''}
+                        onChange={(e: any) => {
+                          const val = e.target.value;
+                          if (val) {
+                            const [y, m, d] = val.split('-');
+                            setDataFim(`${d}/${m}/${y}`);
+                          } else {
+                            setDataFim('');
+                          }
+                        }}
+                        style={{ border: '1px solid #ddd', borderRadius: 8, padding: '10px 12px', fontSize: 14, width: '100%', boxSizing: 'border-box' } as any}
+                        data-testid="date-fim-picker"
+                      />
+                    ) : (
+                      <TextInput
+                        style={s.input}
+                        value={dataFim}
+                        onChangeText={setDataFim}
+                        placeholder="DD/MM/AAAA"
+                      />
+                    )}
+                  </View>
+                </View>
+              )}
 
               <TouchableOpacity style={s.calcBtn} onPress={handleCalculate} disabled={calcLoading}>
                 {calcLoading ? <ActivityIndicator color="#fff" /> : <><Ionicons name="calculator" size={18} color="#fff" /><Text style={s.calcBtnText}>Calcular</Text></>}
@@ -294,7 +440,7 @@ export default function BMScreen() {
                 </>
               )}
 
-              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); }}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); setAvailableTimesheets([]); setSelectedTimesheets([]); setDataInicio(''); setDataFim(''); }}>
                 <Text style={s.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -384,6 +530,18 @@ const s = StyleSheet.create({
   soOptionText: { fontSize: 13, color: '#333' },
   calcBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ff6f00', paddingVertical: 10, borderRadius: 8, marginTop: 12, gap: 8 },
   calcBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  // Timesheet selection styles
+  tsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 8 },
+  selectAllText: { fontSize: 13, color: '#1a237e', fontWeight: '600' },
+  tsItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', padding: 12, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: '#eee', gap: 10 },
+  tsItemActive: { backgroundColor: '#e8eaf6', borderColor: '#1a237e' },
+  tsInfo: { flex: 1 },
+  tsDate: { fontSize: 13, fontWeight: '600', color: '#333' },
+  tsMeta: { fontSize: 11, color: '#666', marginTop: 2 },
+  tsEmployees: { fontSize: 11, color: '#999', marginTop: 1 },
+  // Date picker styles
+  dateRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  dateField: { flex: 1 },
   sectionTitle: { fontSize: 15, fontWeight: '600', color: '#1a237e', marginTop: 16, marginBottom: 8 },
   calcItem: { backgroundColor: '#f5f5f5', padding: 10, borderRadius: 8, marginBottom: 6 },
   calcFunc: { fontSize: 13, fontWeight: '600', color: '#333' },

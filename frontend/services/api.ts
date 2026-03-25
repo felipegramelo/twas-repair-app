@@ -189,8 +189,12 @@ export const clientPriceAPI = {
 
 // Boletim de Medição API
 export const bmAPI = {
-  calculate: async (osId: string) => {
-    const response = await api.get(`/bm/calculate/${osId}`);
+  calculate: async (osId: string, payload?: { timesheet_ids?: string[], data_inicio?: string, data_fim?: string }) => {
+    const response = await api.post(`/bm/calculate/${osId}`, payload || {});
+    return response.data;
+  },
+  getTimesheets: async (osId: string) => {
+    const response = await api.get(`/bm/timesheets/${osId}`);
     return response.data;
   },
   create: async (data: any) => {

@@ -418,7 +418,7 @@ export default function EditReportScreen() {
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                       <Ionicons name="calendar" size={18} color="#2e7d32" />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#333' }}>Dia {idx + 1}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#333' }}>4.{idx + 1} - DIA</Text>
                       {Platform.OS === 'web' ? (
                         <input
                           type="date"

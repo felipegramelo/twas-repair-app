@@ -1859,14 +1859,7 @@ def get_default_daily_sections(client="", service="", location=""):
         {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": intro_text, "enabled": True, "subsections": []},
         {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": equip_text, "enabled": True, "subsections": []},
         {"key": "objective", "number": "3", "title": "OBJETIVO", "content": obj_text, "enabled": True, "subsections": []},
-        {"key": "service_description", "number": "4", "title": "DESCRIÇÃO DOS SERVIÇOS", "content": "", "enabled": True, "subsections": [
-            {"key": "disassembly", "number": "4.1", "title": "DESMONTAGEM", "content": "", "enabled": True, "subsections": [
-                {"key": "disassembly_photos", "number": "4.1.1", "title": "FOTOS", "content": "", "enabled": True}
-            ]},
-            {"key": "assembly", "number": "4.2", "title": "MONTAGEM", "content": "", "enabled": True, "subsections": [
-                {"key": "assembly_photos", "number": "4.2.1", "title": "FOTOS", "content": "", "enabled": True}
-            ]},
-        ]},
+        {"key": "service_description", "number": "4", "title": "DESCRIÇÃO DOS SERVIÇOS", "content": "", "enabled": True, "subsections": []},
     ]
 
 

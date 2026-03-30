@@ -28,7 +28,7 @@ export default function BMScreen() {
   const [selectedOS, setSelectedOS] = useState('');
   const [calcResult, setCalcResult] = useState<any>(null);
   const [calcLoading, setCalcLoading] = useState(false);
-  const [bmForm, setBmForm] = useState({ periodo: '', data: '', rev: '0', po_number: '', proposta: '', cod: '', impostos: '0' });
+  const [bmForm, setBmForm] = useState({ data: new Date().toLocaleDateString('pt-BR'), rev: '0', po_number: '', proposta: '', cod: '', incluirImpostos: false, impostoPct: '0' });
 
   // Timesheet selection state
   const [availableTimesheets, setAvailableTimesheets] = useState<any[]>([]);
@@ -37,6 +37,9 @@ export default function BMScreen() {
   // Date filter state
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+
+  // Edit BM state
+  const [editingBMId, setEditingBMId] = useState<string | null>(null);
 
   // Price table state
   const [showPriceForm, setShowPriceForm] = useState(false);
@@ -103,36 +106,75 @@ export default function BMScreen() {
     finally { setCalcLoading(false); }
   };
 
+  const handleEditBM = async (bm: any) => {
+    setEditingBMId(bm.id);
+    setSelectedOS(bm.os_id);
+    const hasImpostos = (bm.impostos || 0) > 0;
+    // Reverse-calculate percentage from stored impostos value
+    const pct = hasImpostos && bm.subtotal > 0 ? String(Math.round((bm.impostos / bm.subtotal) * 10000) / 100) : '0';
+    setBmForm({
+      data: bm.data || new Date().toLocaleDateString('pt-BR'),
+      rev: bm.rev || '0',
+      po_number: bm.po_number || '',
+      proposta: bm.proposta || '',
+      cod: bm.cod || '',
+      incluirImpostos: hasImpostos,
+      impostoPct: pct,
+    });
+    setCalcResult({ items: bm.items, subtotal: bm.subtotal, has_price_table: true });
+    // Load timesheets for the OS
+    setLoadingTimesheets(true);
+    try {
+      const ts = await bmAPI.getTimesheets(bm.os_id);
+      setAvailableTimesheets(ts);
+      setSelectedTimesheets(ts.map((t: any) => t.id));
+    } catch {}
+    finally { setLoadingTimesheets(false); }
+    setShowCreate(true);
+  };
+
   const handleCreateBM = async () => {
-    if (!calcResult || !bmForm.periodo) return showMsg('Preencha o período');
+    if (!calcResult) return showMsg('Calcule primeiro os itens');
     const items = calcResult.items;
     const subtotal = items.reduce((s: number, i: any) => s + i.valor_total, 0);
-    const impostos = parseFloat(bmForm.impostos) || 0;
+    const impostoPct = bmForm.incluirImpostos ? (parseFloat(bmForm.impostoPct) || 0) : 0;
+    const impostos = Math.round(subtotal * impostoPct / 100 * 100) / 100;
+    // Generate periodo from dataInicio/dataFim or calcResult dates
+    const periodoStart = dataInicio || calcResult.data_inicial || '';
+    const periodoEnd = dataFim || calcResult.data_final || '';
+    const periodo = periodoStart && periodoEnd ? `${periodoStart} a ${periodoEnd}` : periodoStart || periodoEnd || new Date().toLocaleDateString('pt-BR');
+    const payload = {
+      os_id: selectedOS,
+      periodo,
+      data: bmForm.data || new Date().toLocaleDateString('pt-BR'),
+      rev: bmForm.rev,
+      po_number: bmForm.po_number,
+      proposta: bmForm.proposta,
+      cod: bmForm.cod,
+      items,
+      subtotal: Math.round(subtotal * 100) / 100,
+      impostos,
+      valor_total: Math.round((subtotal + impostos) * 100) / 100,
+    };
     try {
-      await bmAPI.create({
-        os_id: selectedOS,
-        periodo: bmForm.periodo,
-        data: bmForm.data || new Date().toLocaleDateString('pt-BR'),
-        rev: bmForm.rev,
-        po_number: bmForm.po_number,
-        proposta: bmForm.proposta,
-        cod: bmForm.cod,
-        items,
-        subtotal: Math.round(subtotal * 100) / 100,
-        impostos,
-        valor_total: Math.round((subtotal + impostos) * 100) / 100,
-      });
-      showMsg('Boletim de Medição criado com sucesso!');
+      if (editingBMId) {
+        await bmAPI.update(editingBMId, payload);
+        showMsg('Boletim de Medição atualizado com sucesso!');
+      } else {
+        await bmAPI.create(payload);
+        showMsg('Boletim de Medição criado com sucesso!');
+      }
       setShowCreate(false);
       setCalcResult(null);
       setSelectedOS('');
+      setEditingBMId(null);
       setAvailableTimesheets([]);
       setSelectedTimesheets([]);
       setDataInicio('');
       setDataFim('');
-      setBmForm({ periodo: '', data: '', rev: '0', po_number: '', proposta: '', cod: '', impostos: '0' });
+      setBmForm({ data: new Date().toLocaleDateString('pt-BR'), rev: '0', po_number: '', proposta: '', cod: '', incluirImpostos: false, impostoPct: '0' });
       loadData();
-    } catch { showMsg('Erro ao criar BM'); }
+    } catch { showMsg(editingBMId ? 'Erro ao atualizar BM' : 'Erro ao criar BM'); }
   };
 
   const handleDeleteBM = async (id: string) => {
@@ -149,9 +191,9 @@ export default function BMScreen() {
 
   // Price table functions
   const FUNCTION_OPTIONS = [
+    { code: 'E', name: 'ENGENHEIRO' }, { code: 'EN', name: 'ENCARREGADO' },
     { code: 'Sup', name: 'SUPERVISOR' }, { code: 'T', name: 'TÉCNICO' },
-    { code: 'M', name: 'MECÂNICO' }, { code: 'E', name: 'ELETRICISTA' },
-    { code: 'TS', name: 'TÉCNICO DE SEGURANÇA' },
+    { code: 'M', name: 'MECÂNICO' }, { code: 'TS', name: 'TÉCNICO DE SEGURANÇA' },
   ];
 
   const openPriceForm = (existing?: any) => {
@@ -239,6 +281,9 @@ export default function BMScreen() {
                   <TouchableOpacity style={s.actionBtn} onPress={() => handleOpenPDF(bm.id)} data-testid={`bm-pdf-${bm.id}`}>
                     <Ionicons name="eye-outline" size={18} color="#1a237e" /><Text style={s.actionText}>Ver PDF</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity style={s.actionBtn} onPress={() => handleEditBM(bm)} data-testid={`bm-edit-${bm.id}`}>
+                    <Ionicons name="create-outline" size={18} color="#1a237e" /><Text style={s.actionText}>Editar</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity style={[s.actionBtn, { borderColor: '#d32f2f' }]} onPress={() => handleDeleteBM(bm.id)} data-testid={`bm-delete-${bm.id}`}>
                     <Ionicons name="trash-outline" size={18} color="#d32f2f" /><Text style={[s.actionText, { color: '#d32f2f' }]}>Excluir</Text>
                   </TouchableOpacity>
@@ -288,7 +333,7 @@ export default function BMScreen() {
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
             <ScrollView>
-              <Text style={s.modalTitle}>Novo Boletim de Medição</Text>
+              <Text style={s.modalTitle}>{editingBMId ? 'Editar Boletim de Medição' : 'Novo Boletim de Medição'}</Text>
 
               <Text style={s.label}>Ordem de Serviço</Text>
               <View style={s.pickerWrap}>
@@ -413,10 +458,7 @@ export default function BMScreen() {
                   ))}
                   <Text style={s.calcSubtotal}>Subtotal: {formatCurrency(calcResult.subtotal)}</Text>
 
-                  <Text style={s.label}>Período *</Text>
-                  <TextInput style={s.input} value={bmForm.periodo} onChangeText={v => setBmForm({...bmForm, periodo: v})} placeholder="Ex: Janeiro / 2026" />
-
-                  <Text style={s.label}>Data</Text>
+                  <Text style={s.label}>Data do Boletim</Text>
                   <TextInput style={s.input} value={bmForm.data} onChangeText={v => setBmForm({...bmForm, data: v})} placeholder="DD/MM/AAAA" />
 
                   <Text style={s.label}>Revisão</Text>
@@ -431,16 +473,46 @@ export default function BMScreen() {
                   <Text style={s.label}>CÓD.</Text>
                   <TextInput style={s.input} value={bmForm.cod} onChangeText={v => setBmForm({...bmForm, cod: v})} />
 
-                  <Text style={s.label}>Impostos (R$)</Text>
-                  <TextInput style={s.input} value={bmForm.impostos} onChangeText={v => setBmForm({...bmForm, impostos: v})} keyboardType="numeric" />
+                  {/* Impostos toggle */}
+                  <View style={s.impostoToggleRow}>
+                    <Text style={s.label}>Incluir Impostos?</Text>
+                    <TouchableOpacity
+                      style={[s.impostoToggle, bmForm.incluirImpostos && s.impostoToggleActive]}
+                      onPress={() => setBmForm({...bmForm, incluirImpostos: !bmForm.incluirImpostos})}
+                      data-testid="toggle-impostos"
+                    >
+                      <Text style={[s.impostoToggleText, bmForm.incluirImpostos && { color: '#fff' }]}>
+                        {bmForm.incluirImpostos ? 'Sim' : 'Não'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {bmForm.incluirImpostos && (
+                    <>
+                      <Text style={s.label}>Porcentagem de Impostos (%)</Text>
+                      <TextInput
+                        style={s.input}
+                        value={bmForm.impostoPct}
+                        onChangeText={v => setBmForm({...bmForm, impostoPct: v})}
+                        keyboardType="numeric"
+                        placeholder="Ex: 15"
+                      />
+                      <Text style={s.impostoCalcText}>
+                        Impostos: {formatCurrency(calcResult.subtotal * (parseFloat(bmForm.impostoPct) || 0) / 100)}
+                      </Text>
+                      <Text style={s.calcSubtotal}>
+                        Valor Total: {formatCurrency(calcResult.subtotal + calcResult.subtotal * (parseFloat(bmForm.impostoPct) || 0) / 100)}
+                      </Text>
+                    </>
+                  )}
 
                   <TouchableOpacity style={s.saveBtn} onPress={handleCreateBM}>
-                    <Text style={s.saveBtnText}>Salvar Boletim</Text>
+                    <Text style={s.saveBtnText}>{editingBMId ? 'Atualizar Boletim' : 'Salvar Boletim'}</Text>
                   </TouchableOpacity>
                 </>
               )}
 
-              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); setAvailableTimesheets([]); setSelectedTimesheets([]); setDataInicio(''); setDataFim(''); }}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); setEditingBMId(null); setAvailableTimesheets([]); setSelectedTimesheets([]); setDataInicio(''); setDataFim(''); }}>
                 <Text style={s.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -547,6 +619,12 @@ const s = StyleSheet.create({
   calcFunc: { fontSize: 13, fontWeight: '600', color: '#333' },
   calcDetail: { fontSize: 12, color: '#666', marginTop: 2 },
   calcSubtotal: { fontSize: 15, fontWeight: '700', color: '#1a237e', marginTop: 8, textAlign: 'right' },
+  // Imposto toggle styles
+  impostoToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  impostoToggle: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f5f5f5' },
+  impostoToggleActive: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  impostoToggleText: { fontSize: 13, fontWeight: '600', color: '#666' },
+  impostoCalcText: { fontSize: 13, color: '#666', marginTop: 6, textAlign: 'right' },
   saveBtn: { backgroundColor: '#1a237e', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 16 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   cancelBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 8 },

@@ -807,10 +807,11 @@ async def delete_client_price(price_id: str, current_user: Dict[str, Any] = Depe
 # ==================== BM CALCULATION ====================
 
 FUNCTION_NAMES = {
+    "E": "ENGENHEIRO",
+    "EN": "ENCARREGADO",
     "Sup": "SUPERVISOR",
     "T": "TÉCNICO",
     "M": "MECÂNICO",
-    "E": "ELETRICISTA",
     "TS": "TÉCNICO DE SEGURANÇA",
 }
 
@@ -969,8 +970,8 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
 
 class BMCreate(BaseModel):
     os_id: str
-    periodo: str
-    data: str
+    periodo: str = ""
+    data: str = ""
     rev: str = "0"
     po_number: str = ""
     proposta: str = ""
@@ -1028,6 +1029,27 @@ async def delete_bm(bm_id: str, current_user: Dict[str, Any] = Depends(get_bm_ad
     result = await db.boletins_medicao.delete_one({"_id": ObjectId(bm_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="BM não encontrado")
+    return {"message": "BM excluído com sucesso"}
+
+
+@api_router.put("/bm/{bm_id}")
+async def update_bm(bm_id: str, data: BMCreate, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    existing = await db.boletins_medicao.find_one({"_id": ObjectId(bm_id)})
+    if not existing:
+        raise HTTPException(status_code=404, detail="BM não encontrado")
+    so = await db.service_orders.find_one({"_id": ObjectId(data.os_id)})
+    if not so:
+        raise HTTPException(status_code=404, detail="O.S. não encontrada")
+    update_doc = data.model_dump()
+    update_doc["os_number"] = so.get("os_number", "")
+    update_doc["client"] = so.get("client", "")
+    update_doc["location"] = so.get("location", "")
+    update_doc["service"] = so.get("service", "")
+    update_doc["updated_at"] = datetime.utcnow()
+    await db.boletins_medicao.update_one({"_id": ObjectId(bm_id)}, {"$set": update_doc})
+    update_doc["id"] = bm_id
+    update_doc["updated_at"] = update_doc["updated_at"].isoformat()
+    return update_doc
     return {"message": "BM excluído com sucesso"}
 
 # ==================== BM ACCESS MANAGEMENT ====================

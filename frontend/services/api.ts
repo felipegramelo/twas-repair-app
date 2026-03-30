@@ -213,6 +213,10 @@ export const bmAPI = {
     const response = await api.delete(`/bm/${id}`);
     return response.data;
   },
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/bm/${id}`, data);
+    return response.data;
+  },
   toggleBMAccess: async (userId: string) => {
     const response = await api.put(`/users/admins/${userId}/bm-access`);
     return response.data;

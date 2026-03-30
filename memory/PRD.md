@@ -10,17 +10,28 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - **Supervisor**: Timesheet/Report CRUD only, NO access to BM or OS Archive
 - Permissions managed via toggle badges on the Administradores page
 
+## Functions (Funções)
+- E = ENGENHEIRO
+- EN = ENCARREGADO
+- Sup = SUPERVISOR
+- T = TÉCNICO
+- M = MECÂNICO
+- TS = TÉCNICO DE SEGURANÇA
+- ELETRICISTA was removed
+
 ## Boletim de Medição (BM)
 - Linked to timesheets via Service Order
 - Calculates days worked per function from timesheets
-- Functions: SUPERVISOR (Sup), TECNICO (T), MECANICO (M), ELETRICISTA (E), TECNICO DE SEGURANCA (TS)
-- NO Encanador (EN) - not in timesheets
 - Day/night shift counting based on OS schedule_type (06-18 or 07-19)
 - **Night rate = day rate + 20% (automatic)**
 - Client price table stores only day_rate per function
 - PDF: A4 landscape, report-style border, logo header + "BOLETIM DE MEDICAO", report-style footer
 - **Timesheet Selection**: Admin can select specific timesheets (checkboxes) for BM calculation
 - **Date Pickers**: Calendar date pickers for Data Inicio and Data Fim period filtering
+- **Período auto-gerado**: from Data Início + Data Fim (removed manual input)
+- **Data do Boletim**: auto-fills with today's date, editable
+- **Impostos**: optional toggle (Sim/Não) with percentage input that calculates from subtotal
+- **Edit BM**: Full edit via PUT endpoint, pre-populates modal with existing data
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123 (bm_access=true, os_archive_access=true)
@@ -32,7 +43,7 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - PDF: ReportLab + PyMuPDF/fitz
 - Storage: emergentintegrations object storage
 
-## Completed (as of 2026-03-25)
+## Completed (as of 2026-03-30)
 - [x] Role-based auth (admin/supervisor)
 - [x] Timesheet CRUD + PDF generation
 - [x] Report CRUD with dynamic sections/subsections
@@ -43,13 +54,16 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - [x] Per-admin access control toggles (bm_access + os_archive_access)
 - [x] BM PDF: report-style border/header with logo/footer in landscape
 - [x] BM night rate: automatic +20% over day rate
-- [x] Functions aligned with timesheet (no Encanador)
-- [x] Visual toast "PDF aberto com sucesso!" (green banner)
+- [x] Functions updated: E=ENGENHEIRO, EN=ENCARREGADO, removed ELETRICISTA
+- [x] Visual toast "PDF aberto com sucesso!"
 - [x] Mobile iOS Safari compatibility
 - [x] BM Timesheet Selection: checkboxes to select specific timesheets per OS
 - [x] BM Date Pickers: calendar inputs for Data Inicio / Data Fim period filtering
-- [x] BM Calculate endpoint changed to POST with timesheet_ids, data_inicio, data_fim payload
-- [x] New endpoint GET /api/bm/timesheets/{os_id} for listing available timesheets
+- [x] BM Edit: PUT endpoint + frontend edit modal with pre-populated data
+- [x] BM Período auto-gerado from dates (removed manual input)
+- [x] BM Data do Boletim auto-fills with today's date
+- [x] BM Impostos: toggle Sim/Não with percentage calculation from subtotal
+- [x] Updated existing DB data: Constellation price table corrected
 
 ## Key API Endpoints
 - PUT /api/users/admins/{id}/bm-access - Toggle BM access
@@ -57,6 +71,7 @@ Unify Timesheet Tracker and Service/Daily Report apps into a single "TWAS REPAIR
 - GET /api/bm/timesheets/{os_id} - List timesheets for OS (for selection UI)
 - POST /api/bm/calculate/{os_id} - Calculate BM with selected timesheets and date filters
 - POST /api/bm - Create BM
+- PUT /api/bm/{bm_id} - Update BM
 - GET /api/bm/{id}/pdf - Generate BM PDF with logo
 
 ## Backlog

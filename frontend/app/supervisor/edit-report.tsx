@@ -89,6 +89,8 @@ export default function EditReportScreen() {
   const [currentUploadSection, setCurrentUploadSection] = useState('cover');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfSuccess, setPdfSuccess] = useState(false);
+  const [dailyEntries, setDailyEntries] = useState<Array<{id: string; date: string; description: string}>>([]);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   useEffect(() => { loadReport(); AsyncStorage.getItem('token').then(t => t && setToken(t)); }, []);
 
@@ -97,13 +99,14 @@ export default function EditReportScreen() {
       const [data, photosData] = await Promise.all([reportAPI.getById(id!), reportAPI.getPhotos(id!)]);
       setReport(data); setPeriodoInicio(data.periodo_inicio || ''); setPeriodoFim(data.periodo_fim || '');
       setExecutadoPor(data.executado_por || ''); setOcWo(data.oc_wo || ''); setSections(data.sections || []); setPhotos(photosData);
+      setDailyEntries(data.daily_entries || []);
     } catch { showMsg('Erro ao carregar relatório'); } finally { setLoading(false); }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, oc_wo: ocWo, sections });
+      await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, oc_wo: ocWo, sections, daily_entries: dailyEntries });
       showMsg('Relatório salvo com sucesso!'); router.push('/supervisor');
     } catch (e: any) { showMsg('Erro ao salvar: ' + (e.message || '')); } finally { setSaving(false); }
   };
@@ -153,7 +156,7 @@ export default function EditReportScreen() {
 
   const getPhotoUrl = (sp: string) => reportAPI.getPhotoUrl(sp, token);
   const getPhotosForSection = (sk: string) => photos.filter(p => p.section_key === sk);
-  const canHavePhotos = (sk: string) => !NO_PHOTO_SECTIONS.includes(sk);
+  const canHavePhotos = (sk: string) => !NO_PHOTO_SECTIONS.includes(sk) || sk.startsWith('daily_');
 
   const toggleSection = (sectionKey: string) => {
     setSections(prev => prev.map(s => {
@@ -374,6 +377,98 @@ export default function EditReportScreen() {
                 )}
               </View>);
           })}
+
+          {/* Daily Entries - only for daily reports */}
+          {report?.report_type === 'daily' && (
+            <>
+              <View style={styles.indexHeader}>
+                <Ionicons name="calendar-outline" size={24} color="#2e7d32" />
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                  <Text style={[styles.indexTitle, { color: '#2e7d32' }]}>Entradas Diárias</Text>
+                  <Text style={styles.indexCount}>{dailyEntries.length} dia(s)</Text>
+                </View>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#2e7d32', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, gap: 6 }}
+                  onPress={() => {
+                    const today = new Date().toLocaleDateString('pt-BR');
+                    const newEntry = { id: `day_${Date.now()}`, date: today, description: '' };
+                    setDailyEntries(prev => [...prev, newEntry]);
+                    setExpandedDay(newEntry.id);
+                  }}
+                  data-testid="add-day-btn"
+                >
+                  <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Adicionar Dia</Text>
+                </TouchableOpacity>
+              </View>
+
+              {dailyEntries.length === 0 && (
+                <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                  <Ionicons name="calendar-outline" size={48} color="#ccc" />
+                  <Text style={{ color: '#999', marginTop: 8, fontSize: 13 }}>Nenhuma entrada diária ainda</Text>
+                </View>
+              )}
+
+              {dailyEntries.map((entry, idx) => (
+                <View key={entry.id} style={[styles.card, { borderLeftWidth: 3, borderLeftColor: '#2e7d32' }]}>
+                  <TouchableOpacity
+                    onPress={() => setExpandedDay(expandedDay === entry.id ? null : entry.id)}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                    data-testid={`day-entry-header-${idx}`}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                      <Ionicons name="calendar" size={18} color="#2e7d32" />
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#333' }}>Dia {idx + 1}</Text>
+                      {Platform.OS === 'web' ? (
+                        <input
+                          type="date"
+                          value={entry.date ? entry.date.split('/').reverse().join('-') : ''}
+                          onChange={(e: any) => {
+                            const val = e.target.value;
+                            if (val) {
+                              const [y, m, d] = val.split('-');
+                              setDailyEntries(prev => prev.map(de => de.id === entry.id ? { ...de, date: `${d}/${m}/${y}` } : de));
+                            }
+                          }}
+                          onClick={(e: any) => e.stopPropagation()}
+                          style={{ border: '1px solid #ddd', borderRadius: 6, padding: '4px 8px', fontSize: 13, width: 140 } as any}
+                          data-testid={`day-date-${idx}`}
+                        />
+                      ) : (
+                        <TextInput
+                          style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 13, width: 110 }}
+                          value={entry.date}
+                          onChangeText={(t) => setDailyEntries(prev => prev.map(de => de.id === entry.id ? { ...de, date: t } : de))}
+                          placeholder="DD/MM/AAAA"
+                        />
+                      )}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation && e.stopPropagation(); if (Platform.OS === 'web' && !window.confirm('Excluir esta entrada?')) return; setDailyEntries(prev => prev.filter(de => de.id !== entry.id)); }}
+                        data-testid={`day-delete-${idx}`}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#d32f2f" />
+                      </TouchableOpacity>
+                      <Ionicons name={expandedDay === entry.id ? 'chevron-up' : 'chevron-down'} size={20} color="#666" />
+                    </View>
+                  </TouchableOpacity>
+
+                  {expandedDay === entry.id && (
+                    <View style={{ marginTop: 12 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#555', marginBottom: 6 }}>Descrição das Atividades</Text>
+                      <BulletTextArea
+                        value={entry.description}
+                        onChangeText={(t) => setDailyEntries(prev => prev.map(de => de.id === entry.id ? { ...de, description: t } : de))}
+                        placeholder="Descreva as atividades realizadas neste dia..."
+                      />
+                      {renderPhotoGrid(`daily_${entry.id}`, false)}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </>
+          )}
 
           {/* Save */}
           <TouchableOpacity style={[styles.saveButton, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>

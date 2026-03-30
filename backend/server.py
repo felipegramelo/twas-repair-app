@@ -254,6 +254,7 @@ class ReportUpdate(BaseModel):
     oc_wo: Optional[str] = None
     sections: Optional[List[dict]] = None
     status: Optional[str] = None
+    daily_entries: Optional[List[dict]] = None
 
 
 class ReportResponse(BaseModel):
@@ -1858,8 +1859,14 @@ def get_default_daily_sections(client="", service="", location=""):
         {"key": "introduction", "number": "1", "title": "INTRODUÇÃO", "content": intro_text, "enabled": True, "subsections": []},
         {"key": "equipment", "number": "2", "title": "EQUIPAMENTOS", "content": equip_text, "enabled": True, "subsections": []},
         {"key": "objective", "number": "3", "title": "OBJETIVO", "content": obj_text, "enabled": True, "subsections": []},
-        {"key": "daily_activities", "number": "4", "title": "DESCRIÇÃO DAS ATIVIDADES DIÁRIAS", "content": "", "enabled": True, "subsections": []},
-        {"key": "observations", "number": "5", "title": "OBSERVAÇÕES", "content": "", "enabled": True, "subsections": []},
+        {"key": "service_description", "number": "4", "title": "DESCRIÇÃO DOS SERVIÇOS", "content": "", "enabled": True, "subsections": [
+            {"key": "disassembly", "number": "4.1", "title": "DESMONTAGEM", "content": "", "enabled": True, "subsections": [
+                {"key": "disassembly_photos", "number": "4.1.1", "title": "FOTOS", "content": "", "enabled": True}
+            ]},
+            {"key": "assembly", "number": "4.2", "title": "MONTAGEM", "content": "", "enabled": True, "subsections": [
+                {"key": "assembly_photos", "number": "4.2.1", "title": "FOTOS", "content": "", "enabled": True}
+            ]},
+        ]},
     ]
 
 
@@ -1921,6 +1928,7 @@ async def get_reports(user: dict = Depends(get_current_user)):
             "executado_por": doc.get("executado_por", ""),
             "oc_wo": doc.get("oc_wo", ""),
             "sections": doc.get("sections", []),
+            "daily_entries": doc.get("daily_entries", []),
             "cover_photo": doc.get("cover_photo", ""),
             "status": doc.get("status", "draft"),
             "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
@@ -1947,6 +1955,7 @@ async def get_report_by_id(report_id: str, user: dict = Depends(get_current_user
         "periodo_fim": doc.get("periodo_fim", ""),
         "executado_por": doc.get("executado_por", ""),
         "sections": doc.get("sections", []),
+        "daily_entries": doc.get("daily_entries", []),
         "cover_photo": doc.get("cover_photo", ""),
         "status": doc.get("status", "draft"),
         "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
@@ -1960,7 +1969,7 @@ async def update_report(report_id: str, update: ReportUpdate, user: dict = Depen
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     
     update_data = {}
-    for field in ["periodo_inicio", "periodo_fim", "executado_por", "oc_wo", "sections", "status"]:
+    for field in ["periodo_inicio", "periodo_fim", "executado_por", "oc_wo", "sections", "status", "daily_entries"]:
         value = getattr(update, field, None)
         if value is not None:
             update_data[field] = value

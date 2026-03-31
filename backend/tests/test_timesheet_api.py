@@ -9,7 +9,7 @@ import io
 from datetime import datetime
 from PyPDF2 import PdfReader
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://twas-repair-bm.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://proposal-builder-56.preview.emergentagent.com')
 
 # Test credentials
 SUPERVISOR_EMAIL = "supervisor@twasrepair.com"

@@ -20,7 +20,7 @@ import io
 import re
 
 # Use the public URL for testing
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://twas-repair-bm.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://proposal-builder-56.preview.emergentagent.com')
 REPORT_ID = "69be160fbc3470b8fd2dbe87"
 
 # Test credentials

@@ -8,7 +8,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://twas-repair-bm.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://proposal-builder-56.preview.emergentagent.com').rstrip('/')
 
 class TestTravelCheckboxFeature:
     """Test the travel checkbox feature implementation"""

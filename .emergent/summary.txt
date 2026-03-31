@@ -7,35 +7,39 @@ PRODUCT REQUIREMENTS:
 - Advanced PDF generation engine (ReportLab/PyMuPDF) managing complex page breaks, custom borders, multi-level TOC, embedded images, and signatures.
 - Boletim de Medição (Measurement Bulletin) feature for billing calculation based on timesheet functions and dynamic client pricing.
 - Granular administrative permissions to hide/show specific financial or structural panels.
+- Proposta Comercial (Commercial Proposals) feature with auto-numbering and custom PDF.
 
 **User's preferred language**: Portuguese (pt-BR). INSTRUCT next agent to respond in the user's preferred language only.
 
 **what currently exists?** 
-A full-stack application with a React Native (Expo Web) frontend, a FastAPI backend, and MongoDB. The core functionalities for Reports, Timesheets, and Service Orders are complete. The PDF generation is sophisticated and stable. Recent additions include an Arquivo por O.S. (consolidated document view per Service Order) and a Boletim de Medição (BM) system that automatically calculates service costs based on timesheets and generates landscape billing PDFs. Granular admin controls are implemented.
+A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Core features (Reports, Timesheets, OS Archive, Boletim de Medição) are fully functional. The app has a complete PDF engine. Recent updates introduced a supervisor workflow (supervisors can Finalize documents, locking them out and sending them to the Admin), an Admin Devolver (Revert) workflow, and an overhauled Daily Report featuring daily entries (Entradas Diárias) with photos mapped as sub-sections in the PDF.
 
 **Last working item**:
-    - Last item agent was working: Modifying the Boletim de Medição (BM) calculation flow. The user requested two things: 1) The ability to select *specific* timesheets (via checkboxes) belonging to an OS to include in the BM calculation, rather than calculating all of them automatically. 2) Adding calendar date pickers for selecting the Data Início and Data Fim (Start and End dates) of the BM period.
-    - Status: IN PROGRESS (Just started analyzing files before context limit).
+    - Last item agent was working: Implementing the new Proposta Comercial (Commercial Proposal) feature. The agent had just analyzed the user's PDF template and started reviewing  to add the required backend CRUD, auto-numbering logic, and PDF generation.
+    - Status: IN PROGRESS
     - Agent Testing Done: N
-    - Which testing method agent to use? both (Frontend for the calendar and timesheet selection UI, Backend for the modified  endpoint payload).
+    - Which testing method agent to use? both (Frontend testing agent for UI, backend manual testing for PDF generation and numbering logic).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  Issue 1: BM Timesheet Selection & Calendar Pickers (P0)
-     - Attempted fixes: The agent just checked  and the  endpoint in  to prepare for the changes. No code modifications were made yet.
+  Issue 1: Commercial Proposal Auto-Numbering & PDF Generation (P0)
+     - Attempted fixes: The agent reviewed the required fields from the user's uploaded PDF but did not write the implementation code yet.
      - Next debug checklist: 
-       - : Modify  to optionally accept a list of  (or change to a  endpoint to accept payload), and adjust the date parsing. Also, create an endpoint to fetch available timesheets for a specific OS.
-       - : Add UI to fetch and list available timesheets for the selected OS, allow the user to check/uncheck them, and implement Calendar components (e.g., HTML date inputs or React Native date pickers) for the period selection.
-     - Why fix this issue and what will be achieved with the fix? Gives admins precise control over which timesheets are billed in a specific BM, avoiding duplicate billing if multiple BMs are generated for the same OS over different periods.
+       - : Create endpoints . Implement auto-numbering logic: format is  (e.g., ). *Note: The sequence number is global for the year and resets when the year changes.*
+       - : Build  leveraging the existing ReportLab header/footer structure.
+       - : Add  boolean to User model and admin endpoints.
+       - : Create a new folder/UI page for Commercial Proposals with a creation modal (Fields: Empresa, Pessoa de Contato, Email, Embarcação, Equipamento, and a rich text or section array for the proposal content).
+       - : Add toggle to grant  to admins.
+     - Why fix this issue and what will be achieved with the fix? Fulfills the user's explicit requirement to manage commercial proposals within the app following a strict sequential numbering standard.
      - Status: IN PROGRESS
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: None
 
 **In progress Task List**:
-  Task 1: Allow timesheet selection & add calendar for BM calculation (P0)
-     - Where to resume: Modify the  endpoint logic in  and the calculation UI modal in .
-     - What will be achieved with this? Precise measurement calculations.
+  Task 1: Build Proposta Comercial Feature (P0)
+     - Where to resume: Start by adding the MongoDB collection operations and auto-numbering function in , then create the PDF logic, and finally build the Frontend UI.
+     - What will be achieved with this? Allows admins to generate standard commercial proposals directly from the app.
      - Status: IN PROGRESS
      - Should Test frontend/backend/both after fix? both
      - Blocked on something: None
@@ -43,7 +47,7 @@ A full-stack application with a React Native (Expo Web) frontend, a FastAPI back
 **Upcoming and Future Tasks**:
   Upcoming Tasks:
   - Add  (06-18 / 07-19) in the Service Orders (OS) UI (P1).
-  - Refactor  (P1): The file is now approaching 3000 lines. It urgently needs to be modularized (e.g., , , ).
+  - Refactor  (P1): The file is now over 3150 lines and contains all routes, DB logic, and PDF generation. It urgently needs to be split into a modular structure (e.g., , , ).
   
   Future Tasks:
   - Refactor  into smaller, reusable components (P2).
@@ -51,24 +55,20 @@ A full-stack application with a React Native (Expo Web) frontend, a FastAPI back
   - EAS Build (P2): Prepare  and  for App Store and Play Store deployment.
 
 **Completed work in this session**:
-- Tested and verified 10 pending PDF layout changes from the previous fork (signatures, borders, alignment).
-- Implemented **Arquivo por O.S.** for admins to view consolidated Timesheets and Reports under a specific Service Order. Cleaned up the Admin dashboard.
-- Implemented **Boletim de Medição (BM)** system:
-  - Added Client Price Tables (CRUD).
-  - Automated calculation mapping timesheet functions to daily rates.
-  - Implemented automatic +20% calculation for night shift functions.
-  - Built a new landscape PDF generation system specifically for BMs with the TWAS logo and custom layout.
-- Added **Granular Admin Access Controls**: Added  and  flags. Added UI toggles in the Admins page to grant/revoke these permissions dynamically.
-- Implemented a visual UI toast notification replacing  for PDF success messages.
+- **Boletim de Medição (BM) Improvements**: Added timesheet selection via checkboxes, auto-filled Data fields (removed Periodo input), updated function names (E=ENGENHEIRO, EN=ENCARREGADO, removed ELETRICISTA), implemented BM editing via PUT endpoint, and added optional tax percentage calculation.
+- **Daily Reports Overhaul**: Removed NDT/Pressure/Satisfaction Evaluation from Daily Reports. Implemented Entradas Diárias (Daily Entries) with checkboxes to select which days are rendered in the PDF. Each day renders as a subsection (4.1, 4.2) inside the Service Description section. Auto-calculates Data Fim based on the last entry.
+- **Supervisor vs Admin Workflow**: Implemented  ('draft' or 'finalized') for Timesheets and Reports. Added a Finalizar button for Supervisors. Once finalized, documents move from the Supervisor dashboard to the Admin Arquivo por O.S. dashboard. Added a Devolver (Revert) button for Admins to return documents to 'draft' status for the supervisor.
+- **Timesheets**: Added a Duplicar (Duplicate) button.
+- **PDF Fixes**: Fixed alignment issues in the Service Report Satisfaction Evaluation page (fields are now perfectly aligned with the text block below, extended divider lines, added padding to the table).
 
 **Earlier issues found/mentioned but not fixed**:
-  - None active. The app performs well, but the user noticed minor slowness when generating PDFs. The agent noted this is due to preview environment constraints and will be faster in production, but no explicit optimization fix was applied yet.
+  - None.
 
 **Known issue recurrence from previous fork**:
   - Issue recurrence in previous fork: **Aggressive Expo Metro Caching**.
-  - Recurrence count: 3+
-  - Status: IN PROGRESS (Agent frequently had to use  and  bash commands to force the UI to update during testing).
-  - Note: Next agent must proactively restart Expo using bash if UI changes do not appear in screenshots.
+  - Recurrence count: 5+
+  - Status: IN PROGRESS (Agent frequently had to use  and  bash commands to force the UI to update during testing, as state/API changes sometimes failed to reflect instantly on the frontend).
+  - Note: Next agent must proactively restart Expo using bash if frontend structural changes do not appear.
 
 **Code Architecture**:
 
@@ -76,39 +76,36 @@ A full-stack application with a React Native (Expo Web) frontend, a FastAPI back
 **Key Technical Concepts**:
 - **Frontend**: React Native for Web (Expo Router), TypeScript.
 - **Backend**: FastAPI, MongoDB ().
-- **PDF Generation**: ReportLab (layout/drawing) + PyMuPDF ( - for post-processing and page numbering).
-- **Authentication**: JWT-based, stored in AsyncStorage, passed via HTTP Bearer and query strings (for mobile PDF handling).
+- **PDF Generation**: ReportLab (layout/drawing) + PyMuPDF ().
 
 **key DB schema**:
-  - : { , , , ,  (bool),  (bool) }
-  - : { , , , , , , ... }
-  - : { , , ,  (employee, function, times), ... }
-  - : { , , : { :  } }
-  -  (Boletim de Medição): { , , , , , ... }
+  - : { , , , , , ,  (to be added) }
+  - : { , , ,  (draft/finalized), : [{id, date, content, photos}], ... }
+  - : { , ,  (draft/finalized), , ... }
+  -  (To be created): { ,  (e.g. 2605 - 10), , , , , , ,  }
 
 **changes in tech stack**:
   - None.
 
 **All files of reference**:
-  - : Contains endpoints for BM () and PDF logic.
-  - : BM dashboard and calculation modal.
-  - : Admin permission management.
-  - : UI for report editing (recently updated with toast).
+  - : Contains API endpoints and PDF logic.
+  - : API service wrappers.
+  - : Supervisor dashboard handling finalized document visibility.
+  - : Admin view for finalized documents.
 
 **Areas that need refactoring**:
-  - : P1 Priority. Needs split into routes, models, and PDF utils.
-  - : Very large component, needs splitting.
+  - : P1 Priority. 3150+ lines monolith.
+  - : Huge file with complex photo upload state management.
 
 **key api endpoints**:
-  - : Evaluates timesheets for an OS and calculates the billing amount. (CURRENTLY BEING MODIFIED).
-  - : Generates the landscape BM PDF.
-  - : Fetches consolidated documents by OS.
+  - : Marks a report as finalized.
+  - : Marks a timesheet as finalized.
+  - : Admin endpoint to revert a report to draft.
 
 **Critical Info for New Agent**:
-  - The immediate task is to update the BM calculation flow. You need an endpoint to list timesheets for an OS so the user can select them via checkboxes in . Then, pass those selected IDs and calendar dates to the backend to calculate the total.
-  - The night shift +20% calculation rule is already implemented in the backend; you do not need to build it again, just maintain it when altering the  endpoint.
-  - Restart the Expo server manually via bash (expo: ERROR (not running)
-expo: started or stopping/starting via bash script) if your frontend changes aren't rendering.
+  - The next task is the **Commercial Proposal (Proposta Comercial)**. Do not forget the exact numbering requirement: **** (where Seq is a sequential number for the year, e.g., 2605 - 10. The next one is 2605 - 11. If the year changes to 2027, it should reset to 2701 - 01).
+  - Ensure you create the  flag inside the  collection to allow admins to view this new dashboard, matching the pattern used for  and .
+  - Supervisor workflows depend on the  flag ( vs ). Ensure any new features regarding supervisors respect this visibility state.
 
 **documents and test reports created in this job**:
   - 
@@ -118,33 +115,33 @@ expo: started or stopping/starting via bash script) if your frontend changes are
   - 
 
 **Last 10 User Messages and any pending HUMAN messages**:
-1. **(PENDING)** User requests modifications to the BM: Select specific timesheets for an OS to calculate, and use calendar pickers for the start and end dates.
-2. User says pode (yes) to proceed with the BM calculation changes.
-3. User notices Encanador is missing from timesheet but shouldn't be in BM. Requests +20% automatic calculation for night shift functions and adding the TWAS logo to the BM PDF header.
-4. User complains the PDF success message isn't showing and PDFs are slow to open.
-5. User asks for the preview link.
-6. User requests granular permissions for Boletim de Medição and Arquivo por O.S. per admin, and requests the BM PDF to be in landscape with the TWAS logo, similar to the service report border.
-7. User requests removing Timesheets, Service Reports, and Daily Reports cards from the admin dashboard since Arquivo por OS handles this, and reports the back button in Arquivo por OS is broken.
-8. User asks to create a Boletim de Medição card in the Admin dashboard, sharing a PDF model and rules (different pricing per client/day/night).
-9. User asks if there is a storage limit for the app (Object Storage).
-10. User asks for the preview link.
+1. **(PENDING)** User requests a new Proposta Comercial (Commercial Proposal) feature with restricted access, specific fields (Empresa, contato, embarcação, etc.), custom PDF generation with header/footer, and auto-numbering rule (YYMM - Seq).
+2. User complains the duplicate timesheet button and revert button didn't appear. Agent fixes visibility rules (Supervisor only sees 'draft', Admin only sees 'finalized').
+3. User reports PDF alignment issues in the Client Satisfaction page. Agent corrects ReportLab layout paddings.
+4. User requests Finalize button for supervisors (locks document, moves it to Admin) and Devolver (Revert) button for Admins, plus a Duplicate Timesheet button.
+5. User clarifies they want to pick which daily entries go to the PDF via checkboxes, and auto-calculate Data Fim.
+6. User mentions daily entries should act as subsections (e.g., 4.1) under Service Description, and no Client Satisfaction evaluation is needed for daily reports.
+7. User asks to remove the (Assembly/Disassembly) subsections from Daily Reports to make way for the daily entries logic.
+8. User asks for Daily Reports to have the same format as Service Reports (Intro, Equip, Objective, Description) plus daily entries with photos.
+9. User asks for preview login links.
+10. User corrects BM function names (E=ENGENHEIRO, EN=ENCARREGADO, removes ELETRICISTA) and asks to allow editing of existing BMs.
 
 **Project Health Check**:
-- **Working**: Backend, PDF generation, OS Archive, BM calculation.
-- **In Progress/Needs Work**: The new timesheet selector and calendar picker for BM calculation.
+- **Working**: Backend, Timesheets, Service/Daily Reports, PDF Engine, Admin/Supervisor Workflow, Boletim de Medição.
+- **In Progress**: Proposta Comercial.
 
 **3rd Party Integrations**:
 - Emergent Object Storage — uses Emergent LLM Key.
 
 **Testing status**:
-  - Testing agent used after significant changes: YES (Iterations 19-22)
+  - Testing agent used after significant changes: YES (Iterations 23-26)
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created:  to .
-  - Known regressions: None active.
+  - Known regressions: None.
 
 **Credentials to test flow**:
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
 **What agent forgot to execute**:
-The agent stopped exactly after agreeing to the user's request to add timesheet selection and calendar date pickers for the BM calculation. No actual code modifications were started for this specific feature yet.</analysis>
+The agent gathered the PDF requirements and the logic for the Proposta Comercial feature but ran out of context before writing any code. The next agent must start directly with implementing this feature.</analysis>

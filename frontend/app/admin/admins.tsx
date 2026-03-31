@@ -6,7 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { adminAPI, bmAPI } from '../../services/api';
+import { adminAPI, bmAPI, proposalAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { User } from '../../types';
 
@@ -121,6 +121,13 @@ export default function AdminsScreen() {
     } catch { if (Platform.OS === 'web') window.alert('Erro ao alterar acesso'); }
   };
 
+  const togglePropostaAccess = async (admin: User) => {
+    try {
+      await proposalAPI.togglePropostaAccess(admin.id);
+      loadAdmins();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao alterar acesso'); }
+  };
+
   const renderAdmin = ({ item }: { item: User }) => (
     <View style={s.card} data-testid={`admin-card-${item.id}`}>
       <View style={s.cardContent}>
@@ -139,6 +146,10 @@ export default function AdminsScreen() {
         <TouchableOpacity style={[s.permBadge, item.os_archive_access && s.permActive]} onPress={() => toggleOSArchiveAccess(item)} data-testid={`toggle-os-archive-${item.id}`}>
           <Ionicons name="folder-open" size={14} color={item.os_archive_access ? '#fff' : '#999'} />
           <Text style={[s.permText, item.os_archive_access && s.permTextActive]}>Arquivo O.S.</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.permBadge, item.proposta_access && s.permActive]} onPress={() => togglePropostaAccess(item)} data-testid={`toggle-proposta-${item.id}`}>
+          <Ionicons name="document-text" size={14} color={item.proposta_access ? '#fff' : '#999'} />
+          <Text style={[s.permText, item.proposta_access && s.permTextActive]}>Propostas</Text>
         </TouchableOpacity>
       </View>
       <View style={s.cardActions}>

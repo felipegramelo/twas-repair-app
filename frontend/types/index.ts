@@ -5,6 +5,28 @@ export interface User {
   role: 'admin' | 'supervisor';
   bm_access?: boolean;
   os_archive_access?: boolean;
+  proposta_access?: boolean;
+}
+
+export interface ProposalItem {
+  id: string;
+  titulo: string;
+  descricao: string;
+  valor?: number;
+}
+
+export interface Proposal {
+  id: string;
+  numero_proposta: string;
+  empresa: string;
+  contato: string;
+  email: string;
+  embarcacao: string;
+  equipamento: string;
+  itens: ProposalItem[];
+  observacoes?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Employee {

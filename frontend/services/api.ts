@@ -237,6 +237,42 @@ export const bmAPI = {
 
 export default api;
 
+// Proposal API
+export const proposalAPI = {
+  getAll: async () => {
+    const response = await api.get('/proposals');
+    return response.data;
+  },
+  getById: async (id: string) => {
+    const response = await api.get(`/proposals/${id}`);
+    return response.data;
+  },
+  create: async (data: any) => {
+    const response = await api.post('/proposals', data);
+    return response.data;
+  },
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/proposals/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/proposals/${id}`);
+    return response.data;
+  },
+  downloadPDF: async (id: string, tipo: string = 'comercial'): Promise<Blob> => {
+    const response = await api.get(`/proposals/${id}/pdf?tipo=${tipo}&t=${Date.now()}`, {
+      responseType: 'blob',
+      headers: { 'Cache-Control': 'no-cache' },
+      timeout: 120000,
+    });
+    return response.data;
+  },
+  togglePropostaAccess: async (userId: string) => {
+    const response = await api.put(`/users/admins/${userId}/proposta-access`);
+    return response.data;
+  },
+};
+
 // Report API (local backend)
 export const reportAPI = {
   getAll: async () => {

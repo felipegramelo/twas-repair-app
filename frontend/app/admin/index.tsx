@@ -72,6 +72,18 @@ export default function AdminDashboard() {
             </TouchableOpacity>
           )}
 
+          {user?.proposta_access && (
+            <TouchableOpacity
+              style={[styles.card, { borderWidth: 2, borderColor: '#2e7d32' }]}
+              onPress={() => router.push('/admin/propostas')}
+              data-testid="admin-propostas-card"
+            >
+              <Ionicons name="briefcase" size={40} color="#2e7d32" />
+              <Text style={styles.cardTitle}>Propostas Comerciais</Text>
+              <Text style={styles.cardDescription}>Gerar propostas comerciais e técnicas</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push('/admin/service-orders')}

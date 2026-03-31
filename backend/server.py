@@ -140,6 +140,7 @@ class UserResponse(BaseModel):
     name: str
     bm_access: Optional[bool] = False
     os_archive_access: Optional[bool] = False
+    proposta_access: Optional[bool] = False
 
 
 class Token(BaseModel):
@@ -347,7 +348,8 @@ async def register(user_data: UserCreate):
             role=user_dict["role"],
             name=user_dict["name"],
             bm_access=user_dict.get("bm_access", False),
-            os_archive_access=user_dict.get("os_archive_access", False)
+            os_archive_access=user_dict.get("os_archive_access", False),
+            proposta_access=user_dict.get("proposta_access", False)
         )
     )
 
@@ -370,7 +372,8 @@ async def login(user_data: UserLogin):
             role=user["role"],
             name=user["name"],
             bm_access=user.get("bm_access", False),
-            os_archive_access=user.get("os_archive_access", False)
+            os_archive_access=user.get("os_archive_access", False),
+            proposta_access=user.get("proposta_access", False)
         )
     )
 
@@ -384,6 +387,7 @@ async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
         "name": current_user["name"],
         "bm_access": current_user.get("bm_access", False),
         "os_archive_access": current_user.get("os_archive_access", False),
+        "proposta_access": current_user.get("proposta_access", False),
     }
 
 
@@ -523,7 +527,8 @@ async def get_admins(current_user: Dict[str, Any] = Depends(get_admin_user)):
         role=user["role"],
         name=user["name"],
         bm_access=user.get("bm_access", False),
-        os_archive_access=user.get("os_archive_access", False)
+        os_archive_access=user.get("os_archive_access", False),
+        proposta_access=user.get("proposta_access", False)
     ) for user in admins]
 
 
@@ -538,6 +543,7 @@ async def create_admin(admin_data: SupervisorCreate, current_user: Dict[str, Any
     user_dict["created_at"] = datetime.utcnow()
     user_dict["bm_access"] = False
     user_dict["os_archive_access"] = False
+    user_dict["proposta_access"] = False
     result = await db.users.insert_one(user_dict)
     return UserResponse(
         id=str(result.inserted_id),
@@ -545,7 +551,8 @@ async def create_admin(admin_data: SupervisorCreate, current_user: Dict[str, Any
         role=user_dict["role"],
         name=user_dict["name"],
         bm_access=False,
-        os_archive_access=False
+        os_archive_access=False,
+        proposta_access=False
     )
 
 
@@ -570,7 +577,8 @@ async def update_admin(user_id: str, admin_data: SupervisorUpdate, current_user:
         role=updated_user["role"],
         name=updated_user["name"],
         bm_access=updated_user.get("bm_access", False),
-        os_archive_access=updated_user.get("os_archive_access", False)
+        os_archive_access=updated_user.get("os_archive_access", False),
+        proposta_access=updated_user.get("proposta_access", False)
     )
 
 
@@ -1072,6 +1080,15 @@ async def toggle_os_archive_access(user_id: str, current_user: Dict[str, Any] = 
     new_access = not user.get("os_archive_access", False)
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"os_archive_access": new_access}})
     return {"os_archive_access": new_access}
+
+@api_router.put("/users/admins/{user_id}/proposta-access")
+async def toggle_proposta_access(user_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user or user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=404, detail="Administrador não encontrado")
+    new_access = not user.get("proposta_access", False)
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"proposta_access": new_access}})
+    return {"proposta_access": new_access}
 
 # ==================== BM PDF GENERATION ====================
 
@@ -3116,6 +3133,492 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename=relatorio_{report.get('os_number', 'report')}.pdf",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        }
+    )
+
+
+# ==================== PROPOSTA COMERCIAL (PROPOSALS) ====================
+
+class ProposalItemModel(BaseModel):
+    id: str = ""
+    titulo: str
+    descricao: str = ""
+    valor: Optional[float] = 0.0
+
+class ProposalCreate(BaseModel):
+    empresa: str
+    contato: str
+    email: str = ""
+    embarcacao: str = ""
+    equipamento: str = ""
+    itens: List[ProposalItemModel] = []
+    observacoes: str = ""
+
+class ProposalUpdate(BaseModel):
+    empresa: Optional[str] = None
+    contato: Optional[str] = None
+    email: Optional[str] = None
+    embarcacao: Optional[str] = None
+    equipamento: Optional[str] = None
+    itens: Optional[List[ProposalItemModel]] = None
+    observacoes: Optional[str] = None
+
+async def generate_proposal_number() -> str:
+    """Generate auto-numbering: YYMM - Seq (seq is global for the year, resets on new year)."""
+    now = datetime.utcnow()
+    yy = now.strftime("%y")
+    mm = now.strftime("%m")
+    year_start = datetime(now.year, 1, 1)
+    year_end = datetime(now.year + 1, 1, 1)
+    count = await db.propostas.count_documents({
+        "created_at": {"$gte": year_start, "$lt": year_end}
+    })
+    seq = count + 1
+    return f"{yy}{mm} - {seq:02d}"
+
+@api_router.post("/proposals")
+async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("proposta_access", False):
+        raise HTTPException(status_code=403, detail="Acesso negado. Permissão de Propostas não habilitada.")
+    numero = await generate_proposal_number()
+    now = datetime.utcnow()
+    itens = []
+    for item in data.itens:
+        itens.append({
+            "id": item.id or str(uuid.uuid4()),
+            "titulo": item.titulo,
+            "descricao": item.descricao,
+            "valor": item.valor or 0.0,
+        })
+    doc = {
+        "numero_proposta": numero,
+        "empresa": data.empresa,
+        "contato": data.contato,
+        "email": data.email,
+        "embarcacao": data.embarcacao,
+        "equipamento": data.equipamento,
+        "itens": itens,
+        "observacoes": data.observacoes,
+        "created_by": current_user["_id"],
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = await db.propostas.insert_one(doc)
+    return {
+        "id": str(result.inserted_id),
+        "numero_proposta": numero,
+        "empresa": data.empresa,
+        "contato": data.contato,
+        "email": data.email,
+        "embarcacao": data.embarcacao,
+        "equipamento": data.equipamento,
+        "itens": itens,
+        "observacoes": data.observacoes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+
+@api_router.get("/proposals")
+async def list_proposals(current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("proposta_access", False):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    proposals = await db.propostas.find({}, {"_id": 1, "numero_proposta": 1, "empresa": 1, "contato": 1, "email": 1, "embarcacao": 1, "equipamento": 1, "itens": 1, "observacoes": 1, "created_at": 1, "updated_at": 1}).sort("created_at", -1).to_list(500)
+    result = []
+    for p in proposals:
+        result.append({
+            "id": str(p["_id"]),
+            "numero_proposta": p.get("numero_proposta", ""),
+            "empresa": p.get("empresa", ""),
+            "contato": p.get("contato", ""),
+            "email": p.get("email", ""),
+            "embarcacao": p.get("embarcacao", ""),
+            "equipamento": p.get("equipamento", ""),
+            "itens": p.get("itens", []),
+            "observacoes": p.get("observacoes", ""),
+            "created_at": p.get("created_at", "").isoformat() if p.get("created_at") else "",
+            "updated_at": p.get("updated_at", "").isoformat() if p.get("updated_at") else "",
+        })
+    return result
+
+@api_router.get("/proposals/{proposal_id}")
+async def get_proposal(proposal_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("proposta_access", False):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    p = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
+    if not p:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    return {
+        "id": str(p["_id"]),
+        "numero_proposta": p.get("numero_proposta", ""),
+        "empresa": p.get("empresa", ""),
+        "contato": p.get("contato", ""),
+        "email": p.get("email", ""),
+        "embarcacao": p.get("embarcacao", ""),
+        "equipamento": p.get("equipamento", ""),
+        "itens": p.get("itens", []),
+        "observacoes": p.get("observacoes", ""),
+        "created_at": p.get("created_at", "").isoformat() if p.get("created_at") else "",
+        "updated_at": p.get("updated_at", "").isoformat() if p.get("updated_at") else "",
+    }
+
+@api_router.put("/proposals/{proposal_id}")
+async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("proposta_access", False):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    p = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
+    if not p:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    update_dict = {"updated_at": datetime.utcnow()}
+    if data.empresa is not None:
+        update_dict["empresa"] = data.empresa
+    if data.contato is not None:
+        update_dict["contato"] = data.contato
+    if data.email is not None:
+        update_dict["email"] = data.email
+    if data.embarcacao is not None:
+        update_dict["embarcacao"] = data.embarcacao
+    if data.equipamento is not None:
+        update_dict["equipamento"] = data.equipamento
+    if data.observacoes is not None:
+        update_dict["observacoes"] = data.observacoes
+    if data.itens is not None:
+        itens = []
+        for item in data.itens:
+            itens.append({
+                "id": item.id or str(uuid.uuid4()),
+                "titulo": item.titulo,
+                "descricao": item.descricao,
+                "valor": item.valor or 0.0,
+            })
+        update_dict["itens"] = itens
+    await db.propostas.update_one({"_id": ObjectId(proposal_id)}, {"$set": update_dict})
+    updated = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
+    return {
+        "id": str(updated["_id"]),
+        "numero_proposta": updated.get("numero_proposta", ""),
+        "empresa": updated.get("empresa", ""),
+        "contato": updated.get("contato", ""),
+        "email": updated.get("email", ""),
+        "embarcacao": updated.get("embarcacao", ""),
+        "equipamento": updated.get("equipamento", ""),
+        "itens": updated.get("itens", []),
+        "observacoes": updated.get("observacoes", ""),
+        "created_at": updated.get("created_at", "").isoformat() if updated.get("created_at") else "",
+        "updated_at": updated.get("updated_at", "").isoformat() if updated.get("updated_at") else "",
+    }
+
+@api_router.delete("/proposals/{proposal_id}")
+async def delete_proposal(proposal_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("proposta_access", False):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    result = await db.propostas.delete_one({"_id": ObjectId(proposal_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    return {"message": "Proposta excluída com sucesso"}
+
+# ==================== PROPOSAL PDF GENERATION ====================
+
+@api_router.get("/proposals/{proposal_id}/pdf")
+async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="comercial"), token: Optional[str] = Query(None), credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))):
+    """Generate PDF for a proposal. tipo='comercial' includes prices, tipo='tecnica' excludes prices."""
+    actual_token = token
+    if not actual_token and credentials:
+        actual_token = credentials.credentials
+    if not actual_token:
+        raise HTTPException(status_code=401, detail="Token required")
+    try:
+        payload = jwt.decode(actual_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user or user.get("role") != UserRole.ADMIN or not user.get("proposta_access", False):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    proposal = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+
+    is_comercial = tipo != "tecnica"
+    pdf_title = "PROPOSTA COMERCIAL" if is_comercial else "PROPOSTA TÉCNICA"
+
+    buf = io.BytesIO()
+    page_width, page_height = A4
+    border_margin = 1.0 * cm
+    content_left = 2.03 * cm
+    content_right = 2.03 * cm
+    content_width = page_width - content_left - content_right
+
+    logo_path = ROOT_DIR / "../logo.bmp"
+    logo_image = None
+    if logo_path.exists():
+        try:
+            pil_img = PILImage.open(logo_path)
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            temp_logo = io.BytesIO()
+            pil_img.save(temp_logo, format='JPEG')
+            temp_logo.seek(0)
+            logo_image = temp_logo
+        except Exception:
+            pass
+
+    page_counter = [0]
+
+    def draw_proposal_page(canvas_obj, doc_obj, page_num):
+        canvas_obj.saveState()
+
+        # === PAGE BORDER ===
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(border_margin, border_margin, page_width - 2 * border_margin, page_height - 2 * border_margin)
+
+        # === WATERMARK ===
+        if logo_image:
+            logo_image.seek(0)
+            from reportlab.lib.utils import ImageReader
+            img_reader = ImageReader(logo_image)
+            canvas_obj.saveState()
+            canvas_obj.setFillAlpha(0.06)
+            wm_w = content_width * 1.15
+            wm_h = wm_w * 0.35
+            wm_x = content_left + (content_width - wm_w) / 2
+            wm_y = (page_height - wm_h) / 2
+            canvas_obj.drawImage(img_reader, wm_x, wm_y, width=wm_w, height=wm_h, preserveAspectRatio=True, mask='auto')
+            canvas_obj.restoreState()
+
+        # === HEADER BOX ===
+        header_top = page_height - border_margin - 0.4 * cm
+        header_height = 2.1 * cm
+        header_bottom = header_top - header_height
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(content_left, header_bottom, content_width, header_height)
+
+        # Logo
+        if logo_image:
+            logo_image.seek(0)
+            from reportlab.lib.utils import ImageReader
+            img_reader = ImageReader(logo_image)
+            logo_h = 1.7 * cm
+            logo_y = header_top - 0.25 * cm - logo_h
+            canvas_obj.drawImage(img_reader, content_left + 0.1 * cm, logo_y, width=3.5 * cm, height=logo_h, preserveAspectRatio=True)
+
+        # Center title
+        canvas_obj.setFont("Helvetica-Bold", 13)
+        canvas_obj.drawCentredString(page_width / 2, header_bottom + 1.6 * cm, pdf_title)
+        canvas_obj.setFont("Helvetica", 7)
+        canvas_obj.drawCentredString(page_width / 2, header_bottom + 1.15 * cm, f"N\u00ba {proposal.get('numero_proposta', '')}")
+
+        # Right side details
+        right_x = content_left + content_width - 0.15 * cm
+        detail_y = header_top - 0.45 * cm
+        line_h = 0.35 * cm
+
+        def _draw_right_label(label, value, y_pos):
+            canvas_obj.setFont("Helvetica", 8)
+            val_w = canvas_obj.stringWidth(value, "Helvetica", 8)
+            canvas_obj.drawRightString(right_x, y_pos, value)
+            canvas_obj.setFont("Helvetica-Bold", 8)
+            canvas_obj.drawRightString(right_x - val_w - 3, y_pos, label)
+
+        from datetime import datetime as dt_parse
+        date_str = dt_parse.utcnow().strftime("%d/%m/%Y")
+        _draw_right_label("Data:", date_str, detail_y)
+        detail_y -= line_h
+        _draw_right_label("Rev:", "0", detail_y)
+
+        # === FOOTER BOX ===
+        footer_bottom = border_margin + 0.5 * cm
+        footer_height = 1.4 * cm
+        footer_top = footer_bottom + footer_height
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(content_left, footer_bottom, content_width, footer_height)
+
+        center_x = page_width / 2
+        y = footer_top - 0.45 * cm
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawCentredString(center_x, y, "TWAS REPAIR SERVI\u00c7OS NAVAIS E INDUSTRIAIS LTDA")
+        y -= 0.3 * cm
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N\u00b0 84, Boa Vista, S\u00e3o Gon\u00e7alo, Rio de Janeiro - CEP.: 24.466-180.")
+        y -= 0.28 * cm
+        canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com - www.twasrepair.com")
+
+        canvas_obj.restoreState()
+
+    def on_first_page_prop(c, d):
+        page_counter[0] = 1
+        draw_proposal_page(c, d, 1)
+
+    def on_later_pages_prop(c, d):
+        page_counter[0] += 1
+        draw_proposal_page(c, d, page_counter[0])
+
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        topMargin=border_margin + 3.1 * cm,
+        bottomMargin=border_margin + 2.1 * cm,
+        leftMargin=content_left,
+        rightMargin=content_right,
+    )
+
+    styles = getSampleStyleSheet()
+    body_style = ParagraphStyle('PropBody', parent=styles['Normal'], fontSize=9, leading=13, spaceAfter=3, alignment=TA_JUSTIFY, textColor=colors.black)
+    label_style = ParagraphStyle('PropLabel', parent=styles['Normal'], fontSize=9, textColor=colors.black, fontName='Helvetica-Bold')
+    section_style = ParagraphStyle('PropSec', parent=styles['Heading2'], fontSize=10, textColor=colors.black, spaceBefore=12, spaceAfter=5, fontName='Helvetica-Bold')
+    th_style = ParagraphStyle('PropTH', fontSize=8, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.white)
+    td_style = ParagraphStyle('PropTD', fontSize=8, alignment=TA_LEFT, textColor=colors.black, leading=10)
+    td_right = ParagraphStyle('PropTDR', fontSize=8, alignment=TA_RIGHT, textColor=colors.black)
+
+    elements = []
+
+    # === CLIENT INFO TABLE ===
+    info_data = [
+        [Paragraph("<b>Empresa:</b>", label_style), Paragraph(proposal.get("empresa", ""), body_style)],
+        [Paragraph("<b>A/C:</b>", label_style), Paragraph(proposal.get("contato", ""), body_style)],
+        [Paragraph("<b>Email:</b>", label_style), Paragraph(proposal.get("email", ""), body_style)],
+        [Paragraph("<b>Embarca\u00e7\u00e3o:</b>", label_style), Paragraph(proposal.get("embarcacao", ""), body_style)],
+        [Paragraph("<b>Equipamento:</b>", label_style), Paragraph(proposal.get("equipamento", ""), body_style)],
+    ]
+    info_table = Table(info_data, colWidths=[content_width * 0.2, content_width * 0.8])
+    info_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F5F5F5')),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 0.5 * cm))
+
+    # === ITEMS TABLE ===
+    itens = proposal.get("itens", [])
+    if is_comercial:
+        header_row = [
+            Paragraph("Item", th_style),
+            Paragraph("Descri\u00e7\u00e3o", th_style),
+            Paragraph("Valor (R$)", th_style),
+        ]
+        col_widths = [content_width * 0.08, content_width * 0.72, content_width * 0.20]
+    else:
+        header_row = [
+            Paragraph("Item", th_style),
+            Paragraph("Descri\u00e7\u00e3o", th_style),
+        ]
+        col_widths = [content_width * 0.08, content_width * 0.92]
+
+    table_data = [header_row]
+    total_valor = 0.0
+    for idx, item in enumerate(itens):
+        desc_text = f"<b>{item.get('titulo', '')}</b>"
+        if item.get('descricao'):
+            desc_text += f"<br/>{item['descricao']}"
+        if is_comercial:
+            valor = item.get("valor", 0.0) or 0.0
+            total_valor += valor
+            table_data.append([
+                Paragraph(str(idx + 1), ParagraphStyle('ItemNum', fontSize=8, alignment=TA_CENTER)),
+                Paragraph(desc_text, td_style),
+                Paragraph(format_currency(valor), td_right),
+            ])
+        else:
+            table_data.append([
+                Paragraph(str(idx + 1), ParagraphStyle('ItemNum', fontSize=8, alignment=TA_CENTER)),
+                Paragraph(desc_text, td_style),
+            ])
+
+    items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]
+    for i in range(1, len(table_data)):
+        if i % 2 == 0:
+            style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8F8F8')))
+    items_table.setStyle(TableStyle(style_cmds))
+    elements.append(Paragraph("Escopo dos Servi\u00e7os", section_style))
+    elements.append(items_table)
+
+    # Total row for comercial
+    if is_comercial and itens:
+        elements.append(Spacer(1, 0.2 * cm))
+        total_table = Table([
+            [Paragraph("<b>VALOR TOTAL</b>", ParagraphStyle('TotalLabel', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+             Paragraph(f"<b>{format_currency(total_valor)}</b>", ParagraphStyle('TotalVal', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT))]
+        ], colWidths=[content_width * 0.80, content_width * 0.20])
+        total_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#1a237e')),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#E8EAF6')),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(total_table)
+
+    # === OBSERVATIONS ===
+    obs = proposal.get("observacoes", "")
+    if obs:
+        elements.append(Spacer(1, 0.5 * cm))
+        elements.append(Paragraph("Observa\u00e7\u00f5es", section_style))
+        import html as html_mod
+        obs_escaped = html_mod.escape(obs).replace('\n', '<br/>')
+        elements.append(Paragraph(obs_escaped, body_style))
+
+    # === SIGNATURE BLOCK ===
+    elements.append(Spacer(1, 2 * cm))
+    sig_line = "_" * 40
+    sig_line_style = ParagraphStyle('SigLine', alignment=TA_CENTER, fontSize=10, spaceAfter=2)
+    sig_name_style = ParagraphStyle('SigName', alignment=TA_CENTER, fontSize=9, fontName='Helvetica-Bold')
+    sig_detail_style = ParagraphStyle('SigDetail', alignment=TA_CENTER, fontSize=8, textColor=colors.gray)
+
+    elements.append(Paragraph(sig_line, sig_line_style))
+    elements.append(Paragraph("TWAS REPAIR SERVI\u00c7OS NAVAIS E INDUSTRIAIS LTDA", sig_name_style))
+    elements.append(Paragraph("CNPJ: 31.839.501/0001-90", sig_detail_style))
+
+    doc.build(elements, onFirstPage=on_first_page_prop, onLaterPages=on_later_pages_prop)
+    buf.seek(0)
+
+    # Post-process with PyMuPDF: add page numbers
+    import fitz
+    pdf_doc = fitz.open(stream=buf.read(), filetype="pdf")
+    total = len(pdf_doc)
+    for i in range(total):
+        page = pdf_doc[i]
+        text = f"{i + 1} de {total}"
+        page.insert_text(
+            fitz.Point(507, 772),
+            text,
+            fontsize=8,
+            fontname="helv",
+            color=(0, 0, 0),
+        )
+    final_buffer = io.BytesIO()
+    pdf_doc.save(final_buffer)
+    pdf_doc.close()
+    final_buffer.seek(0)
+
+    tipo_label = "comercial" if is_comercial else "tecnica"
+    filename = f"Proposta_{tipo_label}_{proposal.get('numero_proposta', '').replace(' ', '_')}.pdf"
+    return Response(
+        content=final_buffer.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
         }
     )

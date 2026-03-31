@@ -25,6 +25,14 @@
 ## BM
 - Seleção de timesheets, date pickers, edição, impostos toggle (%)
 
+## Proposta Comercial
+- CRUD completo com seções estruturadas (itens com título, descrição, valor)
+- Auto-numeração: YYMM - Seq (ex: 2603 - 01), sequência global por ano, reseta ao mudar o ano
+- Dois PDFs: Proposta Comercial (com preço) e Proposta Técnica (sem preço)
+- Acesso restrito via `proposta_access` no modelo de usuário
+- PDF com header/footer padrão TWAS, watermark, borda, numeração de páginas
+- Campos: Empresa, Contato (A/C), Email, Embarcação, Equipamento, Itens, Observações
+
 ## Credentials
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
@@ -40,6 +48,7 @@
 - [x] Admin Revert: devolver documento ao supervisor para ajustes
 - [x] Duplicate Timesheet
 - [x] PDF Avaliação: campos alinhados, linhas mais compridas, tabela mais espaçada
+- [x] Proposta Comercial: CRUD, auto-numeração YYMM-Seq, PDF Comercial e Técnica, proposta_access toggle
 
 ## Backlog
 ### P1

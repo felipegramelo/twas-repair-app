@@ -1,0 +1,127 @@
+{
+  "summary": "Tested iteration 26 features: Timesheet duplicate, finalize, revert endpoints and UI. Backend: 17/17 tests passed. Frontend: Code review verified all features implemented correctly. UI screenshots confirm supervisor dashboard shows duplicate/finalize buttons and admin OS Archive shows status badges.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Playwright automation",
+        "issue": "React Native Web TouchableOpacity components don't respond to standard Playwright click events. This is a known limitation from previous iterations.",
+        "affected_selectors": ["div[role='button']", "TouchableOpacity"],
+        "note": "Manual testing or native mobile testing recommended for full UI verification"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_26_finalize_revert_duplicate.py",
+    "/app/test_reports/pytest/test_iteration_26.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend POST /api/timesheets/{id}/duplicate correctly creates copy with status='draft'",
+    "Backend PUT /api/timesheets/{id}/finalize sets status='finalized'",
+    "Backend PUT /api/timesheets/{id}/revert uses get_admin_user dependency (admin only)",
+    "Backend PUT /api/reports/{id}/finalize allows supervisor (owner) and admin",
+    "Backend PUT /api/reports/{id}/revert uses get_admin_user dependency (admin only)",
+    "Backend PUT /api/timesheets/{id} blocks editing when status='finalized' (returns 403)",
+    "Frontend supervisor/index.tsx: Duplicate button (copy-outline) with data-testid='duplicate-ts-{id}'",
+    "Frontend supervisor/index.tsx: Finalize button (checkmark-done, green) with data-testid='finalize-ts-{id}'",
+    "Frontend supervisor/index.tsx: Edit/delete buttons hidden when isFinalized=true",
+    "Frontend supervisor/index.tsx: 'Finalizado' badge shown when status='finalized'",
+    "Frontend admin/os-archive.tsx: Revert button (arrow-undo-outline, orange) only shown when doc.status='finalized'",
+    "Frontend admin/os-archive.tsx: Status badges - 'Finalizado' (green) and 'Rascunho' (orange)",
+    "Frontend services/api.ts: timesheetAPI.duplicate, timesheetAPI.finalize, timesheetAPI.revert all implemented",
+    "Frontend services/api.ts: reportAPI.finalize, reportAPI.revert all implemented"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_26_finalize_revert_duplicate.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "Code review verified - all features implemented correctly"
+  },
+  "test_credentials": {
+    "admin": "admin@twasrepair.com / admin123",
+    "supervisor": "supervisor@twasrepair.com / super123"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 26 tested timesheet duplicate/finalize/revert and report finalize/revert features. All backend tests pass. Frontend code review confirms all features implemented. Known timesheet ID 69c3fe001e1ca6cafd15220f used for testing. Playwright has issues with React Native Web TouchableOpacity - use manual testing or code review for UI verification.",
+  "tested_features": {
+    "backend_timesheet_duplicate": {
+      "POST_endpoint_exists": "PASS",
+      "creates_copy_with_draft_status": "PASS",
+      "preserves_original_data": "PASS",
+      "returns_404_for_nonexistent": "PASS"
+    },
+    "backend_timesheet_finalize": {
+      "PUT_endpoint_exists": "PASS",
+      "sets_status_to_finalized": "PASS",
+      "supervisor_can_finalize_own": "PASS"
+    },
+    "backend_timesheet_revert": {
+      "PUT_endpoint_exists": "PASS",
+      "admin_can_revert": "PASS",
+      "supervisor_gets_403": "PASS",
+      "sets_status_to_draft": "PASS"
+    },
+    "backend_report_finalize": {
+      "PUT_endpoint_exists": "PASS",
+      "sets_status_to_finalized": "PASS"
+    },
+    "backend_report_revert": {
+      "PUT_endpoint_exists": "PASS",
+      "admin_can_revert": "PASS",
+      "supervisor_gets_403": "PASS"
+    },
+    "backend_edit_finalized_blocked": {
+      "edit_finalized_timesheet_returns_403": "PASS",
+      "edit_finalized_report_returns_403": "PASS"
+    },
+    "frontend_supervisor_dashboard": {
+      "duplicate_button_on_timesheet_cards": "PASS (code review - line 317)",
+      "finalize_button_on_timesheet_cards": "PASS (code review - line 318)",
+      "duplicate_button_on_report_cards": "PASS (code review - line 357)",
+      "finalize_button_on_report_cards": "PASS (code review - line 359)",
+      "edit_delete_hidden_when_finalized": "PASS (code review - lines 313, 354)",
+      "finalizado_badge_shown": "PASS (code review - lines 304-309, 345-350)"
+    },
+    "frontend_admin_os_archive": {
+      "revert_button_for_finalized_docs": "PASS (code review - lines 223-231)",
+      "status_badges_finalizado_rascunho": "PASS (code review - lines 183-192)",
+      "handleRevertTimesheet_function": "PASS (code review - lines 152-159)",
+      "handleRevertReport_function": "PASS (code review - lines 161-168)"
+    },
+    "frontend_api_ts": {
+      "timesheetAPI_duplicate": "PASS (line 168-171)",
+      "timesheetAPI_finalize": "PASS (line 160-163)",
+      "timesheetAPI_revert": "PASS (line 164-167)",
+      "reportAPI_finalize": "PASS (line 290-293)",
+      "reportAPI_revert": "PASS (line 294-297)"
+    }
+  },
+  "api_verification": {
+    "POST /api/auth/login (admin)": "Working",
+    "POST /api/auth/login (supervisor)": "Working",
+    "POST /api/timesheets/{id}/duplicate": "Working - creates copy with status draft",
+    "PUT /api/timesheets/{id}/finalize": "Working - sets status to finalized",
+    "PUT /api/timesheets/{id}/revert (admin)": "Working - sets status to draft",
+    "PUT /api/timesheets/{id}/revert (supervisor)": "Working - returns 403 Forbidden",
+    "PUT /api/reports/{id}/finalize": "Working - sets status to finalized",
+    "PUT /api/reports/{id}/revert (admin)": "Working - sets status to draft",
+    "PUT /api/reports/{id}/revert (supervisor)": "Working - returns 403 Forbidden",
+    "PUT /api/timesheets/{id} (finalized)": "Working - returns 403 Forbidden",
+    "PUT /api/reports/{id} (finalized)": "Working - returns 403 Forbidden"
+  },
+  "ui_screenshots": {
+    "login_page": "Working - Email/Senha fields visible",
+    "supervisor_dashboard": "Working - Shows timesheets and reports with action buttons",
+    "admin_dashboard": "Working - Shows menu options including 'Arquivo por O.S.'",
+    "os_archive": "Working - Shows OS list with document counts, expandable sections with status badges"
+  }
+}

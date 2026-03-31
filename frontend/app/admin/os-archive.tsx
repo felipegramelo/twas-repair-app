@@ -149,6 +149,24 @@ export default function OSArchiveScreen() {
     switch (s) { case 'draft': return '#ff9800'; case 'completed': return '#4caf50'; default: return '#999'; }
   };
 
+  const handleRevertTimesheet = async (doc: DocItem) => {
+    if (Platform.OS === 'web') { if (!window.confirm(`Devolver timesheet para o supervisor ${doc.supervisor_name}?`)) return; }
+    try {
+      await timesheetAPI.revert(doc.id);
+      if (Platform.OS === 'web') window.alert('Timesheet devolvida ao supervisor!');
+      loadArchive();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao devolver timesheet'); }
+  };
+
+  const handleRevertReport = async (doc: DocItem) => {
+    if (Platform.OS === 'web') { if (!window.confirm(`Devolver relatório para o supervisor ${doc.supervisor_name}?`)) return; }
+    try {
+      await reportAPI.revert(doc.id);
+      if (Platform.OS === 'web') window.alert('Relatório devolvido ao supervisor!');
+      loadArchive();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao devolver relatório'); }
+  };
+
   const renderDocSection = (title: string, icon: string, docs: DocItem[], type: 'timesheet' | 'report') => {
     if (docs.length === 0) return null;
     return (
@@ -160,21 +178,30 @@ export default function OSArchiveScreen() {
         {docs.map(doc => (
           <View key={doc.id} style={s.docCard} data-testid={`doc-card-${doc.id}`}>
             <View style={s.docInfo}>
-              <Text style={s.docSupervisor}>{doc.supervisor_name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Text style={s.docSupervisor}>{doc.supervisor_name}</Text>
+                {(doc.status === 'finalized') && (
+                  <View style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 10, color: '#2e7d32', fontWeight: '600' }}>Finalizado</Text>
+                  </View>
+                )}
+                {(!doc.status || doc.status === 'draft') && (
+                  <View style={{ backgroundColor: '#fff3e0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 10, color: '#e65100', fontWeight: '600' }}>Rascunho</Text>
+                  </View>
+                )}
+              </View>
               {type === 'timesheet' && doc.entries && (
                 <Text style={s.docDate}>{getDateRangeText(doc.entries)} ({doc.entries.length} entrada{doc.entries.length !== 1 ? 's' : ''})</Text>
               )}
               {type === 'report' && (
                 <>
-                  {doc.periodo_inicio && doc.periodo_fim && (
-                    <Text style={s.docDate}>{doc.periodo_inicio} a {doc.periodo_fim}</Text>
+                  {doc.report_type && (
+                    <Text style={[s.docDate, { fontWeight: '600' }]}>{doc.report_type === 'service' ? 'Rel. Serviço' : 'Rel. Diário'}</Text>
                   )}
-                  <View style={s.statusRow}>
-                    <View style={[s.statusBadge, { backgroundColor: getStatusColor(doc.status || '') + '20' }]}>
-                      <Text style={[s.statusText, { color: getStatusColor(doc.status || '') }]}>{getStatusLabel(doc.status || '')}</Text>
-                    </View>
-                    <Text style={s.docDateSmall}>{formatDate(doc.created_at)}</Text>
-                  </View>
+                  {doc.periodo_inicio && (
+                    <Text style={s.docDate}>{doc.periodo_inicio}{doc.periodo_fim ? ` a ${doc.periodo_fim}` : ''}</Text>
+                  )}
                 </>
               )}
             </View>
@@ -193,6 +220,15 @@ export default function OSArchiveScreen() {
               >
                 <Ionicons name="download-outline" size={20} color="#1a237e" />
               </TouchableOpacity>
+              {doc.status === 'finalized' && (
+                <TouchableOpacity
+                  onPress={() => type === 'timesheet' ? handleRevertTimesheet(doc) : handleRevertReport(doc)}
+                  style={[s.docActionBtn, { backgroundColor: '#fff3e0' }]}
+                  data-testid={`revert-${doc.id}`}
+                >
+                  <Ionicons name="arrow-undo-outline" size={20} color="#e65100" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         ))}

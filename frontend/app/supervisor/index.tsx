@@ -235,6 +235,15 @@ export default function SupervisorDashboard() {
     } catch { if (Platform.OS === 'web') window.alert('Erro ao finalizar relatório'); }
   };
 
+  const handleDuplicateTimesheet = async (ts: Timesheet) => {
+    if (Platform.OS === 'web') { if (!window.confirm('Deseja duplicar esta timesheet?')) return; }
+    try {
+      await timesheetAPI.duplicate(ts.id);
+      if (Platform.OS === 'web') window.alert('Timesheet duplicada com sucesso!');
+      loadData();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao duplicar timesheet'); }
+  };
+
   const formatDate = (dateStr: string) => {
     try { return new Date(dateStr).toLocaleDateString('pt-BR'); } catch { return dateStr; }
   };
@@ -305,6 +314,7 @@ export default function SupervisorDashboard() {
                           <>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-timesheet?id=${ts.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteTimesheet(ts); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
+                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicateTimesheet(ts); }} style={styles.actionBtn} data-testid={`duplicate-ts-${ts.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeTimesheet(ts); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-ts-${ts.id}`}><Ionicons name="checkmark-done" size={20} color="#2e7d32" /></TouchableOpacity>
                           </>
                         )}

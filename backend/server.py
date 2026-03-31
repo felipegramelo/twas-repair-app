@@ -1468,6 +1468,48 @@ async def finalize_report(report_id: str, current_user: Dict[str, Any] = Depends
     return {"success": True}
 
 
+@api_router.put("/reports/{report_id}/revert")
+async def revert_report(report_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    report = await db.reports.find_one({"_id": ObjectId(report_id)})
+    if not report:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    await db.reports.update_one({"_id": ObjectId(report_id)}, {"$set": {"status": "draft", "updated_at": datetime.utcnow()}})
+    return {"success": True}
+
+
+@api_router.put("/timesheets/{ts_id}/revert")
+async def revert_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
+    if not ts:
+        raise HTTPException(status_code=404, detail="Timesheet não encontrada")
+    await db.timesheets.update_one({"_id": ObjectId(ts_id)}, {"$set": {"status": "draft", "updated_at": datetime.utcnow()}})
+    return {"success": True}
+
+
+@api_router.post("/timesheets/{ts_id}/duplicate")
+async def duplicate_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
+    original = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
+    if not original:
+        raise HTTPException(status_code=404, detail="Timesheet não encontrada")
+    new_ts = {
+        "os_id": original["os_id"],
+        "os_number": original.get("os_number", ""),
+        "client": original.get("client", ""),
+        "supervisor_id": current_user["_id"],
+        "supervisor_name": current_user.get("name", ""),
+        "entries": original.get("entries", []),
+        "status": "draft",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+    result = await db.timesheets.insert_one(new_ts)
+    new_ts["id"] = str(result.inserted_id)
+    del new_ts["_id"]
+    new_ts["created_at"] = new_ts["created_at"].isoformat()
+    new_ts["updated_at"] = new_ts["updated_at"].isoformat()
+    return new_ts
+
+
 # ==================== PDF GENERATION ====================
 
 @api_router.get("/timesheets/{ts_id}/pdf")
@@ -2849,16 +2891,16 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         if oc_wo_val:
             aval_fields_data.append([Paragraph("<b>OC/WO:</b>", aval_field_style), Paragraph(oc_wo_val, aval_field_style)])
         
-        fields_table = Table(aval_fields_data, colWidths=[4.5*cm, content_width - 4.5*cm])
+        fields_table = Table(aval_fields_data, colWidths=[5.5*cm, content_width - 5.5*cm])
         fields_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('LEFTPADDING', (0, 0), (-1, -1), 0),
             ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ]))
         elements.append(fields_table)
-        elements.append(Spacer(1, 0.3*cm))
+        elements.append(Spacer(1, 0.5*cm))
         
         # Bilingual intro text (BEFORE table, as per reference)
         aval_intro = (
@@ -2922,10 +2964,10 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EEEEEE')),
-            ('LEFTPADDING', (0, 0), (-1, -1), 3),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ]))
         elements.append(eval_table)
         elements.append(Spacer(1, 0.3*cm))
@@ -2936,8 +2978,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         elements.append(Paragraph("<b>Comentários adicionais / sugestões para melhoria de nossa qualidade:</b>", ParagraphStyle('AvalComm', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=2)))
         elements.append(Paragraph("<b><i>Additional comments / suggestion to improve our quality:</i></b>", ParagraphStyle('AvalCommEn', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=8)))
         
-        # Ruled lines for handwritten comments (shorter to fit within margins)
-        line_str = "_" * 82
+        # Ruled lines for handwritten comments (full width aligned with header/footer)
+        line_str = "_" * 105
         line_style = ParagraphStyle('RuledLine', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#999999'), spaceAfter=10)
         for _ in range(8):
             elements.append(Paragraph(line_str, line_style))

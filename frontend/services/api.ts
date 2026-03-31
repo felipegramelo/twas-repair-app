@@ -161,6 +161,14 @@ export const timesheetAPI = {
     const response = await api.put(`/timesheets/${id}/finalize`);
     return response.data;
   },
+  revert: async (id: string) => {
+    const response = await api.put(`/timesheets/${id}/revert`);
+    return response.data;
+  },
+  duplicate: async (id: string) => {
+    const response = await api.post(`/timesheets/${id}/duplicate`);
+    return response.data;
+  },
 };
 
 // Admin Archive API
@@ -281,6 +289,10 @@ export const reportAPI = {
   },
   finalize: async (id: string) => {
     const response = await api.put(`/reports/${id}/finalize`);
+    return response.data;
+  },
+  revert: async (id: string) => {
+    const response = await api.put(`/reports/${id}/revert`);
     return response.data;
   },
   getPhotoUrl: (storagePath: string, token: string) => {

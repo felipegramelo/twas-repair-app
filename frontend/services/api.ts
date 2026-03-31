@@ -110,8 +110,13 @@ export const employeeAPI = {
 
 // Service Order API
 export const serviceOrderAPI = {
-  getAll: async (): Promise<ServiceOrder[]> => {
-    const response = await api.get('/service-orders');
+  getAll: async (month?: number, year?: number): Promise<ServiceOrder[]> => {
+    let url = '/service-orders';
+    const params: string[] = [];
+    if (month) params.push(`month=${month}`);
+    if (year) params.push(`year=${year}`);
+    if (params.length > 0) url += '?' + params.join('&');
+    const response = await api.get(url);
     return response.data;
   },
   create: async (os_number: string, client: string, location: string, service: string, employees: {employee_id: string, function: string}[] = []): Promise<ServiceOrder> => {
@@ -243,6 +248,15 @@ export const proposalAPI = {
     const response = await api.get('/proposals');
     return response.data;
   },
+  getAllFiltered: async (month?: number, year?: number) => {
+    let url = '/proposals';
+    const params: string[] = [];
+    if (month) params.push(`month=${month}`);
+    if (year) params.push(`year=${year}`);
+    if (params.length > 0) url += '?' + params.join('&');
+    const response = await api.get(url);
+    return response.data;
+  },
   getById: async (id: string) => {
     const response = await api.get(`/proposals/${id}`);
     return response.data;
@@ -265,6 +279,10 @@ export const proposalAPI = {
       headers: { 'Cache-Control': 'no-cache' },
       timeout: 120000,
     });
+    return response.data;
+  },
+  informarPO: async (id: string, po_number: string) => {
+    const response = await api.put(`/proposals/${id}/informar-po`, { po_number });
     return response.data;
   },
   togglePropostaAccess: async (userId: string) => {

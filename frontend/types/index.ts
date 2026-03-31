@@ -25,6 +25,10 @@ export interface Proposal {
   equipamento: string;
   itens: ProposalItem[];
   observacoes?: string;
+  status?: string;
+  po_number?: string;
+  os_id?: string;
+  os_number?: string;
   created_at: string;
   updated_at: string;
 }

@@ -1,0 +1,96 @@
+{
+  "summary": "Iteration 28: P.O. Workflow and Month/Year Filters. Backend: 15/15 tests passed. Frontend: Code review verified all features implemented correctly. Playwright automation limited due to React Native Web TouchableOpacity components (known limitation from iteration 27).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Playwright automation",
+        "issue": "React Native Web TouchableOpacity components don't respond to standard Playwright click events. This is a known limitation documented in iteration 27.",
+        "affected_selectors": ["div[role='button']", "[data-testid='informar-po-*']"],
+        "note": "Code review confirms all UI elements are correctly implemented with proper data-testid attributes"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_28_po_workflow.py",
+    "/app/test_reports/pytest/test_iteration_28.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend PUT /api/proposals/{id}/informar-po correctly changes status to 'aprovada' and creates O.S. automatically",
+    "Backend O.S. number format: SEQ - PROPOSTA_NUMBER (yearly sequential) - verified working",
+    "Backend rejects informar-po on already approved proposals with 400 status",
+    "Backend GET /api/proposals supports month/year filters correctly",
+    "Backend GET /api/service-orders supports month/year filters correctly",
+    "Frontend propostas.tsx: Filter bar shows month/year selector with Pendentes/Aprovadas count (lines 336-351)",
+    "Frontend propostas.tsx: Approved proposals show green left border (line 232)",
+    "Frontend propostas.tsx: Approved proposals show P.O. and O.S. info (lines 253-263)",
+    "Frontend propostas.tsx: Pending proposals show orange 'Informar P.O.' button (lines 266-275)",
+    "Frontend propostas.tsx: Edit button hidden for approved proposals (line 311)",
+    "Frontend propostas.tsx: P.O. modal with input field and confirm button (lines 399-435)",
+    "Frontend service-orders.tsx: Month/year filter bar implemented (lines 175-183)",
+    "Frontend services/api.ts: proposalAPI.informarPO and getAllFiltered methods implemented",
+    "Frontend types/index.ts: Proposal type includes status, po_number, os_id, os_number fields"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_28_po_workflow.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "Code review verified - Playwright automation limited due to React Native Web"
+  },
+  "test_credentials": {
+    "admin": "admin@twasrepair.com / admin123 (proposta_access=true)",
+    "supervisor": "supervisor@twasrepair.com / super123"
+  },
+  "seed_data_creation": "Test proposals created and cleaned up during backend tests",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 28 tested P.O. workflow and month/year filters. All backend tests pass. Frontend code review confirms all features implemented correctly. Playwright has known issues with React Native Web TouchableOpacity - use visual inspection or code review for UI verification. Key features: 1) Informar P.O. button on pending proposals, 2) Auto O.S. creation with format SEQ - PROPOSTA_NUMBER, 3) Month/year filters on both Proposals and Service Orders pages, 4) Approved proposals show green border, P.O. and O.S. info, 5) Edit button hidden for approved proposals.",
+  "tested_features": {
+    "backend_informar_po": {
+      "creates_os_automatically": "PASS",
+      "changes_status_to_aprovada": "PASS",
+      "rejects_already_approved": "PASS",
+      "rejects_empty_po_number": "PASS",
+      "returns_404_for_nonexistent": "PASS"
+    },
+    "backend_os_number_format": {
+      "format_seq_proposta_number": "PASS",
+      "yearly_sequential": "PASS"
+    },
+    "backend_proposal_filters": {
+      "filter_by_year": "PASS",
+      "filter_by_month_year": "PASS",
+      "returns_status_field": "PASS"
+    },
+    "backend_service_order_filters": {
+      "filter_by_year": "PASS",
+      "filter_by_month_year": "PASS"
+    },
+    "frontend_propostas_page": {
+      "filter_bar_with_month_year": "PASS (code review)",
+      "pendentes_aprovadas_count": "PASS (code review)",
+      "informar_po_button_on_pending": "PASS (code review)",
+      "green_border_on_approved": "PASS (code review)",
+      "po_os_info_on_approved": "PASS (code review)",
+      "edit_hidden_for_approved": "PASS (code review)",
+      "po_modal_with_input": "PASS (code review)"
+    },
+    "frontend_service_orders_page": {
+      "filter_bar_with_month_year": "PASS (code review)"
+    }
+  },
+  "api_verification": {
+    "PUT /api/proposals/{id}/informar-po": "Working - creates O.S. and updates status",
+    "GET /api/proposals?year=2026": "Working - returns filtered proposals",
+    "GET /api/proposals?month=1&year=2026": "Working - returns filtered proposals",
+    "GET /api/service-orders?year=2026": "Working - returns filtered service orders",
+    "GET /api/service-orders?month=1&year=2026": "Working - returns filtered service orders"
+  }
+}

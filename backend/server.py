@@ -664,10 +664,26 @@ async def create_service_order(so_data: ServiceOrderCreate, current_user: Dict[s
 
 
 @api_router.get("/service-orders", response_model=List[dict])
-async def get_service_orders(current_user: Dict[str, Any] = Depends(get_current_user)):
-    service_orders = await db.service_orders.find().sort("os_number", 1).to_list(500)
+async def get_service_orders(month: Optional[int] = Query(None), year: Optional[int] = Query(None), current_user: Dict[str, Any] = Depends(get_current_user)):
+    query = {}
+    if month and year:
+        start = datetime(year, month, 1)
+        if month == 12:
+            end = datetime(year + 1, 1, 1)
+        else:
+            end = datetime(year, month + 1, 1)
+        query["created_at"] = {"$gte": start, "$lt": end}
+    elif year:
+        start = datetime(year, 1, 1)
+        end = datetime(year + 1, 1, 1)
+        query["created_at"] = {"$gte": start, "$lt": end}
+    service_orders = await db.service_orders.find(query).sort("os_number", 1).to_list(500)
     for so in service_orders:
         so["id"] = str(so.pop("_id"))
+        if "proposal_id" not in so:
+            so["proposal_id"] = ""
+        if "po_number" not in so:
+            so["po_number"] = ""
     return service_orders
 
 
@@ -3200,6 +3216,10 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "equipamento": data.equipamento,
         "itens": itens,
         "observacoes": data.observacoes,
+        "status": "pendente",
+        "po_number": "",
+        "os_id": "",
+        "os_number": "",
         "created_by": current_user["_id"],
         "created_at": now,
         "updated_at": now,
@@ -3215,39 +3235,16 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "equipamento": data.equipamento,
         "itens": itens,
         "observacoes": data.observacoes,
+        "status": "pendente",
+        "po_number": "",
+        "os_id": "",
+        "os_number": "",
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
     }
 
-@api_router.get("/proposals")
-async def list_proposals(current_user: Dict[str, Any] = Depends(get_admin_user)):
-    if not current_user.get("proposta_access", False):
-        raise HTTPException(status_code=403, detail="Acesso negado")
-    proposals = await db.propostas.find({}, {"_id": 1, "numero_proposta": 1, "empresa": 1, "contato": 1, "email": 1, "embarcacao": 1, "equipamento": 1, "itens": 1, "observacoes": 1, "created_at": 1, "updated_at": 1}).sort("created_at", -1).to_list(500)
-    result = []
-    for p in proposals:
-        result.append({
-            "id": str(p["_id"]),
-            "numero_proposta": p.get("numero_proposta", ""),
-            "empresa": p.get("empresa", ""),
-            "contato": p.get("contato", ""),
-            "email": p.get("email", ""),
-            "embarcacao": p.get("embarcacao", ""),
-            "equipamento": p.get("equipamento", ""),
-            "itens": p.get("itens", []),
-            "observacoes": p.get("observacoes", ""),
-            "created_at": p.get("created_at", "").isoformat() if p.get("created_at") else "",
-            "updated_at": p.get("updated_at", "").isoformat() if p.get("updated_at") else "",
-        })
-    return result
-
-@api_router.get("/proposals/{proposal_id}")
-async def get_proposal(proposal_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
-    if not current_user.get("proposta_access", False):
-        raise HTTPException(status_code=403, detail="Acesso negado")
-    p = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
-    if not p:
-        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+def serialize_proposal(p):
+    """Helper to serialize a proposal document."""
     return {
         "id": str(p["_id"]),
         "numero_proposta": p.get("numero_proposta", ""),
@@ -3258,9 +3255,41 @@ async def get_proposal(proposal_id: str, current_user: Dict[str, Any] = Depends(
         "equipamento": p.get("equipamento", ""),
         "itens": p.get("itens", []),
         "observacoes": p.get("observacoes", ""),
+        "status": p.get("status", "pendente"),
+        "po_number": p.get("po_number", ""),
+        "os_id": p.get("os_id", ""),
+        "os_number": p.get("os_number", ""),
         "created_at": p.get("created_at", "").isoformat() if p.get("created_at") else "",
         "updated_at": p.get("updated_at", "").isoformat() if p.get("updated_at") else "",
     }
+
+@api_router.get("/proposals")
+async def list_proposals(month: Optional[int] = Query(None), year: Optional[int] = Query(None), current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("proposta_access", False):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    query = {}
+    if month and year:
+        start = datetime(year, month, 1)
+        if month == 12:
+            end = datetime(year + 1, 1, 1)
+        else:
+            end = datetime(year, month + 1, 1)
+        query["created_at"] = {"$gte": start, "$lt": end}
+    elif year:
+        start = datetime(year, 1, 1)
+        end = datetime(year + 1, 1, 1)
+        query["created_at"] = {"$gte": start, "$lt": end}
+    proposals = await db.propostas.find(query).sort("created_at", -1).to_list(500)
+    return [serialize_proposal(p) for p in proposals]
+
+@api_router.get("/proposals/{proposal_id}")
+async def get_proposal(proposal_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("proposta_access", False):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    p = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
+    if not p:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    return serialize_proposal(p)
 
 @api_router.put("/proposals/{proposal_id}")
 async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: Dict[str, Any] = Depends(get_admin_user)):
@@ -3294,19 +3323,7 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: 
         update_dict["itens"] = itens
     await db.propostas.update_one({"_id": ObjectId(proposal_id)}, {"$set": update_dict})
     updated = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
-    return {
-        "id": str(updated["_id"]),
-        "numero_proposta": updated.get("numero_proposta", ""),
-        "empresa": updated.get("empresa", ""),
-        "contato": updated.get("contato", ""),
-        "email": updated.get("email", ""),
-        "embarcacao": updated.get("embarcacao", ""),
-        "equipamento": updated.get("equipamento", ""),
-        "itens": updated.get("itens", []),
-        "observacoes": updated.get("observacoes", ""),
-        "created_at": updated.get("created_at", "").isoformat() if updated.get("created_at") else "",
-        "updated_at": updated.get("updated_at", "").isoformat() if updated.get("updated_at") else "",
-    }
+    return serialize_proposal(updated)
 
 @api_router.delete("/proposals/{proposal_id}")
 async def delete_proposal(proposal_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
@@ -3316,6 +3333,68 @@ async def delete_proposal(proposal_id: str, current_user: Dict[str, Any] = Depen
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Proposta não encontrada")
     return {"message": "Proposta excluída com sucesso"}
+
+# ==================== INFORMAR P.O. (Approve proposal & create O.S.) ====================
+
+class InformarPORequest(BaseModel):
+    po_number: str
+
+async def generate_os_number_from_proposal(numero_proposta: str) -> str:
+    """Generate O.S. number: SEQ - NUMERO_PROPOSTA. SEQ is global yearly sequential."""
+    now = datetime.utcnow()
+    year_start = datetime(now.year, 1, 1)
+    year_end = datetime(now.year + 1, 1, 1)
+    count = await db.service_orders.count_documents({
+        "created_at": {"$gte": year_start, "$lt": year_end}
+    })
+    seq = count + 1
+    return f"{seq:02d} - {numero_proposta}"
+
+@api_router.put("/proposals/{proposal_id}/informar-po")
+async def informar_po(proposal_id: str, data: InformarPORequest, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("proposta_access", False):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    p = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
+    if not p:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+    if p.get("status") == "aprovada":
+        raise HTTPException(status_code=400, detail="Proposta já aprovada")
+    if not data.po_number.strip():
+        raise HTTPException(status_code=400, detail="Número da P.O. é obrigatório")
+
+    # Generate O.S. number
+    os_number = await generate_os_number_from_proposal(p["numero_proposta"])
+
+    # Create service order from proposal data
+    now = datetime.utcnow()
+    so_dict = {
+        "os_number": os_number,
+        "client": p.get("empresa", ""),
+        "location": p.get("embarcacao", ""),
+        "service": p.get("equipamento", ""),
+        "employees": [],
+        "schedule_type": "07-19",
+        "proposal_id": str(p["_id"]),
+        "po_number": data.po_number.strip(),
+        "created_at": now,
+    }
+    so_result = await db.service_orders.insert_one(so_dict)
+    so_id = str(so_result.inserted_id)
+
+    # Update proposal status
+    await db.propostas.update_one(
+        {"_id": ObjectId(proposal_id)},
+        {"$set": {
+            "status": "aprovada",
+            "po_number": data.po_number.strip(),
+            "os_id": so_id,
+            "os_number": os_number,
+            "updated_at": now,
+        }}
+    )
+
+    updated = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
+    return serialize_proposal(updated)
 
 # ==================== PROPOSAL PDF GENERATION ====================
 

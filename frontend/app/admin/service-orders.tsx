@@ -32,18 +32,28 @@ export default function ServiceOrdersScreen() {
   const [selectedNewEmps, setSelectedNewEmps] = useState<string[]>([]);
   const [bulkFuncPickerVisible, setBulkFuncPickerVisible] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  // Filters
+  const now = new Date();
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterPickerVisible, setFilterPickerVisible] = useState(false);
+
+  useEffect(() => { loadData(); }, [filterMonth, filterYear]);
 
   const loadData = async () => {
     try {
-      const [soData, empData] = await Promise.all([serviceOrderAPI.getAll(), employeeAPI.getAll()]);
+      const m = filterMonth === 0 ? undefined : filterMonth;
+      const [soData, empData] = await Promise.all([serviceOrderAPI.getAll(m, filterYear), employeeAPI.getAll()]);
       setServiceOrders(soData); setAllEmployees(empData);
     } catch { if (Platform.OS === 'web') window.alert('Erro ao carregar dados'); else Alert.alert('Erro', 'Erro ao carregar dados'); }
     finally { setLoading(false); }
   };
 
   const loadServiceOrders = async () => {
-    try { setServiceOrders(await serviceOrderAPI.getAll()); } catch {}
+    try {
+      const m = filterMonth === 0 ? undefined : filterMonth;
+      setServiceOrders(await serviceOrderAPI.getAll(m, filterYear));
+    } catch {}
   };
 
   const openAdd = () => {
@@ -141,6 +151,17 @@ export default function ServiceOrdersScreen() {
   const availableEmployees = allEmployees.filter(e => !soEmployees.find(se => se.employee_id === e.id));
   const allSelected = availableEmployees.length > 0 && selectedNewEmps.length === availableEmployees.length;
 
+  const MONTHS_SO = [
+    { value: 0, label: 'Todos' }, { value: 1, label: 'Jan' }, { value: 2, label: 'Fev' }, { value: 3, label: 'Mar' },
+    { value: 4, label: 'Abr' }, { value: 5, label: 'Mai' }, { value: 6, label: 'Jun' },
+    { value: 7, label: 'Jul' }, { value: 8, label: 'Ago' }, { value: 9, label: 'Set' },
+    { value: 10, label: 'Out' }, { value: 11, label: 'Nov' }, { value: 12, label: 'Dez' },
+  ];
+  const getFilterLabel = () => {
+    const monthLabel = MONTHS_SO.find(m => m.value === filterMonth)?.label || 'Todos';
+    return filterMonth === 0 ? `${filterYear}` : `${monthLabel}/${filterYear}`;
+  };
+
   if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
 
   return (
@@ -150,6 +171,17 @@ export default function ServiceOrdersScreen() {
         <Text style={s.title}>Ordens de Serviço</Text>
         <TouchableOpacity onPress={openAdd} style={s.btn}><Ionicons name="add" size={28} color="#1a237e" /></TouchableOpacity>
       </View>
+
+      {/* Filter Bar */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e8e8e8' }}>
+        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8EAF6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }} onPress={() => setFilterPickerVisible(true)} data-testid="so-filter-btn">
+          <Ionicons name="calendar" size={18} color="#1a237e" />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1a237e' }}>{getFilterLabel()}</Text>
+          <Ionicons name="chevron-down" size={16} color="#1a237e" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 13, color: '#666' }}>{serviceOrders.length} O.S.</Text>
+      </View>
+
       <FlatList
         data={serviceOrders} keyExtractor={i => i.id} contentContainerStyle={{ padding: 16 }}
         renderItem={({ item }) => (
@@ -278,13 +310,39 @@ export default function ServiceOrdersScreen() {
       {/* Individual Function Picker */}
       <Modal visible={funcPickerVisible} animationType="fade" transparent onRequestClose={() => setFuncPickerVisible(false)}>
         <View style={s.modalOverlay}><View style={[s.modalContent, { maxWidth: 300, alignSelf: 'center' }]}>
-          <Text style={s.modalTitle}>Selecionar Função</Text>
+          <Text style={s.modalTitle}>Selecionar Funcao</Text>
           {FUNCTIONS.map(f => (
             <TouchableOpacity key={f} style={s.funcItem} onPress={() => setEmployeeFunc(f)}>
               <Text style={s.funcItemText}>{f}</Text>
               <Text style={s.funcItemDesc}>{FUNC_LABELS[f]}</Text>
             </TouchableOpacity>
           ))}
+        </View></View>
+      </Modal>
+
+      {/* Filter Picker Modal */}
+      <Modal visible={filterPickerVisible} animationType="fade" transparent onRequestClose={() => setFilterPickerVisible(false)}>
+        <View style={s.modalOverlay}><View style={[s.modalContent, { maxWidth: 340, alignSelf: 'center' }]}>
+          <Text style={s.modalTitle}>Filtrar por Periodo</Text>
+          <Text style={s.label}>Ano</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {[2025, 2026, 2027].map(y => (
+              <TouchableOpacity key={y} style={{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: filterYear === y ? '#1a237e' : '#f5f5f5', alignItems: 'center' }} onPress={() => setFilterYear(y)}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: filterYear === y ? '#fff' : '#666' }}>{y}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={[s.label, { marginTop: 12 }]}>Mes</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+            {MONTHS_SO.map(m => (
+              <TouchableOpacity key={m.value} style={{ width: '22%', paddingVertical: 8, borderRadius: 6, backgroundColor: filterMonth === m.value ? '#1a237e' : '#f5f5f5', alignItems: 'center' }} onPress={() => setFilterMonth(m.value)}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: filterMonth === m.value ? '#fff' : '#666' }}>{m.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity style={[s.modalBtn, s.saveBtn, { marginTop: 16 }]} onPress={() => setFilterPickerVisible(false)}>
+            <Text style={s.saveText}>Aplicar</Text>
+          </TouchableOpacity>
         </View></View>
       </Modal>
     </SafeAreaView>

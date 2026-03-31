@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, TextInput, Modal,
   ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform,
@@ -7,8 +7,14 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { proposalAPI } from '../../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Proposal, ProposalItem } from '../../types';
+
+const MONTHS = [
+  { value: 0, label: 'Todos' }, { value: 1, label: 'Jan' }, { value: 2, label: 'Fev' }, { value: 3, label: 'Mar' },
+  { value: 4, label: 'Abr' }, { value: 5, label: 'Mai' }, { value: 6, label: 'Jun' },
+  { value: 7, label: 'Jul' }, { value: 8, label: 'Ago' }, { value: 9, label: 'Set' },
+  { value: 10, label: 'Out' }, { value: 11, label: 'Nov' }, { value: 12, label: 'Dez' },
+];
 
 export default function PropostasScreen() {
   const router = useRouter();
@@ -17,6 +23,16 @@ export default function PropostasScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [poModalVisible, setPOModalVisible] = useState(false);
+  const [poProposal, setPOProposal] = useState<Proposal | null>(null);
+  const [poNumber, setPONumber] = useState('');
+  const [submittingPO, setSubmittingPO] = useState(false);
+
+  // Filters
+  const now = new Date();
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterPickerVisible, setFilterPickerVisible] = useState(false);
 
   // Form fields
   const [empresa, setEmpresa] = useState('');
@@ -27,11 +43,13 @@ export default function PropostasScreen() {
   const [observacoes, setObservacoes] = useState('');
   const [itens, setItens] = useState<ProposalItem[]>([]);
 
-  useEffect(() => { loadProposals(); }, []);
+  useEffect(() => { loadProposals(); }, [filterMonth, filterYear]);
 
   const loadProposals = async () => {
+    setLoading(true);
     try {
-      const data = await proposalAPI.getAll();
+      const m = filterMonth === 0 ? undefined : filterMonth;
+      const data = await proposalAPI.getAllFiltered(m, filterYear);
       setProposals(data);
     } catch {
       if (Platform.OS === 'web') window.alert('Erro ao carregar propostas');
@@ -87,8 +105,8 @@ export default function PropostasScreen() {
     }
     for (const item of itens) {
       if (!item.titulo.trim()) {
-        if (Platform.OS === 'web') window.alert('Preencha o título de todos os itens');
-        else Alert.alert('Erro', 'Preencha o título de todos os itens');
+        if (Platform.OS === 'web') window.alert('Preencha o titulo de todos os itens');
+        else Alert.alert('Erro', 'Preencha o titulo de todos os itens');
         return;
       }
     }
@@ -157,6 +175,37 @@ export default function PropostasScreen() {
     }
   };
 
+  const openPOModal = (proposal: Proposal) => {
+    setPOProposal(proposal);
+    setPONumber('');
+    setPOModalVisible(true);
+  };
+
+  const handleInformarPO = async () => {
+    if (!poNumber.trim()) {
+      if (Platform.OS === 'web') window.alert('Informe o numero da P.O.');
+      else Alert.alert('Erro', 'Informe o numero da P.O.');
+      return;
+    }
+    if (!poProposal) return;
+    setSubmittingPO(true);
+    try {
+      await proposalAPI.informarPO(poProposal.id, poNumber.trim());
+      setPOModalVisible(false);
+      setPOProposal(null);
+      setPONumber('');
+      loadProposals();
+      if (Platform.OS === 'web') window.alert('P.O. informada! Ordem de Servico criada automaticamente.');
+      else Alert.alert('Sucesso', 'P.O. informada! Ordem de Servico criada automaticamente.');
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Erro ao informar P.O.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Erro', msg);
+    } finally {
+      setSubmittingPO(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     try {
@@ -165,73 +214,112 @@ export default function PropostasScreen() {
     } catch { return dateStr; }
   };
 
-  const calcTotal = (items: ProposalItem[]) => {
-    return items.reduce((sum, i) => sum + (i.valor || 0), 0);
+  const calcTotal = (items: ProposalItem[]) => items.reduce((sum, i) => sum + (i.valor || 0), 0);
+
+  const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const getFilterLabel = () => {
+    const monthLabel = MONTHS.find(m => m.value === filterMonth)?.label || 'Todos';
+    return filterMonth === 0 ? `${filterYear}` : `${monthLabel}/${filterYear}`;
   };
 
-  const formatCurrency = (val: number) => {
-    return `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const pendentesCount = proposals.filter(p => (p.status || 'pendente') === 'pendente').length;
+  const aprovadasCount = proposals.filter(p => p.status === 'aprovada').length;
 
-  const renderProposal = ({ item }: { item: Proposal }) => (
-    <View style={s.card} data-testid={`proposal-card-${item.id}`}>
-      <View style={s.cardHeader}>
-        <View style={s.numberBadge}>
-          <Text style={s.numberText}>{item.numero_proposta}</Text>
+  const renderProposal = ({ item }: { item: Proposal }) => {
+    const isAprovada = item.status === 'aprovada';
+    return (
+      <View style={[s.card, isAprovada && { borderLeftWidth: 4, borderLeftColor: '#2e7d32' }]} data-testid={`proposal-card-${item.id}`}>
+        <View style={s.cardHeader}>
+          <View style={s.numberBadge}>
+            <Text style={s.numberText}>{item.numero_proposta}</Text>
+          </View>
+          <View style={s.headerRight}>
+            <View style={[s.statusBadge, isAprovada ? { backgroundColor: '#E8F5E9' } : { backgroundColor: '#FFF3E0' }]}>
+              <Text style={[s.statusText, isAprovada ? { color: '#2e7d32' } : { color: '#e65100' }]}>
+                {isAprovada ? 'Aprovada' : 'Pendente'}
+              </Text>
+            </View>
+            <Text style={s.dateText}>{formatDate(item.created_at)}</Text>
+          </View>
         </View>
-        <Text style={s.dateText}>{formatDate(item.created_at)}</Text>
-      </View>
-      <Text style={s.cardTitle}>{item.empresa}</Text>
-      <Text style={s.cardSub}>A/C: {item.contato}</Text>
-      {item.embarcacao ? <Text style={s.cardSub}>Embarcacao: {item.embarcacao}</Text> : null}
-      {item.equipamento ? <Text style={s.cardSub}>Equipamento: {item.equipamento}</Text> : null}
-      <Text style={s.cardTotal}>{formatCurrency(calcTotal(item.itens))} ({item.itens.length} {item.itens.length === 1 ? 'item' : 'itens'})</Text>
 
-      <View style={s.pdfRow}>
-        <TouchableOpacity
-          style={[s.pdfBtn, { backgroundColor: '#1a237e' }]}
-          onPress={() => handleDownloadPDF(item, 'comercial')}
-          disabled={downloading === `${item.id}-comercial`}
-          data-testid={`pdf-comercial-${item.id}`}
-        >
-          {downloading === `${item.id}-comercial` ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="document-text" size={16} color="#fff" />
-              <Text style={s.pdfBtnText}>PDF Comercial</Text>
-            </>
+        <Text style={s.cardTitle}>{item.empresa}</Text>
+        <Text style={s.cardSub}>A/C: {item.contato}</Text>
+        {item.embarcacao ? <Text style={s.cardSub}>Embarcacao: {item.embarcacao}</Text> : null}
+        {item.equipamento ? <Text style={s.cardSub}>Equipamento: {item.equipamento}</Text> : null}
+        <Text style={s.cardTotal}>{formatCurrency(calcTotal(item.itens))} ({item.itens.length} {item.itens.length === 1 ? 'item' : 'itens'})</Text>
+
+        {isAprovada && (
+          <View style={s.approvedInfo}>
+            <View style={s.infoRow}>
+              <Ionicons name="receipt" size={14} color="#1a237e" />
+              <Text style={s.infoText}>P.O.: {item.po_number}</Text>
+            </View>
+            <View style={s.infoRow}>
+              <Ionicons name="document-text" size={14} color="#2e7d32" />
+              <Text style={s.infoText}>O.S.: {item.os_number}</Text>
+            </View>
+          </View>
+        )}
+
+        {!isAprovada && (
+          <TouchableOpacity
+            style={s.poBtn}
+            onPress={() => openPOModal(item)}
+            data-testid={`informar-po-${item.id}`}
+          >
+            <Ionicons name="checkmark-circle" size={18} color="#fff" />
+            <Text style={s.poBtnText}>Informar P.O.</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={s.pdfRow}>
+          <TouchableOpacity
+            style={[s.pdfBtn, { backgroundColor: '#1a237e' }]}
+            onPress={() => handleDownloadPDF(item, 'comercial')}
+            disabled={downloading === `${item.id}-comercial`}
+            data-testid={`pdf-comercial-${item.id}`}
+          >
+            {downloading === `${item.id}-comercial` ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="document-text" size={16} color="#fff" />
+                <Text style={s.pdfBtnText}>PDF Comercial</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.pdfBtn, { backgroundColor: '#2e7d32' }]}
+            onPress={() => handleDownloadPDF(item, 'tecnica')}
+            disabled={downloading === `${item.id}-tecnica`}
+            data-testid={`pdf-tecnica-${item.id}`}
+          >
+            {downloading === `${item.id}-tecnica` ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="document" size={16} color="#fff" />
+                <Text style={s.pdfBtnText}>PDF Tecnica</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={s.cardActions}>
+          {!isAprovada && (
+            <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionBtn} data-testid={`edit-proposal-${item.id}`}>
+              <Ionicons name="pencil" size={20} color="#1a237e" />
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.pdfBtn, { backgroundColor: '#2e7d32' }]}
-          onPress={() => handleDownloadPDF(item, 'tecnica')}
-          disabled={downloading === `${item.id}-tecnica`}
-          data-testid={`pdf-tecnica-${item.id}`}
-        >
-          {downloading === `${item.id}-tecnica` ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="document" size={16} color="#fff" />
-              <Text style={s.pdfBtnText}>PDF Tecnica</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn} data-testid={`delete-proposal-${item.id}`}>
+            <Ionicons name="trash" size={20} color="#d32f2f" />
+          </TouchableOpacity>
+        </View>
       </View>
-
-      <View style={s.cardActions}>
-        <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionBtn} data-testid={`edit-proposal-${item.id}`}>
-          <Ionicons name="pencil" size={20} color="#1a237e" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn} data-testid={`delete-proposal-${item.id}`}>
-          <Ionicons name="trash" size={20} color="#d32f2f" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
+    );
+  };
 
   return (
     <SafeAreaView style={s.container}>
@@ -239,26 +327,114 @@ export default function PropostasScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#1a237e" />
         </TouchableOpacity>
-        <Text style={s.title}>Propostas Comerciais</Text>
+        <Text style={s.title}>Propostas</Text>
         <TouchableOpacity onPress={openAddModal} style={s.addBtn} data-testid="add-proposal-btn">
           <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={proposals}
-        renderItem={renderProposal}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16 }}
-        ListEmptyComponent={
-          <View style={s.empty}>
-            <Ionicons name="briefcase-outline" size={64} color="#ccc" />
-            <Text style={s.emptyText}>Nenhuma proposta cadastrada</Text>
-            <Text style={s.emptySubText}>Toque no + para criar uma nova proposta</Text>
+      {/* Filter Bar */}
+      <View style={s.filterBar}>
+        <TouchableOpacity style={s.filterBtn} onPress={() => setFilterPickerVisible(true)} data-testid="filter-btn">
+          <Ionicons name="calendar" size={18} color="#1a237e" />
+          <Text style={s.filterLabel}>{getFilterLabel()}</Text>
+          <Ionicons name="chevron-down" size={16} color="#1a237e" />
+        </TouchableOpacity>
+        <View style={s.statsRow}>
+          <View style={[s.statBadge, { backgroundColor: '#FFF3E0' }]}>
+            <Text style={[s.statText, { color: '#e65100' }]}>{pendentesCount} Pendente{pendentesCount !== 1 ? 's' : ''}</Text>
           </View>
-        }
-      />
+          <View style={[s.statBadge, { backgroundColor: '#E8F5E9' }]}>
+            <Text style={[s.statText, { color: '#2e7d32' }]}>{aprovadasCount} Aprovada{aprovadasCount !== 1 ? 's' : ''}</Text>
+          </View>
+        </View>
+      </View>
 
+      {loading ? (
+        <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>
+      ) : (
+        <FlatList
+          data={proposals}
+          renderItem={renderProposal}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 16 }}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Ionicons name="briefcase-outline" size={64} color="#ccc" />
+              <Text style={s.emptyText}>Nenhuma proposta encontrada</Text>
+              <Text style={s.emptySubText}>Toque no + para criar ou altere o filtro</Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Filter Picker Modal */}
+      <Modal visible={filterPickerVisible} animationType="fade" transparent onRequestClose={() => setFilterPickerVisible(false)}>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxWidth: 340, alignSelf: 'center' }]}>
+            <Text style={s.modalTitle}>Filtrar por Periodo</Text>
+            <Text style={s.label}>Ano</Text>
+            <View style={s.yearRow}>
+              {[2025, 2026, 2027].map(y => (
+                <TouchableOpacity key={y} style={[s.yearBtn, filterYear === y && s.yearBtnActive]} onPress={() => setFilterYear(y)}>
+                  <Text style={[s.yearBtnText, filterYear === y && s.yearBtnTextActive]}>{y}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[s.label, { marginTop: 12 }]}>Mes</Text>
+            <View style={s.monthGrid}>
+              {MONTHS.map(m => (
+                <TouchableOpacity key={m.value} style={[s.monthBtn, filterMonth === m.value && s.monthBtnActive]} onPress={() => setFilterMonth(m.value)}>
+                  <Text style={[s.monthBtnText, filterMonth === m.value && s.monthBtnTextActive]}>{m.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={[s.modalBtn, s.saveBtn, { marginTop: 16 }]} onPress={() => setFilterPickerVisible(false)}>
+              <Text style={s.saveText}>Aplicar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* P.O. Modal */}
+      <Modal visible={poModalVisible} animationType="fade" transparent onRequestClose={() => setPOModalVisible(false)}>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxWidth: 400, alignSelf: 'center' }]}>
+            <Text style={s.modalTitle}>Informar P.O.</Text>
+            {poProposal && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={s.cardSub}>Proposta: <Text style={{ fontWeight: '700', color: '#1a237e' }}>{poProposal.numero_proposta}</Text></Text>
+                <Text style={s.cardSub}>{poProposal.empresa}</Text>
+              </View>
+            )}
+            <Text style={s.label}>Numero da P.O. *</Text>
+            <TextInput
+              style={s.input}
+              placeholder="Ex: PO-2026-001"
+              value={poNumber}
+              onChangeText={setPONumber}
+              autoFocus
+              data-testid="po-number-input"
+            />
+            <Text style={s.hintText}>Ao informar a P.O., a proposta sera aprovada e uma Ordem de Servico sera criada automaticamente.</Text>
+            <View style={s.modalBtns}>
+              <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => setPOModalVisible(false)}>
+                <Text style={s.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modalBtn, s.saveBtn, submittingPO && { opacity: 0.6 }]}
+                onPress={handleInformarPO}
+                disabled={submittingPO}
+                data-testid="confirm-po-btn"
+              >
+                {submittingPO ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.saveText}>Confirmar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create/Edit Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
           <View style={s.modalContent}>
@@ -280,7 +456,6 @@ export default function PropostasScreen() {
               <Text style={s.label}>Equipamento</Text>
               <TextInput style={s.input} placeholder="Ex: Turbina Principal" value={equipamento} onChangeText={setEquipamento} data-testid="proposal-equipamento-input" />
 
-              {/* Items Section */}
               <View style={s.itemsHeader}>
                 <Text style={s.label}>Itens do Escopo *</Text>
                 <TouchableOpacity onPress={addItem} style={s.addItemBtn} data-testid="add-item-btn">
@@ -362,15 +537,29 @@ const s = StyleSheet.create({
   backBtn: { padding: 8 },
   title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
   addBtn: { backgroundColor: '#2e7d32', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  filterBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e8e8e8' },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8EAF6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  filterLabel: { fontSize: 14, fontWeight: '600', color: '#1a237e' },
+  statsRow: { flexDirection: 'row', gap: 8 },
+  statBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statText: { fontSize: 12, fontWeight: '600' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  headerRight: { alignItems: 'flex-end', gap: 4 },
   numberBadge: { backgroundColor: '#1a237e', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   numberText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  statusText: { fontSize: 11, fontWeight: '700' },
   dateText: { fontSize: 12, color: '#999' },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121', marginBottom: 4 },
   cardSub: { fontSize: 13, color: '#666', marginBottom: 2 },
   cardTotal: { fontSize: 14, fontWeight: '700', color: '#2e7d32', marginTop: 8 },
-  pdfRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  approvedInfo: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e8e8e8', gap: 4 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  infoText: { fontSize: 13, fontWeight: '600', color: '#333' },
+  poBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#ff6f00', paddingVertical: 10, borderRadius: 8, marginTop: 12 },
+  poBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  pdfRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   pdfBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 8 },
   pdfBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 8, justifyContent: 'flex-end' },
@@ -378,8 +567,9 @@ const s = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 64 },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   emptySubText: { fontSize: 13, color: '#bbb', marginTop: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '95%' },
+  hintText: { fontSize: 12, color: '#888', marginTop: 8, fontStyle: 'italic' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '95%' },
   modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 6, marginTop: 10 },
   input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 4 },
@@ -397,4 +587,14 @@ const s = StyleSheet.create({
   cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
   saveBtn: { backgroundColor: '#1a237e' },
   saveText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  yearRow: { flexDirection: 'row', gap: 8 },
+  yearBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#f5f5f5', alignItems: 'center' },
+  yearBtnActive: { backgroundColor: '#1a237e' },
+  yearBtnText: { fontSize: 15, fontWeight: '600', color: '#666' },
+  yearBtnTextActive: { color: '#fff' },
+  monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  monthBtn: { width: '22%', paddingVertical: 8, borderRadius: 6, backgroundColor: '#f5f5f5', alignItems: 'center' },
+  monthBtnActive: { backgroundColor: '#1a237e' },
+  monthBtnText: { fontSize: 13, fontWeight: '600', color: '#666' },
+  monthBtnTextActive: { color: '#fff' },
 });

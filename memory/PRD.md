@@ -32,6 +32,9 @@
 - Acesso restrito via `proposta_access` no modelo de usuário
 - PDF com header/footer padrão TWAS, watermark, borda, numeração de páginas
 - Campos: Empresa, Contato (A/C), Email, Embarcação, Equipamento, Itens, Observações
+- **Informar P.O.**: Botão para informar a Purchase Order, muda status para "Aprovada"
+- **Auto-criação de O.S.**: Ao informar P.O., cria O.S. automaticamente com numeração SEQ - Nº_PROPOSTA (sequencial global por ano)
+- **Filtros por mês/ano**: Nas propostas e nas ordens de serviço, com contagem de pendentes/aprovadas
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123
@@ -43,16 +46,19 @@
 - [x] Functions: E=ENGENHEIRO, EN=ENCARREGADO
 - [x] BM: timesheet selection, date pickers, edit, impostos toggle (%)
 - [x] Daily Report: Entradas Diárias como subseções (4.1...) com descrição + fotos
-- [x] Daily Report: Seleção de dias para PDF, Data Fim automática, sem Data Fim na criação
+- [x] Daily Report: Seleção de dias para PDF, Data Fim automática
 - [x] Supervisor Finalization: finalizar/bloquear edição, badge visual
-- [x] Admin Revert: devolver documento ao supervisor para ajustes
+- [x] Admin Revert: devolver documento ao supervisor
 - [x] Duplicate Timesheet
-- [x] PDF Avaliação: campos alinhados, linhas mais compridas, tabela mais espaçada
-- [x] Proposta Comercial: CRUD, auto-numeração YYMM-Seq, PDF Comercial e Técnica, proposta_access toggle
+- [x] PDF Avaliação: campos alinhados
+- [x] Proposta Comercial: CRUD, auto-numeração YYMM-Seq, PDF Comercial e Técnica
+- [x] Informar P.O.: Botão, modal, muda status para "Aprovada"
+- [x] Auto-criação de O.S. ao informar P.O. (SEQ - Nº_PROPOSTA)
+- [x] Filtros por mês/ano em Propostas e Ordens de Serviço
 
 ## Backlog
 ### P1
-- Refactor backend/server.py into modular structure
+- Refactor backend/server.py into modular structure (3700+ lines)
 - Add schedule_type (06-18 / 07-19) to Service Orders UI
 ### P2
 - Refactor edit-report.tsx into smaller components

@@ -157,6 +157,10 @@ export const timesheetAPI = {
     });
     return response.data;
   },
+  finalize: async (id: string) => {
+    const response = await api.put(`/timesheets/${id}/finalize`);
+    return response.data;
+  },
 };
 
 // Admin Archive API
@@ -273,6 +277,10 @@ export const reportAPI = {
   },
   deletePhoto: async (reportId: string, photoId: string) => {
     const response = await api.delete(`/reports/${reportId}/photos/${photoId}`);
+    return response.data;
+  },
+  finalize: async (id: string) => {
+    const response = await api.put(`/reports/${id}/finalize`);
     return response.data;
   },
   getPhotoUrl: (storagePath: string, token: string) => {

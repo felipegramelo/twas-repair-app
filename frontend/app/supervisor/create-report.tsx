@@ -40,7 +40,7 @@ export default function CreateReportScreen() {
 
   const handleCreate = async () => {
     if (!selectedOS) { showMsg('Selecione uma Ordem de Serviço'); return; }
-    if (!periodoInicio || !periodoFim) { showMsg('Preencha as datas de início e fim'); return; }
+    if (!periodoInicio || (reportType !== 'daily' && !periodoFim)) { showMsg('Preencha a data de início' + (reportType !== 'daily' ? ' e fim' : '')); return; }
 
     setCreating(true);
     try {
@@ -159,6 +159,7 @@ export default function CreateReportScreen() {
                   />
                 )}
               </View>
+              {reportType !== 'daily' && (
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Data Fim</Text>
                 {Platform.OS === 'web' ? (
@@ -184,6 +185,7 @@ export default function CreateReportScreen() {
                   />
                 )}
               </View>
+              )}
             </View>
 
             {/* Supervisor */}

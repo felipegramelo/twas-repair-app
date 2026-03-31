@@ -1397,6 +1397,9 @@ async def get_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_c
 
 @api_router.put("/timesheets/{ts_id}")
 async def update_timesheet(ts_id: str, ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
+    existing = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
+    if existing and existing.get("status") == "finalized":
+        raise HTTPException(status_code=403, detail="Timesheet finalizada. Não é possível editar.")
     if len(ts_data.entries) > 12:
         raise HTTPException(status_code=400, detail="Máximo de 12 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
@@ -1441,6 +1444,28 @@ async def delete_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(ge
     
     await db.timesheets.delete_one({"_id": ObjectId(ts_id)})
     return {"message": "Timesheet deleted successfully"}
+
+
+@api_router.put("/timesheets/{ts_id}/finalize")
+async def finalize_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
+    ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
+    if not ts:
+        raise HTTPException(status_code=404, detail="Timesheet não encontrada")
+    if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    await db.timesheets.update_one({"_id": ObjectId(ts_id)}, {"$set": {"status": "finalized", "updated_at": datetime.utcnow()}})
+    return {"success": True}
+
+
+@api_router.put("/reports/{report_id}/finalize")
+async def finalize_report(report_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
+    report = await db.reports.find_one({"_id": ObjectId(report_id)})
+    if not report:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    if current_user.get("role") != UserRole.ADMIN and report["supervisor_id"] != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    await db.reports.update_one({"_id": ObjectId(report_id)}, {"$set": {"status": "finalized", "updated_at": datetime.utcnow()}})
+    return {"success": True}
 
 
 # ==================== PDF GENERATION ====================
@@ -1960,6 +1985,8 @@ async def update_report(report_id: str, update: ReportUpdate, user: dict = Depen
     doc = await db.reports.find_one({"_id": ObjectId(report_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    if doc.get("status") == "finalized" and user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Relatório finalizado. Não é possível editar.")
     
     update_data = {}
     for field in ["periodo_inicio", "periodo_fim", "executado_por", "oc_wo", "sections", "status", "daily_entries"]:

@@ -216,6 +216,25 @@ export default function SupervisorDashboard() {
     else router.push(`/supervisor/create-report?type=${option === 'service_report' ? 'service' : 'daily'}`);
   };
 
+  const handleFinalizeTimesheet = async (ts: Timesheet) => {
+    if (Platform.OS === 'web') { if (!window.confirm('Deseja finalizar esta timesheet? Após a finalização você não poderá mais editá-la.')) return; }
+    else { /* native alert */ }
+    try {
+      await timesheetAPI.finalize(ts.id);
+      if (Platform.OS === 'web') window.alert('Timesheet finalizada com sucesso!');
+      loadData();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao finalizar timesheet'); }
+  };
+
+  const handleFinalizeReport = async (rpt: Report) => {
+    if (Platform.OS === 'web') { if (!window.confirm('Deseja finalizar este relatório? Após a finalização você não poderá mais editá-lo.')) return; }
+    try {
+      await reportAPI.finalize(rpt.id);
+      if (Platform.OS === 'web') window.alert('Relatório finalizado com sucesso!');
+      loadData();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao finalizar relatório'); }
+  };
+
   const formatDate = (dateStr: string) => {
     try { return new Date(dateStr).toLocaleDateString('pt-BR'); } catch { return dateStr; }
   };
@@ -228,8 +247,8 @@ export default function SupervisorDashboard() {
     setter(formatted);
   };
 
-  const getStatusLabel = (s: string) => s === 'draft' ? 'Rascunho' : s === 'completed' ? 'Concluído' : s === 'approved' ? 'Aprovado' : s;
-  const getStatusColor = (s: string) => s === 'draft' ? '#ff9800' : s === 'completed' ? '#4caf50' : s === 'approved' ? '#2196f3' : '#999';
+  const getStatusLabel = (s: string) => s === 'draft' ? 'Rascunho' : s === 'finalized' ? 'Finalizado' : s === 'completed' ? 'Concluído' : s === 'approved' ? 'Aprovado' : s;
+  const getStatusColor = (s: string) => s === 'draft' ? '#ff9800' : s === 'finalized' ? '#4caf50' : s === 'completed' ? '#4caf50' : s === 'approved' ? '#2196f3' : '#999';
   const getReportTypeLabel = (t: string) => t === 'service' ? 'Rel. Serviço' : 'Rel. Diário';
   const getReportTypeColor = (t: string) => t === 'service' ? '#1565c0' : '#2e7d32';
 
@@ -263,8 +282,9 @@ export default function SupervisorDashboard() {
             unifiedItems.map((item) => {
               if (item.kind === 'timesheet') {
                 const ts = item.data;
+                const isFinalized = (ts as any).status === 'finalized';
                 return (
-                  <TouchableOpacity key={`ts-${ts.id}`} style={styles.card} onPress={() => router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} activeOpacity={0.7} data-testid={`timesheet-card-${ts.id}`}>
+                  <TouchableOpacity key={`ts-${ts.id}`} style={[styles.card, isFinalized && { opacity: 0.85 }]} onPress={() => !isFinalized && router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} activeOpacity={isFinalized ? 1 : 0.7} data-testid={`timesheet-card-${ts.id}`}>
                     <View style={styles.topRow}>
                       <View style={styles.badgeRow}>
                         <View style={styles.badge}><Text style={styles.badgeText}>{ts.os_number}</Text></View>
@@ -272,12 +292,23 @@ export default function SupervisorDashboard() {
                           <Ionicons name="time-outline" size={12} color="#1a237e" />
                           <Text style={[styles.typeBadgeText, { color: '#1a237e' }]}>Timesheet</Text>
                         </View>
+                        {isFinalized && (
+                          <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
+                            <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
+                            <Text style={[styles.typeBadgeText, { color: '#2e7d32' }]}>Finalizado</Text>
+                          </View>
+                        )}
                       </View>
                       <View style={styles.actions}>
                         <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenPDF(ts); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-timesheet?id=${ts.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                        {!isFinalized && (
+                          <>
+                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-timesheet?id=${ts.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteTimesheet(ts); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
+                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeTimesheet(ts); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-ts-${ts.id}`}><Ionicons name="checkmark-done" size={20} color="#2e7d32" /></TouchableOpacity>
+                          </>
+                        )}
                         <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadPDF(ts); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteTimesheet(ts); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
                       </View>
                     </View>
                     <View style={styles.cardInfo}>
@@ -291,8 +322,9 @@ export default function SupervisorDashboard() {
                 );
               }
               const rpt = item.data;
+              const isRptFinalized = rpt.status === 'finalized';
               return (
-                <TouchableOpacity key={`rpt-${rpt.id}`} style={styles.card} onPress={() => router.push(`/supervisor/edit-report?id=${rpt.id}`)} activeOpacity={0.7} data-testid={`report-card-${rpt.id}`}>
+                <TouchableOpacity key={`rpt-${rpt.id}`} style={[styles.card, isRptFinalized && { opacity: 0.85 }]} onPress={() => !isRptFinalized && router.push(`/supervisor/edit-report?id=${rpt.id}`)} activeOpacity={isRptFinalized ? 1 : 0.7} data-testid={`report-card-${rpt.id}`}>
                   <View style={styles.topRow}>
                     <View style={styles.badgeRow}>
                       <View style={styles.badge}><Text style={styles.badgeText}>{rpt.os_number}</Text></View>
@@ -300,13 +332,24 @@ export default function SupervisorDashboard() {
                         <Ionicons name={rpt.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(rpt.report_type)} />
                         <Text style={[styles.typeBadgeText, { color: getReportTypeColor(rpt.report_type) }]}>{getReportTypeLabel(rpt.report_type)}</Text>
                       </View>
+                      {isRptFinalized && (
+                        <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
+                          <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
+                          <Text style={[styles.typeBadgeText, { color: '#2e7d32' }]}>Finalizado</Text>
+                        </View>
+                      )}
                     </View>
                     <View style={styles.actions}>
                       <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-report?id=${rpt.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
-                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      {!isRptFinalized && (
+                        <>
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-report?id=${rpt.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteReport(rpt); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeReport(rpt); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-rpt-${rpt.id}`}><Ionicons name="checkmark-done" size={20} color="#2e7d32" /></TouchableOpacity>
+                        </>
+                      )}
                       <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteReport(rpt); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
                     </View>
                   </View>
                   <View style={styles.cardInfo}>

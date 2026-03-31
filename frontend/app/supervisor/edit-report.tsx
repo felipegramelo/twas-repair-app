@@ -91,6 +91,7 @@ export default function EditReportScreen() {
   const [pdfSuccess, setPdfSuccess] = useState(false);
   const [dailyEntries, setDailyEntries] = useState<Array<{id: string; date: string; description: string}>>([]);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [pdfSelectedDays, setPdfSelectedDays] = useState<Set<string>>(new Set());
 
   useEffect(() => { loadReport(); AsyncStorage.getItem('token').then(t => t && setToken(t)); }, []);
 
@@ -100,6 +101,7 @@ export default function EditReportScreen() {
       setReport(data); setPeriodoInicio(data.periodo_inicio || ''); setPeriodoFim(data.periodo_fim || '');
       setExecutadoPor(data.executado_por || ''); setOcWo(data.oc_wo || ''); setSections(data.sections || []); setPhotos(photosData);
       setDailyEntries(data.daily_entries || []);
+      setPdfSelectedDays(new Set((data.daily_entries || []).map((e: any) => e.id)));
     } catch { showMsg('Erro ao carregar relatório'); } finally { setLoading(false); }
   };
 
@@ -118,7 +120,12 @@ export default function EditReportScreen() {
 
   const handleOpenPDF = () => {
     if (Platform.OS === 'web') {
-      const url = getPdfUrl();
+      let url = getPdfUrl();
+      // For daily reports, add selected day IDs
+      if (report?.report_type === 'daily' && pdfSelectedDays.size > 0) {
+        const dayIds = Array.from(pdfSelectedDays).join(',');
+        url += `&day_ids=${encodeURIComponent(dayIds)}`;
+      }
       window.open(url, '_blank');
       setPdfSuccess(true);
       setTimeout(() => setPdfSuccess(false), 4000);
@@ -393,6 +400,7 @@ export default function EditReportScreen() {
                     const today = new Date().toLocaleDateString('pt-BR');
                     const newEntry = { id: `day_${Date.now()}`, date: today, description: '' };
                     setDailyEntries(prev => [...prev, newEntry]);
+                    setPdfSelectedDays(prev => new Set([...prev, newEntry.id]));
                     setExpandedDay(newEntry.id);
                   }}
                   data-testid="add-day-btn"
@@ -409,15 +417,41 @@ export default function EditReportScreen() {
                 </View>
               )}
 
+              {dailyEntries.length > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 4 }}>
+                  <Text style={{ fontSize: 12, color: '#666' }}>Incluir no PDF: {pdfSelectedDays.size}/{dailyEntries.length} dia(s)</Text>
+                  <TouchableOpacity onPress={() => {
+                    if (pdfSelectedDays.size === dailyEntries.length) {
+                      setPdfSelectedDays(new Set());
+                    } else {
+                      setPdfSelectedDays(new Set(dailyEntries.map(e => e.id)));
+                    }
+                  }} data-testid="toggle-all-days-pdf">
+                    <Text style={{ fontSize: 12, color: '#1a237e', fontWeight: '600' }}>
+                      {pdfSelectedDays.size === dailyEntries.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {dailyEntries.map((entry, idx) => (
-                <View key={entry.id} style={[styles.card, { borderLeftWidth: 3, borderLeftColor: '#2e7d32' }]}>
+                <View key={entry.id} style={[styles.card, { borderLeftWidth: 3, borderLeftColor: pdfSelectedDays.has(entry.id) ? '#2e7d32' : '#ccc' }]}>
                   <TouchableOpacity
                     onPress={() => setExpandedDay(expandedDay === entry.id ? null : entry.id)}
                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
                     data-testid={`day-entry-header-${idx}`}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                      <Ionicons name="calendar" size={18} color="#2e7d32" />
+                      <TouchableOpacity onPress={(e) => {
+                        e.stopPropagation && e.stopPropagation();
+                        setPdfSelectedDays(prev => {
+                          const next = new Set(prev);
+                          if (next.has(entry.id)) next.delete(entry.id); else next.add(entry.id);
+                          return next;
+                        });
+                      }} data-testid={`day-pdf-check-${idx}`}>
+                        <Ionicons name={pdfSelectedDays.has(entry.id) ? 'checkbox' : 'square-outline'} size={22} color={pdfSelectedDays.has(entry.id) ? '#2e7d32' : '#999'} />
+                      </TouchableOpacity>
                       <Text style={{ fontSize: 14, fontWeight: '700', color: '#333' }}>4.{idx + 1} - DIA</Text>
                       {Platform.OS === 'web' ? (
                         <input

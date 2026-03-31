@@ -2235,7 +2235,7 @@ async def delete_report_photo(report_id: str, photo_id: str, user: dict = Depend
     return {"success": True}
 
 @api_router.get("/reports/{report_id}/pdf")
-async def generate_report_pdf(report_id: str, request: Request, token: str = Query(default=None)):
+async def generate_report_pdf(report_id: str, request: Request, token: str = Query(default=None), day_ids: str = Query(default=None)):
     # Accept auth from query param OR Authorization header (for mobile browser direct URL access)
     auth_token = token
     if not auth_token:
@@ -2539,6 +2539,20 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     # For daily reports: add daily entries as subsections of service_description in TOC
     daily_entries = report.get("daily_entries", [])
     is_daily = report.get("report_type") == "daily"
+    
+    # Filter daily entries by day_ids if provided
+    if is_daily and day_ids:
+        allowed_ids = set(day_ids.split(","))
+        daily_entries = [e for e in daily_entries if e.get("id") in allowed_ids]
+    
+    # For daily reports, auto-calculate periodo_fim from last daily entry date
+    if is_daily and daily_entries:
+        sorted_entry_dates = sorted(
+            [e.get("date", "") for e in daily_entries if e.get("date")],
+            key=parse_date_sortable
+        )
+        if sorted_entry_dates:
+            periodo_fim = sorted_entry_dates[-1]
     
     if is_daily and daily_entries:
         # Find the service_description section number

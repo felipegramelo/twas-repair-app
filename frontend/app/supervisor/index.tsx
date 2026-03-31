@@ -59,8 +59,8 @@ export default function SupervisorDashboard() {
         reportAPI.getAll().catch(() => []),
         serviceOrderAPI.getAll().catch(() => []),
       ]);
-      setTimesheets(tsData);
-      setReports(allReports);
+      setTimesheets(tsData.filter((t: any) => t.status !== 'finalized'));
+      setReports(allReports.filter((r: any) => r.status !== 'finalized'));
       setServiceOrders(osData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);

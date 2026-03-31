@@ -709,8 +709,8 @@ async def get_os_archive(current_user: Dict[str, Any] = Depends(get_admin_user))
     for so in service_orders:
         so_id = str(so["_id"])
         
-        # Get timesheets for this OS
-        timesheets = await db.timesheets.find({"os_id": so_id}).sort("created_at", -1).to_list(100)
+        # Get timesheets for this OS (only finalized ones for admin archive)
+        timesheets = await db.timesheets.find({"os_id": so_id, "status": "finalized"}).sort("created_at", -1).to_list(100)
         ts_list = []
         for ts in timesheets:
             ts["id"] = str(ts.pop("_id"))
@@ -719,8 +719,8 @@ async def get_os_archive(current_user: Dict[str, Any] = Depends(get_admin_user))
             ts["updated_at"] = ts.get("updated_at", "").isoformat() if hasattr(ts.get("updated_at", ""), "isoformat") else str(ts.get("updated_at", ""))
             ts_list.append(ts)
         
-        # Get reports for this OS
-        reports = await db.reports.find({"os_id": so_id}).sort("created_at", -1).to_list(100)
+        # Get reports for this OS (only finalized ones for admin archive)
+        reports = await db.reports.find({"os_id": so_id, "status": "finalized"}).sort("created_at", -1).to_list(100)
         report_list = []
         for r in reports:
             r["id"] = str(r.pop("_id"))

@@ -180,16 +180,9 @@ export default function OSArchiveScreen() {
             <View style={s.docInfo}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <Text style={s.docSupervisor}>{doc.supervisor_name}</Text>
-                {(doc.status === 'finalized') && (
-                  <View style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-                    <Text style={{ fontSize: 10, color: '#2e7d32', fontWeight: '600' }}>Finalizado</Text>
-                  </View>
-                )}
-                {(!doc.status || doc.status === 'draft') && (
-                  <View style={{ backgroundColor: '#fff3e0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-                    <Text style={{ fontSize: 10, color: '#e65100', fontWeight: '600' }}>Rascunho</Text>
-                  </View>
-                )}
+                <View style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                  <Text style={{ fontSize: 10, color: '#2e7d32', fontWeight: '600' }}>Finalizado</Text>
+                </View>
               </View>
               {type === 'timesheet' && doc.entries && (
                 <Text style={s.docDate}>{getDateRangeText(doc.entries)} ({doc.entries.length} entrada{doc.entries.length !== 1 ? 's' : ''})</Text>
@@ -220,15 +213,13 @@ export default function OSArchiveScreen() {
               >
                 <Ionicons name="download-outline" size={20} color="#1a237e" />
               </TouchableOpacity>
-              {doc.status === 'finalized' && (
-                <TouchableOpacity
-                  onPress={() => type === 'timesheet' ? handleRevertTimesheet(doc) : handleRevertReport(doc)}
-                  style={[s.docActionBtn, { backgroundColor: '#fff3e0' }]}
-                  data-testid={`revert-${doc.id}`}
-                >
-                  <Ionicons name="arrow-undo-outline" size={20} color="#e65100" />
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                onPress={() => type === 'timesheet' ? handleRevertTimesheet(doc) : handleRevertReport(doc)}
+                style={[s.docActionBtn, { backgroundColor: '#fff3e0' }]}
+                data-testid={`revert-${doc.id}`}
+              >
+                <Ionicons name="arrow-undo-outline" size={20} color="#e65100" />
+              </TouchableOpacity>
             </View>
           </View>
         ))}

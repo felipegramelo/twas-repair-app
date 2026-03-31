@@ -2878,28 +2878,17 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         elements.append(Paragraph(f"{aval_sec_num}. {aval_title}", section_style))
         elements.append(Spacer(1, 0.3*cm))
         
-        # Dynamic fields from report
+        # Dynamic fields from report — aligned with body text
         oc_wo_val = report.get("oc_wo", "")
-        aval_field_style = ParagraphStyle('AvalField', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.black, spaceAfter=1)
+        aval_field_style = ParagraphStyle('AvalField', parent=styles['Normal'], fontSize=9, leading=14, textColor=colors.black, spaceAfter=2)
         
-        aval_fields_data = [
-            [Paragraph("<b>CLIENTE:</b>", aval_field_style), Paragraph(report.get('client', ''), aval_field_style)],
-            [Paragraph("<b>NAVIO/VESSEL:</b>", aval_field_style), Paragraph(report.get('location', ''), aval_field_style)],
-            [Paragraph("<b>SERVIÇO / SERVICE:</b>", aval_field_style), Paragraph(report.get('service', ''), aval_field_style)],
-            [Paragraph("<b>PERÍODO / PERIOD:</b>", aval_field_style), Paragraph(f"{periodo_inicio} a {periodo_fim}", aval_field_style)],
-        ]
+        # Use Paragraphs instead of a table so they align exactly with the intro text below
+        elements.append(Paragraph(f"<b>CLIENTE:</b> {report.get('client', '')}", aval_field_style))
+        elements.append(Paragraph(f"<b>NAVIO/VESSEL:</b> {report.get('location', '')}", aval_field_style))
+        elements.append(Paragraph(f"<b>SERVIÇO / SERVICE:</b> {report.get('service', '')}", aval_field_style))
+        elements.append(Paragraph(f"<b>PERÍODO / PERIOD:</b> {periodo_inicio} a {periodo_fim}", aval_field_style))
         if oc_wo_val:
-            aval_fields_data.append([Paragraph("<b>OC/WO:</b>", aval_field_style), Paragraph(oc_wo_val, aval_field_style)])
-        
-        fields_table = Table(aval_fields_data, colWidths=[5.5*cm, content_width - 5.5*cm])
-        fields_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ]))
-        elements.append(fields_table)
+            elements.append(Paragraph(f"<b>OC/WO:</b> {oc_wo_val}", aval_field_style))
         elements.append(Spacer(1, 0.5*cm))
         
         # Bilingual intro text (BEFORE table, as per reference)
@@ -2979,7 +2968,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         elements.append(Paragraph("<b><i>Additional comments / suggestion to improve our quality:</i></b>", ParagraphStyle('AvalCommEn', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.black, spaceAfter=8)))
         
         # Ruled lines for handwritten comments (full width aligned with header/footer)
-        line_str = "_" * 105
+        line_str = "_" * 90
         line_style = ParagraphStyle('RuledLine', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#999999'), spaceAfter=10)
         for _ in range(8):
             elements.append(Paragraph(line_str, line_style))

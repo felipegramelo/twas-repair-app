@@ -19,8 +19,11 @@
 ## Functions
 - E=ENGENHEIRO, EN=ENCARREGADO, Sup=SUPERVISOR, T=TÉCNICO, M=MECÂNICO, TS=TÉCNICO DE SEGURANÇA
 
-## BM
+## BM (Boletim de Medição)
 - Seleção de timesheets, date pickers, edição, impostos toggle (%)
+- Campos "CÓD." e "Linha" por item/função (não mais global)
+- Título "BOLETIM DE MEDIÇÃO" centralizado no PDF
+- Auto-busca da proposta ao selecionar O.S. com proposal_id vinculado
 
 ## Proposta Comercial
 - CRUD completo com seções estruturadas (itens com título, descrição, valor)
@@ -46,10 +49,11 @@
 - [x] Informar P.O. + Auto-criação de O.S.
 - [x] Filtros por mês/ano em Propostas e Ordens de Serviço
 - [x] PDF Capa: Separar EMBARCAÇÃO e LOCAL em linhas distintas, foto mostra embarcação
+- [x] BM: CÓD. e Linha por item, título centralizado, auto-busca proposta (Testado 01/04/2026)
 
 ## Backlog
 ### P1
-- Refactor backend/server.py into modular structure (3700+ lines)
+- Refactor backend/server.py into modular structure (3800+ lines)
 - Add schedule_type (06-18 / 07-19) to Service Orders UI
 ### P2
 - Refactor edit-report.tsx into smaller components

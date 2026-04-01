@@ -2523,8 +2523,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     # Calculate safe max image heights based on actual frame dimensions
     frame_available_height = page_height - (border_margin + 3.1*cm) - (border_margin + 2.1*cm) - 12  # 12pt frame padding
-    max_full_photo_height = frame_available_height - 0.2*cm   # standalone images - max size
-    max_first_photo_height = frame_available_height - 3*cm    # images with title above
+    max_full_photo_height = frame_available_height - 0.1*cm   # standalone images - fill page to bottom
+    max_first_photo_height = frame_available_height - 1.5*cm    # images with title above (reduced gap)
     
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.black, alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
@@ -2793,12 +2793,12 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             if first_img:
                 first_group.append(first_img)
             elements_list.append(KeepTogether(first_group))
-            elements_list.append(PageBreak())
-            for p in sec_photos[1:]:
+            for idx_p, p in enumerate(sec_photos[1:]):
+                if idx_p > 0 or first_img:
+                    elements_list.append(PageBreak())
                 img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                 if img:
                     elements_list.append(img)
-                    elements_list.append(PageBreak())
         elif first_sub_with_photos and not sec_photos:
             # Don't add section title separately - it will be included in the first sub's KeepTogether
             pass
@@ -2832,12 +2832,12 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 if first_img:
                     first_group.append(first_img)
                 elements_list.append(KeepTogether(first_group))
-                elements_list.append(PageBreak())
-                for p in sub_photos[1:]:
+                for idx_p, p in enumerate(sub_photos[1:]):
+                    if idx_p > 0 or first_img:
+                        elements_list.append(PageBreak())
                     img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                     if img:
                         elements_list.append(img)
-                        elements_list.append(PageBreak())
             else:
                 sub_header = [Paragraph(f"{sub['number']}. {sub['title']}", subsec_style)]
                 sub_content = sub.get("content", "")
@@ -2860,12 +2860,12 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                         if first_img:
                             first_group.append(first_img)
                         elements_list.append(KeepTogether(first_group))
-                        elements_list.append(PageBreak())
-                        for p in ss_photos[1:]:
+                        for idx_p, p in enumerate(ss_photos[1:]):
+                            if idx_p > 0 or first_img:
+                                elements_list.append(PageBreak())
                             img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                             if img:
                                 elements_list.append(img)
-                                elements_list.append(PageBreak())
                     else:
                         ss_header = [Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style)]
                         ss_content = subsub.get("content", "")
@@ -2898,11 +2898,12 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             if header_elements:
                 for h in header_elements:
                     elements_list.append(h)
-            for p in sec_photos:
+            for idx_p, p in enumerate(sec_photos):
                 img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                 if img:
                     elements_list.append(img)
-                    elements_list.append(PageBreak())
+                    if idx_p < len(sec_photos) - 1:
+                        elements_list.append(PageBreak())
         else:
             rows = []
             for i in range(0, len(sec_photos), 2):

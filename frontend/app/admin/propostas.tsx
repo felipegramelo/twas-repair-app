@@ -16,6 +16,22 @@ const MONTHS = [
   { value: 10, label: 'Out' }, { value: 11, label: 'Nov' }, { value: 12, label: 'Dez' },
 ];
 
+const DEFAULT_TERMOS = `\u2212 Horas de Viagem e Espera: Ser\u00e3o cobradas conforme as horas de trabalho padr\u00e3o e as taxas aplic\u00e1veis.
+\u2212 Horas Offshore: Cobran\u00e7a m\u00ednima de 12 horas por dia.
+\u2212 Horas Onshore: Cobran\u00e7a m\u00ednima de 8 horas por dia.
+\u2212 Horas Extras:
+  o Dias \u00fateis: Valor da hora trabalhada multiplicado por 1,70.
+  o S\u00e1bados: Valor da hora trabalhada multiplicado por 1,80.
+  o Domingos e feriados nacionais ou municipais em S\u00e3o Gon\u00e7alo, RJ: Valor da hora trabalhada multiplicado por 2.
+\u2212 Servi\u00e7os Fora do Rio de Janeiro: Ser\u00e1 aplicada uma taxa adicional de 15% para servi\u00e7os realizados fora do estado do RJ.
+\u2212 Despesas: Os custos de viagem, hospedagem, alimenta\u00e7\u00e3o, materiais, ferramentas e transporte de m\u00e3o de obra ser\u00e3o cobrados ao custo, acrescidos de uma taxa administrativa de 15% e impostos aplic\u00e1veis (19,53%).
+\u2212 Impostos: O total de 19,53% (IRPJ e adicional IR 8%, CSLL 2,88%, COFINS 3%, PIS 0,65% e ISS 5%) j\u00e1 est\u00e1 inclu\u00eddo nos valores finais.
+\u2212 Condi\u00e7\u00f5es de Pagamento: O pagamento dever\u00e1 ser realizado em at\u00e9 30 dias a partir da data de emiss\u00e3o da fatura.
+\u2212 Penalidades por Atraso de Pagamento: Ser\u00e1 aplicada multa de 2% sobre o valor em atraso, conforme a Lei n\u00ba 8.078/90, e juros de 0,0333% ao dia, conforme a Lei n\u00ba 5.172/66.
+\u2212 C\u00e1lculo da Taxa Di\u00e1ria: O c\u00e1lculo ser\u00e1 realizado com base no per\u00edodo compreendido entre o primeiro dia de viagem e o retorno \u00e0s nossas instala\u00e7\u00f5es.
+\u2212 Ajuste Anual: As taxas ser\u00e3o reajustadas anualmente com base no \u00cdndice Geral de Pre\u00e7os do Mercado (IGP-M), publicado pela Funda\u00e7\u00e3o Get\u00falio Vargas (FGV), e em conformidade com o acordo coletivo vigente celebrado entre [RJ METAL/SIMMMERJ-RJ metal] e [TWAS Repair Servi\u00e7os Navais e Industriais Ltda], ou conforme a legisla\u00e7\u00e3o em vigor. O reajuste ser\u00e1 autom\u00e1tico e n\u00e3o haver\u00e1 necessidade de aviso pr\u00e9vio.
+Quaisquer pre\u00e7os e prazos diferentes relacionados ao servi\u00e7o em negocia\u00e7\u00e3o devem ser previamente acordados antes da aceita\u00e7\u00e3o do servi\u00e7o.`;
+
 export default function PropostasScreen() {
   const router = useRouter();
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -42,6 +58,8 @@ export default function PropostasScreen() {
   const [equipamento, setEquipamento] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [itens, setItens] = useState<ProposalItem[]>([]);
+  const [termosGerais, setTermosGerais] = useState(DEFAULT_TERMOS);
+  const [showTermos, setShowTermos] = useState(false);
 
   useEffect(() => { loadProposals(); }, [filterMonth, filterYear]);
 
@@ -62,6 +80,7 @@ export default function PropostasScreen() {
   const resetForm = () => {
     setEmpresa(''); setContato(''); setEmail(''); setEmbarcacao('');
     setEquipamento(''); setObservacoes(''); setItens([]); setEditingProposal(null);
+    setTermosGerais(DEFAULT_TERMOS); setShowTermos(false);
   };
 
   const openAddModal = () => { resetForm(); setModalVisible(true); };
@@ -75,11 +94,13 @@ export default function PropostasScreen() {
     setEquipamento(proposal.equipamento);
     setObservacoes(proposal.observacoes || '');
     setItens(proposal.itens || []);
+    setTermosGerais(proposal.termos_gerais || DEFAULT_TERMOS);
+    setShowTermos(false);
     setModalVisible(true);
   };
 
   const addItem = () => {
-    setItens([...itens, { id: Date.now().toString(), titulo: '', descricao: '', valor: 0 }]);
+    setItens([...itens, { id: Date.now().toString(), titulo: '', descricao: '', valor: 0, images: [] }]);
   };
 
   const updateItem = (index: number, field: keyof ProposalItem, value: string | number) => {
@@ -92,6 +113,15 @@ export default function PropostasScreen() {
     setItens(itens.filter((_, i) => i !== index));
   };
 
+  const moveItem = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === itens.length - 1) return;
+    const updated = [...itens];
+    const swap = direction === 'up' ? index - 1 : index + 1;
+    [updated[index], updated[swap]] = [updated[swap], updated[index]];
+    setItens(updated);
+  };
+
   const handleSave = async () => {
     if (!empresa.trim() || !contato.trim()) {
       if (Platform.OS === 'web') window.alert('Preencha Empresa e Contato');
@@ -99,19 +129,19 @@ export default function PropostasScreen() {
       return;
     }
     if (itens.length === 0) {
-      if (Platform.OS === 'web') window.alert('Adicione pelo menos um item');
-      else Alert.alert('Erro', 'Adicione pelo menos um item');
+      if (Platform.OS === 'web') window.alert('Adicione pelo menos uma secao no escopo');
+      else Alert.alert('Erro', 'Adicione pelo menos uma secao no escopo');
       return;
     }
     for (const item of itens) {
       if (!item.titulo.trim()) {
-        if (Platform.OS === 'web') window.alert('Preencha o titulo de todos os itens');
-        else Alert.alert('Erro', 'Preencha o titulo de todos os itens');
+        if (Platform.OS === 'web') window.alert('Preencha o titulo de todas as secoes');
+        else Alert.alert('Erro', 'Preencha o titulo de todas as secoes');
         return;
       }
     }
     try {
-      const payload = { empresa, contato, email, embarcacao, equipamento, observacoes, itens };
+      const payload = { empresa, contato, email, embarcacao, equipamento, observacoes, itens, termos_gerais: termosGerais };
       if (editingProposal) {
         await proposalAPI.update(editingProposal.id, payload);
       } else {
@@ -248,7 +278,7 @@ export default function PropostasScreen() {
         <Text style={s.cardSub}>A/C: {item.contato}</Text>
         {item.embarcacao ? <Text style={s.cardSub}>Embarcacao: {item.embarcacao}</Text> : null}
         {item.equipamento ? <Text style={s.cardSub}>Equipamento: {item.equipamento}</Text> : null}
-        <Text style={s.cardTotal}>{formatCurrency(calcTotal(item.itens))} ({item.itens.length} {item.itens.length === 1 ? 'item' : 'itens'})</Text>
+        <Text style={s.cardTotal}>{formatCurrency(calcTotal(item.itens))} ({item.itens.length} {item.itens.length === 1 ? 'secao' : 'secoes'})</Text>
 
         {isAprovada && (
           <View style={s.approvedInfo}>
@@ -264,11 +294,7 @@ export default function PropostasScreen() {
         )}
 
         {!isAprovada && (
-          <TouchableOpacity
-            style={s.poBtn}
-            onPress={() => openPOModal(item)}
-            data-testid={`informar-po-${item.id}`}
-          >
+          <TouchableOpacity style={s.poBtn} onPress={() => openPOModal(item)} data-testid={`informar-po-${item.id}`}>
             <Ionicons name="checkmark-circle" size={18} color="#fff" />
             <Text style={s.poBtnText}>Informar P.O.</Text>
           </TouchableOpacity>
@@ -320,6 +346,9 @@ export default function PropostasScreen() {
       </View>
     );
   };
+
+  // Section number including termos gerais
+  const termosSection = itens.length + 1;
 
   return (
     <SafeAreaView style={s.container}>
@@ -456,31 +485,61 @@ export default function PropostasScreen() {
               <Text style={s.label}>Equipamento</Text>
               <TextInput style={s.input} placeholder="Ex: Turbina Principal" value={equipamento} onChangeText={setEquipamento} data-testid="proposal-equipamento-input" />
 
+              {/* === INDEX / INDICE === */}
+              <View style={s.indexSection}>
+                <Text style={s.indexTitle}>Indice da Proposta</Text>
+                <View style={s.indexList}>
+                  {itens.map((item, idx) => (
+                    <View key={item.id} style={s.indexItem}>
+                      <Text style={s.indexNum}>{idx + 1}.</Text>
+                      <Text style={s.indexItemText} numberOfLines={1}>{item.titulo || '(sem titulo)'}</Text>
+                    </View>
+                  ))}
+                  {termosGerais.trim() ? (
+                    <View style={s.indexItem}>
+                      <Text style={s.indexNum}>{termosSection}.</Text>
+                      <Text style={[s.indexItemText, { color: '#666' }]}>Termos e Condicoes Gerais</Text>
+                    </View>
+                  ) : null}
+                  {itens.length === 0 && <Text style={{ color: '#999', fontSize: 12, fontStyle: 'italic' }}>Nenhuma secao adicionada</Text>}
+                </View>
+              </View>
+
+              {/* === ESCOPO SECTIONS === */}
               <View style={s.itemsHeader}>
-                <Text style={s.label}>Itens do Escopo *</Text>
+                <Text style={s.label}>Escopo dos Servicos *</Text>
                 <TouchableOpacity onPress={addItem} style={s.addItemBtn} data-testid="add-item-btn">
                   <Ionicons name="add-circle" size={28} color="#1a237e" />
                 </TouchableOpacity>
               </View>
 
               {itens.map((item, idx) => (
-                <View key={item.id} style={s.itemCard}>
-                  <View style={s.itemHeader}>
-                    <Text style={s.itemNum}>Item {idx + 1}</Text>
-                    <TouchableOpacity onPress={() => removeItem(idx)} data-testid={`remove-item-${idx}`}>
-                      <Ionicons name="close-circle" size={24} color="#d32f2f" />
+                <View key={item.id} style={s.sectionCard}>
+                  <View style={s.sectionHeader}>
+                    <View style={s.sectionNumBadge}>
+                      <Text style={s.sectionNumText}>{idx + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1 }} />
+                    <TouchableOpacity onPress={() => moveItem(idx, 'up')} disabled={idx === 0} style={{ opacity: idx === 0 ? 0.3 : 1, padding: 4 }}>
+                      <Ionicons name="arrow-up" size={20} color="#1a237e" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => moveItem(idx, 'down')} disabled={idx === itens.length - 1} style={{ opacity: idx === itens.length - 1 ? 0.3 : 1, padding: 4 }}>
+                      <Ionicons name="arrow-down" size={20} color="#1a237e" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeItem(idx)} style={{ padding: 4 }} data-testid={`remove-item-${idx}`}>
+                      <Ionicons name="close-circle" size={22} color="#d32f2f" />
                     </TouchableOpacity>
                   </View>
                   <TextInput
                     style={s.input}
-                    placeholder="Titulo do item *"
+                    placeholder="Titulo da secao *"
                     value={item.titulo}
                     onChangeText={(v) => updateItem(idx, 'titulo', v)}
                     data-testid={`item-titulo-${idx}`}
                   />
                   <TextInput
-                    style={[s.input, { minHeight: 60, textAlignVertical: 'top' }]}
-                    placeholder="Descricao detalhada"
+                    style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]}
+                    placeholder="Descricao detalhada do escopo"
                     value={item.descricao}
                     onChangeText={(v) => updateItem(idx, 'descricao', v)}
                     multiline
@@ -501,6 +560,30 @@ export default function PropostasScreen() {
                 <View style={s.totalRow}>
                   <Text style={s.totalLabel}>Total:</Text>
                   <Text style={s.totalValue}>{formatCurrency(calcTotal(itens))}</Text>
+                </View>
+              )}
+
+              {/* === TERMOS GERAIS === */}
+              <TouchableOpacity style={s.termosToggle} onPress={() => setShowTermos(!showTermos)} data-testid="termos-toggle">
+                <View style={s.sectionNumBadge}>
+                  <Text style={s.sectionNumText}>{termosSection}</Text>
+                </View>
+                <Text style={s.termosToggleText}>Termos e Condicoes Gerais</Text>
+                <Ionicons name={showTermos ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
+              </TouchableOpacity>
+              {showTermos && (
+                <View style={s.termosContainer}>
+                  <TextInput
+                    style={[s.input, { minHeight: 200, textAlignVertical: 'top', fontSize: 12 }]}
+                    value={termosGerais}
+                    onChangeText={setTermosGerais}
+                    multiline
+                    data-testid="termos-gerais-input"
+                  />
+                  <TouchableOpacity onPress={() => setTermosGerais(DEFAULT_TERMOS)} style={s.resetTermosBtn}>
+                    <Ionicons name="refresh" size={16} color="#1a237e" />
+                    <Text style={{ color: '#1a237e', fontSize: 12, fontWeight: '600' }}>Restaurar texto padrao</Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -575,12 +658,28 @@ const s = StyleSheet.create({
   input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 4 },
   itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 4 },
   addItemBtn: { padding: 4 },
-  itemCard: { backgroundColor: '#f9f9f9', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#e8e8e8' },
-  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  itemNum: { fontSize: 13, fontWeight: '700', color: '#1a237e' },
+  // Index
+  indexSection: { backgroundColor: '#E8EAF6', borderRadius: 10, padding: 14, marginTop: 16 },
+  indexTitle: { fontSize: 14, fontWeight: '700', color: '#1a237e', marginBottom: 8 },
+  indexList: { gap: 4 },
+  indexItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  indexNum: { fontSize: 13, fontWeight: '700', color: '#1a237e', width: 24 },
+  indexItemText: { fontSize: 13, color: '#333', flex: 1 },
+  // Section cards
+  sectionCard: { backgroundColor: '#f9f9f9', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#e0e0e0' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 4 },
+  sectionNumBadge: { backgroundColor: '#1a237e', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
+  sectionNumText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  // Totals
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#E8EAF6', borderRadius: 8, marginTop: 8 },
   totalLabel: { fontSize: 15, fontWeight: '700', color: '#1a237e' },
   totalValue: { fontSize: 15, fontWeight: '700', color: '#2e7d32' },
+  // Termos Gerais
+  termosToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#f9f9f9', borderRadius: 10, padding: 12, marginTop: 16, borderWidth: 1, borderColor: '#e0e0e0' },
+  termosToggleText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1a237e' },
+  termosContainer: { marginTop: 4 },
+  resetTermosBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', padding: 8, marginTop: 4 },
+  // Modal buttons
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 16 },
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f5f5f5' },

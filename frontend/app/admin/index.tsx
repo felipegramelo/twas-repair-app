@@ -84,6 +84,18 @@ export default function AdminDashboard() {
             </TouchableOpacity>
           )}
 
+          {user?.dashboard_access && (
+            <TouchableOpacity
+              style={[styles.card, { borderWidth: 2, borderColor: '#0277BD' }]}
+              onPress={() => router.push('/admin/dashboard')}
+              data-testid="admin-dashboard-card"
+            >
+              <Ionicons name="bar-chart" size={40} color="#0277BD" />
+              <Text style={styles.cardTitle}>Dashboard Financeiro</Text>
+              <Text style={styles.cardDescription}>Resumo financeiro e indicadores</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push('/admin/service-orders')}

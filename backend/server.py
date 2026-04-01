@@ -141,6 +141,7 @@ class UserResponse(BaseModel):
     bm_access: Optional[bool] = False
     os_archive_access: Optional[bool] = False
     proposta_access: Optional[bool] = False
+    dashboard_access: Optional[bool] = False
 
 
 class Token(BaseModel):
@@ -351,7 +352,8 @@ async def register(user_data: UserCreate):
             name=user_dict["name"],
             bm_access=user_dict.get("bm_access", False),
             os_archive_access=user_dict.get("os_archive_access", False),
-            proposta_access=user_dict.get("proposta_access", False)
+            proposta_access=user_dict.get("proposta_access", False),
+            dashboard_access=user_dict.get("dashboard_access", False)
         )
     )
 
@@ -375,7 +377,8 @@ async def login(user_data: UserLogin):
             name=user["name"],
             bm_access=user.get("bm_access", False),
             os_archive_access=user.get("os_archive_access", False),
-            proposta_access=user.get("proposta_access", False)
+            proposta_access=user.get("proposta_access", False),
+            dashboard_access=user.get("dashboard_access", False)
         )
     )
 
@@ -390,6 +393,7 @@ async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
         "bm_access": current_user.get("bm_access", False),
         "os_archive_access": current_user.get("os_archive_access", False),
         "proposta_access": current_user.get("proposta_access", False),
+        "dashboard_access": current_user.get("dashboard_access", False),
     }
 
 
@@ -530,7 +534,8 @@ async def get_admins(current_user: Dict[str, Any] = Depends(get_admin_user)):
         name=user["name"],
         bm_access=user.get("bm_access", False),
         os_archive_access=user.get("os_archive_access", False),
-        proposta_access=user.get("proposta_access", False)
+        proposta_access=user.get("proposta_access", False),
+        dashboard_access=user.get("dashboard_access", False)
     ) for user in admins]
 
 
@@ -546,6 +551,7 @@ async def create_admin(admin_data: SupervisorCreate, current_user: Dict[str, Any
     user_dict["bm_access"] = False
     user_dict["os_archive_access"] = False
     user_dict["proposta_access"] = False
+    user_dict["dashboard_access"] = False
     result = await db.users.insert_one(user_dict)
     return UserResponse(
         id=str(result.inserted_id),
@@ -554,7 +560,8 @@ async def create_admin(admin_data: SupervisorCreate, current_user: Dict[str, Any
         name=user_dict["name"],
         bm_access=False,
         os_archive_access=False,
-        proposta_access=False
+        proposta_access=False,
+        dashboard_access=False
     )
 
 
@@ -580,7 +587,8 @@ async def update_admin(user_id: str, admin_data: SupervisorUpdate, current_user:
         name=updated_user["name"],
         bm_access=updated_user.get("bm_access", False),
         os_archive_access=updated_user.get("os_archive_access", False),
-        proposta_access=updated_user.get("proposta_access", False)
+        proposta_access=updated_user.get("proposta_access", False),
+        dashboard_access=updated_user.get("dashboard_access", False)
     )
 
 
@@ -1108,6 +1116,86 @@ async def toggle_proposta_access(user_id: str, current_user: Dict[str, Any] = De
     new_access = not user.get("proposta_access", False)
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"proposta_access": new_access}})
     return {"proposta_access": new_access}
+
+@api_router.put("/users/admins/{user_id}/dashboard-access")
+async def toggle_dashboard_access(user_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user or user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=404, detail="Administrador não encontrado")
+    new_access = not user.get("dashboard_access", False)
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"dashboard_access": new_access}})
+    return {"dashboard_access": new_access}
+
+
+# ==================== DASHBOARD SUMMARY ====================
+
+@api_router.get("/dashboard/summary")
+async def get_dashboard_summary(current_user: Dict[str, Any] = Depends(get_admin_user)):
+    if not current_user.get("dashboard_access", False):
+        raise HTTPException(status_code=403, detail="Acesso ao dashboard negado")
+
+    now = datetime.utcnow()
+
+    # --- BMs by month (last 12 months) ---
+    bm_by_month = []
+    for i in range(11, -1, -1):
+        year = now.year
+        month = now.month - i
+        while month <= 0:
+            month += 12
+            year -= 1
+        month_start = datetime(year, month, 1)
+        if month == 12:
+            month_end = datetime(year + 1, 1, 1)
+        else:
+            month_end = datetime(year, month + 1, 1)
+
+        pipeline = [
+            {"$match": {"created_at": {"$gte": month_start, "$lt": month_end}}},
+            {"$group": {"_id": None, "total": {"$sum": "$valor_total"}, "count": {"$sum": 1}}},
+        ]
+        result = await db.boletins_medicao.aggregate(pipeline).to_list(1)
+        month_label = f"{month:02d}/{year}"
+        if result:
+            bm_by_month.append({"month": month_label, "total": round(result[0]["total"], 2), "count": result[0]["count"]})
+        else:
+            bm_by_month.append({"month": month_label, "total": 0, "count": 0})
+
+    # --- Proposals by status ---
+    proposal_statuses = await db.propostas.aggregate([
+        {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+    ]).to_list(20)
+    proposals_by_status = {}
+    for ps in proposal_statuses:
+        status_key = ps["_id"] or "pendente"
+        proposals_by_status[status_key] = ps["count"]
+
+    # --- Totals ---
+    total_bm_pipeline = [{"$group": {"_id": None, "total": {"$sum": "$valor_total"}, "count": {"$sum": 1}}}]
+    total_bm = await db.boletins_medicao.aggregate(total_bm_pipeline).to_list(1)
+    total_proposals = await db.propostas.count_documents({})
+    total_os = await db.service_orders.count_documents({})
+    total_timesheets = await db.timesheets.count_documents({})
+
+    # --- Top clients by BM value ---
+    top_clients = await db.boletins_medicao.aggregate([
+        {"$group": {"_id": "$client", "total": {"$sum": "$valor_total"}, "count": {"$sum": 1}}},
+        {"$sort": {"total": -1}},
+        {"$limit": 5},
+    ]).to_list(5)
+
+    return {
+        "bm_by_month": bm_by_month,
+        "proposals_by_status": proposals_by_status,
+        "totals": {
+            "bm_total_value": round(total_bm[0]["total"], 2) if total_bm else 0,
+            "bm_count": total_bm[0]["count"] if total_bm else 0,
+            "proposals_count": total_proposals,
+            "os_count": total_os,
+            "timesheets_count": total_timesheets,
+        },
+        "top_clients": [{"client": c["_id"] or "N/A", "total": round(c["total"], 2), "count": c["count"]} for c in top_clients],
+    }
 
 # ==================== BM PDF GENERATION ====================
 
@@ -3237,6 +3325,7 @@ class ProposalItemModel(BaseModel):
     titulo: str
     descricao: str = ""
     valor: Optional[float] = 0.0
+    images: Optional[List[str]] = []
 
 class ProposalCreate(BaseModel):
     empresa: str
@@ -3245,6 +3334,7 @@ class ProposalCreate(BaseModel):
     embarcacao: str = ""
     equipamento: str = ""
     itens: List[ProposalItemModel] = []
+    termos_gerais: str = ""
     observacoes: str = ""
 
 class ProposalUpdate(BaseModel):
@@ -3254,6 +3344,7 @@ class ProposalUpdate(BaseModel):
     embarcacao: Optional[str] = None
     equipamento: Optional[str] = None
     itens: Optional[List[ProposalItemModel]] = None
+    termos_gerais: Optional[str] = None
     observacoes: Optional[str] = None
 
 async def generate_proposal_number() -> str:
@@ -3282,6 +3373,7 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
             "titulo": item.titulo,
             "descricao": item.descricao,
             "valor": item.valor or 0.0,
+            "images": item.images or [],
         })
     doc = {
         "numero_proposta": numero,
@@ -3291,6 +3383,7 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "embarcacao": data.embarcacao,
         "equipamento": data.equipamento,
         "itens": itens,
+        "termos_gerais": data.termos_gerais,
         "observacoes": data.observacoes,
         "status": "pendente",
         "po_number": "",
@@ -3310,6 +3403,7 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "embarcacao": data.embarcacao,
         "equipamento": data.equipamento,
         "itens": itens,
+        "termos_gerais": data.termos_gerais,
         "observacoes": data.observacoes,
         "status": "pendente",
         "po_number": "",
@@ -3330,6 +3424,7 @@ def serialize_proposal(p):
         "embarcacao": p.get("embarcacao", ""),
         "equipamento": p.get("equipamento", ""),
         "itens": p.get("itens", []),
+        "termos_gerais": p.get("termos_gerais", ""),
         "observacoes": p.get("observacoes", ""),
         "status": p.get("status", "pendente"),
         "po_number": p.get("po_number", ""),
@@ -3387,6 +3482,8 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: 
         update_dict["equipamento"] = data.equipamento
     if data.observacoes is not None:
         update_dict["observacoes"] = data.observacoes
+    if data.termos_gerais is not None:
+        update_dict["termos_gerais"] = data.termos_gerais
     if data.itens is not None:
         itens = []
         for item in data.itens:
@@ -3652,64 +3749,74 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
     elements.append(info_table)
     elements.append(Spacer(1, 0.5 * cm))
 
-    # === ITEMS TABLE ===
+    # === NUMBERED SECTIONS (Escopo) ===
+    import html as html_mod
     itens = proposal.get("itens", [])
-    if is_comercial:
-        header_row = [
-            Paragraph("Item", th_style),
-            Paragraph("Descri\u00e7\u00e3o", th_style),
-            Paragraph("Valor (R$)", th_style),
-        ]
-        col_widths = [content_width * 0.08, content_width * 0.72, content_width * 0.20]
-    else:
-        header_row = [
-            Paragraph("Item", th_style),
-            Paragraph("Descri\u00e7\u00e3o", th_style),
-        ]
-        col_widths = [content_width * 0.08, content_width * 0.92]
-
-    table_data = [header_row]
+    section_num = 1
     total_valor = 0.0
+
+    # Title for scope
+    elements.append(Paragraph("ESCOPO DOS SERVI\u00c7OS", section_style))
+    elements.append(Spacer(1, 0.2 * cm))
+
     for idx, item in enumerate(itens):
-        desc_text = f"<b>{item.get('titulo', '')}</b>"
-        if item.get('descricao'):
-            desc_text += f"<br/>{item['descricao']}"
-        if is_comercial:
-            valor = item.get("valor", 0.0) or 0.0
-            total_valor += valor
-            table_data.append([
-                Paragraph(str(idx + 1), ParagraphStyle('ItemNum', fontSize=8, alignment=TA_CENTER)),
-                Paragraph(desc_text, td_style),
-                Paragraph(format_currency(valor), td_right),
-            ])
+        titulo = item.get("titulo", "")
+        descricao = item.get("descricao", "")
+        valor = item.get("valor", 0.0) or 0.0
+        total_valor += valor
+
+        # Section heading with number
+        if is_comercial and valor > 0:
+            heading_text = f"<b>{section_num}. {html_mod.escape(titulo)}</b> &nbsp;&nbsp; <font color='#1a237e'><b>{format_currency(valor)}</b></font>"
         else:
-            table_data.append([
-                Paragraph(str(idx + 1), ParagraphStyle('ItemNum', fontSize=8, alignment=TA_CENTER)),
-                Paragraph(desc_text, td_style),
-            ])
+            heading_text = f"<b>{section_num}. {html_mod.escape(titulo)}</b>"
 
-    items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
-    style_cmds = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]
-    for i in range(1, len(table_data)):
-        if i % 2 == 0:
-            style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8F8F8')))
-    items_table.setStyle(TableStyle(style_cmds))
-    elements.append(Paragraph("Escopo dos Servi\u00e7os", section_style))
-    elements.append(items_table)
+        item_heading_style = ParagraphStyle('ItemHeading', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=4, textColor=colors.black, fontName='Helvetica-Bold')
+        elements.append(Paragraph(heading_text, item_heading_style))
 
-    # Total row for comercial
+        # Description
+        if descricao:
+            desc_escaped = html_mod.escape(descricao).replace('\n', '<br/>')
+            elements.append(Paragraph(desc_escaped, body_style))
+
+        # Images (if any)
+        images = item.get("images", [])
+        for img_url in images:
+            try:
+                if img_url.startswith("http"):
+                    import urllib.request
+                    img_data = io.BytesIO()
+                    with urllib.request.urlopen(img_url, timeout=10) as resp:
+                        img_data.write(resp.read())
+                    img_data.seek(0)
+                    pil = PILImage.open(img_data)
+                else:
+                    img_path = Path(img_url)
+                    if img_path.exists():
+                        pil = PILImage.open(img_path)
+                    else:
+                        continue
+                iw, ih = pil.size
+                max_w = content_width * 0.85
+                max_h = 8 * cm
+                ratio = min(max_w / iw, max_h / ih)
+                draw_w = iw * ratio
+                draw_h = ih * ratio
+                temp_img = io.BytesIO()
+                if pil.mode != 'RGB':
+                    pil = pil.convert('RGB')
+                pil.save(temp_img, format='JPEG')
+                temp_img.seek(0)
+                from reportlab.platypus import Image as RLImage
+                elements.append(Spacer(1, 0.2 * cm))
+                elements.append(RLImage(temp_img, width=draw_w, height=draw_h))
+            except Exception:
+                pass
+
+        elements.append(Spacer(1, 0.3 * cm))
+        section_num += 1
+
+    # === TOTAL for comercial ===
     if is_comercial and itens:
         elements.append(Spacer(1, 0.2 * cm))
         total_table = Table([
@@ -3726,12 +3833,21 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
         ]))
         elements.append(total_table)
 
+    # === TERMOS GERAIS ===
+    termos = proposal.get("termos_gerais", "")
+    if termos:
+        elements.append(Spacer(1, 0.5 * cm))
+        elements.append(Paragraph(f"<b>{section_num}. TERMOS E CONDI\u00c7\u00d5ES GERAIS</b>", section_style))
+        termos_escaped = html_mod.escape(termos).replace('\n', '<br/>')
+        termos_style = ParagraphStyle('TermosBody', parent=styles['Normal'], fontSize=8, leading=11, spaceAfter=3, alignment=TA_JUSTIFY, textColor=colors.black)
+        elements.append(Paragraph(termos_escaped, termos_style))
+        section_num += 1
+
     # === OBSERVATIONS ===
     obs = proposal.get("observacoes", "")
     if obs:
         elements.append(Spacer(1, 0.5 * cm))
-        elements.append(Paragraph("Observa\u00e7\u00f5es", section_style))
-        import html as html_mod
+        elements.append(Paragraph(f"<b>{section_num}. OBSERVA\u00c7\u00d5ES</b>", section_style))
         obs_escaped = html_mod.escape(obs).replace('\n', '<br/>')
         elements.append(Paragraph(obs_escaped, body_style))
 

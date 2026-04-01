@@ -6,6 +6,7 @@ export interface User {
   bm_access?: boolean;
   os_archive_access?: boolean;
   proposta_access?: boolean;
+  dashboard_access?: boolean;
 }
 
 export interface ProposalItem {
@@ -13,6 +14,7 @@ export interface ProposalItem {
   titulo: string;
   descricao: string;
   valor?: number;
+  images?: string[];
 }
 
 export interface Proposal {
@@ -24,6 +26,7 @@ export interface Proposal {
   embarcacao: string;
   equipamento: string;
   itens: ProposalItem[];
+  termos_gerais?: string;
   observacoes?: string;
   status?: string;
   po_number?: string;

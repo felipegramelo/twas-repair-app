@@ -1,0 +1,85 @@
+{
+  "summary": "Iteration 30: Dashboard Financeiro and Proposal Restructuring. Backend: 15/15 tests passed - all dashboard, proposal CRUD, PDF generation, and permission APIs working correctly. Fixed bug in update_proposal endpoint that was missing termos_gerais field update. Frontend: All pages load correctly with proper data. Playwright automation limited due to React Native Web TouchableOpacity (known limitation).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Playwright button clicks",
+        "issue": "React Native Web TouchableOpacity components don't respond to standard Playwright click events. This is a known limitation documented in iterations 27-29.",
+        "affected_selectors": ["div[role='button']", "[data-testid='add-proposal-btn']"],
+        "note": "Code review confirms all UI elements are correctly implemented. Manual testing or localStorage token injection required for automation."
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_30_dashboard_proposals.py",
+    "/app/test_reports/pytest/test_iteration_30.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIXED: Backend update_proposal endpoint was missing termos_gerais field update (server.py line ~3485)",
+    "Dashboard API /api/dashboard/summary returns correct structure: bm_by_month (12 months), proposals_by_status, totals, top_clients",
+    "Dashboard requires dashboard_access permission - returns 403 without it",
+    "Dashboard toggle /api/users/admins/{id}/dashboard-access works correctly",
+    "Proposal CRUD correctly handles termos_gerais field in create, read, update operations",
+    "Proposal PDF generation includes numbered sections, termos gerais section, and observacoes section",
+    "Commercial PDF shows prices, Technical PDF does not show prices",
+    "Frontend admin index shows Dashboard Financeiro card only when user has dashboard_access",
+    "Frontend admins page shows Dashboard permission toggle badge",
+    "Frontend propostas page shows filter bar with month/year, status badges, Informar P.O. button, PDF buttons",
+    "Frontend dashboard page shows summary cards, BM by month chart, proposals by status, top clients"
+  ],
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/test_iteration_30_dashboard_proposals.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "Code review verified - Playwright automation limited due to React Native Web"
+  },
+  "test_credentials": {
+    "admin": "admin@twasrepair.com / admin123 (dashboard_access=true, proposta_access=true)",
+    "supervisor": "supervisor@twasrepair.com / super123"
+  },
+  "seed_data_creation": "Test proposals created and cleaned up during backend tests",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 30 tested Dashboard Financeiro and Proposal Restructuring features. All backend tests pass (15/15). Fixed bug in update_proposal endpoint that was missing termos_gerais field update. Frontend pages load correctly - Dashboard shows summary cards, BM chart, proposals status, top clients. Propostas page shows filter bar, status badges, Informar P.O. button, PDF buttons. Admins page shows Dashboard permission toggle. Playwright has known issues with React Native Web TouchableOpacity - use localStorage token injection for automation.",
+  "tested_features": {
+    "backend_dashboard_summary": "PASS - returns bm_by_month, proposals_by_status, totals, top_clients",
+    "backend_dashboard_permission": "PASS - returns 403 without dashboard_access",
+    "backend_dashboard_toggle": "PASS - toggles dashboard_access correctly",
+    "backend_proposal_create_with_termos": "PASS - saves termos_gerais field",
+    "backend_proposal_update_termos": "PASS - updates termos_gerais field (FIXED)",
+    "backend_proposal_list_filters": "PASS - month/year filters work",
+    "backend_proposal_backward_compat": "PASS - old proposals return empty termos_gerais",
+    "backend_proposal_pdf_comercial": "PASS - numbered sections, prices shown, termos gerais",
+    "backend_proposal_pdf_tecnica": "PASS - numbered sections, NO prices, termos gerais",
+    "backend_informar_po": "PASS - creates O.S. automatically",
+    "frontend_admin_index_dashboard_card": "PASS - shows when user has dashboard_access",
+    "frontend_dashboard_page": "PASS - summary cards, BM chart, proposals status, top clients",
+    "frontend_propostas_page": "PASS - filter bar, status badges, Informar P.O., PDF buttons",
+    "frontend_admins_dashboard_toggle": "PASS - Dashboard permission badge visible"
+  },
+  "api_verification": {
+    "GET /api/dashboard/summary": "Working - returns correct structure",
+    "PUT /api/users/admins/{id}/dashboard-access": "Working - toggles permission",
+    "POST /api/proposals": "Working - creates with termos_gerais",
+    "PUT /api/proposals/{id}": "Working - updates termos_gerais (FIXED)",
+    "GET /api/proposals": "Working - filters by month/year",
+    "GET /api/proposals/{id}/pdf?tipo=comercial": "Working - numbered sections with prices",
+    "GET /api/proposals/{id}/pdf?tipo=tecnica": "Working - numbered sections without prices",
+    "PUT /api/proposals/{id}/informar-po": "Working - creates O.S. automatically"
+  },
+  "bug_fixed": {
+    "issue": "update_proposal endpoint was not updating termos_gerais field",
+    "file": "/app/backend/server.py",
+    "line": "~3485",
+    "fix": "Added 'if data.termos_gerais is not None: update_dict[\"termos_gerais\"] = data.termos_gerais'"
+  }
+}

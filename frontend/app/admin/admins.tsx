@@ -128,6 +128,13 @@ export default function AdminsScreen() {
     } catch { if (Platform.OS === 'web') window.alert('Erro ao alterar acesso'); }
   };
 
+  const toggleDashboardAccess = async (admin: User) => {
+    try {
+      await import('../../services/api').then(m => m.default.put(`/users/admins/${admin.id}/dashboard-access`));
+      loadAdmins();
+    } catch { if (Platform.OS === 'web') window.alert('Erro ao alterar acesso'); }
+  };
+
   const renderAdmin = ({ item }: { item: User }) => (
     <View style={s.card} data-testid={`admin-card-${item.id}`}>
       <View style={s.cardContent}>
@@ -150,6 +157,10 @@ export default function AdminsScreen() {
         <TouchableOpacity style={[s.permBadge, item.proposta_access && s.permActive]} onPress={() => togglePropostaAccess(item)} data-testid={`toggle-proposta-${item.id}`}>
           <Ionicons name="document-text" size={14} color={item.proposta_access ? '#fff' : '#999'} />
           <Text style={[s.permText, item.proposta_access && s.permTextActive]}>Propostas</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.permBadge, item.dashboard_access && s.permActive]} onPress={() => toggleDashboardAccess(item)} data-testid={`toggle-dashboard-${item.id}`}>
+          <Ionicons name="bar-chart" size={14} color={item.dashboard_access ? '#fff' : '#999'} />
+          <Text style={[s.permText, item.dashboard_access && s.permTextActive]}>Dashboard</Text>
         </TouchableOpacity>
       </View>
       <View style={s.cardActions}>

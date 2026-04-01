@@ -2639,6 +2639,26 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     sections = report.get("sections", [])
     
+    # Renumber all enabled sections dynamically
+    main_idx = 0
+    for sec in sections:
+        if not sec.get("enabled", True):
+            continue
+        main_idx += 1
+        sec["number"] = str(main_idx)
+        sub_idx = 0
+        for sub in sec.get("subsections", []):
+            if not sub.get("enabled", True):
+                continue
+            sub_idx += 1
+            sub["number"] = f"{main_idx}.{sub_idx}"
+            ss_idx = 0
+            for ss in sub.get("subsections", []):
+                if not ss.get("enabled", True):
+                    continue
+                ss_idx += 1
+                ss["number"] = f"{main_idx}.{sub_idx}.{ss_idx}"
+    
     toc_style_main = ParagraphStyle('TOCMain', parent=styles['Normal'], fontSize=10, fontName='Helvetica', textColor=colors.black, spaceBefore=3, spaceAfter=3)
     toc_style_sub = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=15)
     toc_style_subsub = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=30)

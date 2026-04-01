@@ -360,7 +360,7 @@ export default function EditReportScreen() {
                 {editingSection === sec.key && (
                   <View style={{ marginTop: 12 }}>
                     {!isPhotoOnlySection(sec.key) && !NO_TEXT_SECTIONS.includes(sec.key) && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
-                    {isPhotoOnlySection(sec.key) && renderPhotoGrid(sec.key, true)}
+                    {(isPhotoOnlySection(sec.key) || sec.key.startsWith('custom_')) && renderPhotoGrid(sec.key, true)}
                     {sec.subsections.filter(sub => sub.enabled).map(sub => {
                       const subNum = numberMap.get(sub.key) || '';
                       const isPhotos = isPhotoOnlySection(sub.key);

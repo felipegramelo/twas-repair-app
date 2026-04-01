@@ -112,6 +112,11 @@ export default function EditReportScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Save all edited captions first
+      const captionPromises = Object.entries(captions).map(([photoId, caption]) =>
+        reportAPI.updateCaption(id!, photoId, caption)
+      );
+      await Promise.all(captionPromises);
       await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, oc_wo: ocWo, sections, daily_entries: dailyEntries });
       showMsg('Relatório salvo com sucesso!'); router.push('/supervisor');
     } catch (e: any) { showMsg('Erro ao salvar: ' + (e.message || '')); } finally { setSaving(false); }

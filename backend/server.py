@@ -2581,7 +2581,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             logging.error(f"Failed to load photo {storage_path}: {e}")
             return None
 
-    caption_style = ParagraphStyle('PhotoCaption', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, textColor=colors.black, spaceAfter=6)
+    caption_style = ParagraphStyle('PhotoCaption', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.black, spaceAfter=3, leading=9)
 
     # ===== COVER PAGE =====
     service_name = report.get("service", "").upper()
@@ -2819,11 +2819,11 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                         elements_list.append(img)
                         elements_list.append(PageBreak())
             else:
-                elements_list.append(Paragraph(f"{sub['number']}. {sub['title']}", subsec_style))
+                sub_header = [Paragraph(f"{sub['number']}. {sub['title']}", subsec_style)]
                 sub_content = sub.get("content", "")
                 if sub_content:
-                    elements_list.append(Paragraph(format_content(sub_content), body_style))
-                _render_photos(sub_key, elements_list)
+                    sub_header.append(Paragraph(format_content(sub_content), body_style))
+                _render_photos(sub_key, elements_list, header_elements=sub_header)
             
             for subsub in sub.get("subsections", []):
                 if subsub.get("enabled", True):
@@ -2847,11 +2847,11 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                                 elements_list.append(img)
                                 elements_list.append(PageBreak())
                     else:
-                        elements_list.append(Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style))
+                        ss_header = [Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style)]
                         ss_content = subsub.get("content", "")
                         if ss_content:
-                            elements_list.append(Paragraph(format_content(ss_content), body_style))
-                        _render_photos(ss_key, elements_list)
+                            ss_header.append(Paragraph(format_content(ss_content), body_style))
+                        _render_photos(ss_key, elements_list, header_elements=ss_header)
     
     # Image-only sections: render full-page images (one per page)
     FULL_PAGE_KEYS = {'ndt', 'pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'}
@@ -2861,15 +2861,23 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     photo_img_w = photo_col_w - 0.3*cm
     photo_img_h = 6*cm
     
-    def _render_photos(section_key, elements_list, force_full_page=False):
+    def _render_photos(section_key, elements_list, force_full_page=False, header_elements=None):
+        """Render photos for a section. header_elements: list of flowables to keep together with first photo row."""
         sec_photos = report_photos.get(section_key, [])
         if not sec_photos:
+            # No photos - just add headers if provided
+            if header_elements:
+                for h in header_elements:
+                    elements_list.append(h)
             return
         
         # Full page: NDT subsections, pressure_test, certificate, custom sections
         is_full_page = force_full_page or section_key in FULL_PAGE_KEYS or section_key.startswith('sub_') or section_key.startswith('subsub_') or section_key.startswith('custom_')
         
         if is_full_page:
+            if header_elements:
+                for h in header_elements:
+                    elements_list.append(h)
             for p in sec_photos:
                 img = load_photo_image(p["storage_path"], content_width, max_full_photo_height)
                 if img:
@@ -2899,8 +2907,33 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                     ('TOPPADDING', (0, 0), (-1, -1), 4),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                 ]))
-                elements_list.append(Spacer(1, 0.3*cm))
-                elements_list.append(photo_table)
+                spacer = Spacer(1, 0.3*cm)
+                if header_elements:
+                    # Build first photo row table separately
+                    first_row_data = rows[:2]  # first image row + caption row
+                    first_photo_table = Table(first_row_data, colWidths=[photo_col_w, photo_col_w])
+                    first_photo_table.setStyle(TableStyle([
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('TOPPADDING', (0, 0), (-1, -1), 4),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ]))
+                    keep_group = list(header_elements) + [spacer, first_photo_table]
+                    elements_list.append(KeepTogether(keep_group))
+                    # Add remaining rows normally
+                    if len(rows) > 2:
+                        remaining_rows = rows[2:]
+                        remaining_table = Table(remaining_rows, colWidths=[photo_col_w, photo_col_w])
+                        remaining_table.setStyle(TableStyle([
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                            ('TOPPADDING', (0, 0), (-1, -1), 4),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                        ]))
+                        elements_list.append(remaining_table)
+                else:
+                    elements_list.append(spacer)
+                    elements_list.append(photo_table)
     
     for sec in sections:
         render_section(sec, elements)

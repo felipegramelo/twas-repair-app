@@ -1079,7 +1079,6 @@ async def update_bm(bm_id: str, data: BMCreate, current_user: Dict[str, Any] = D
     update_doc["id"] = bm_id
     update_doc["updated_at"] = update_doc["updated_at"].isoformat()
     return update_doc
-    return {"message": "BM excluído com sucesso"}
 
 # ==================== BM ACCESS MANAGEMENT ====================
 

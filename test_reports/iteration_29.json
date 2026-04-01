@@ -1,0 +1,92 @@
+{
+  "summary": "Iteration 29: BM Per-Item Cod/Linha Feature Testing. Backend: 15/15 tests passed - all BM CRUD operations, calculate endpoint, PDF generation working correctly with per-item cod/linha values. Frontend: BM page loads but OS options not displayed due to 403 errors on API calls - authentication token not being sent with requests when navigating directly to BM page.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "BM Create Modal - OS Selection",
+        "issue": "Service Orders not displayed in the create modal. API calls to /api/bm, /api/service-orders, /api/client-prices return 403 Forbidden when navigating directly to /admin/boletim-medicao page. The authentication token is not being sent with requests.",
+        "affected_selectors": ["OS picker in create modal"],
+        "priority": "HIGH",
+        "root_cause": "AsyncStorage token retrieval is async - when BM page loads and calls loadData(), the token may not be available yet in the axios interceptor. This is a race condition between page load and auth context initialization.",
+        "potential_fix": "Add loading state check in BM page to wait for auth context to be ready before calling loadData(), or add retry logic for 403 responses"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_29_bm_per_item.py",
+    "/app/test_reports/pytest/test_iteration_29.xml"
+  ],
+  "action_items": [
+    "Fix frontend auth token race condition - BM page should wait for auth context to be ready before loading data",
+    "Add error handling in BM page loadData() to retry on 403 or show appropriate error message"
+  ],
+  "critical_code_review_comments": [
+    "Backend BM CRUD endpoints working correctly with per-item cod/linha",
+    "Backend PDF generation includes 'Linha' and 'CÓD.' columns (server.py lines 1303-1304)",
+    "Backend PDF title 'BOLETIM DE MEDIÇÃO' is centered using drawCentredString (server.py line 1192)",
+    "Backend calculate endpoint returns items with correct structure for per-item fields",
+    "Frontend boletim-medicao.tsx has per-item Cod. and Linha input fields (lines 478-496)",
+    "Frontend auto-proposal fetch implemented in handleSelectOS (lines 78-97)",
+    "Frontend issue: loadData() called in useEffect without waiting for auth context"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_29_bm_per_item.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "Partial - Page loads but OS options not displayed due to auth issue"
+  },
+  "test_credentials": {
+    "admin": "admin@twasrepair.com / admin123 (bm_access=true)"
+  },
+  "seed_data_creation": "Created test BM with ID 69cd78b1c75d947096e6cd0e for OS 2602-12 (Constellation) with per-item cod/linha values",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Iteration 29 tested BM per-item cod/linha feature. Backend fully working - all 15 tests pass. Frontend has auth token race condition issue - when navigating directly to /admin/boletim-medicao, the API calls return 403 because the token is not yet available in AsyncStorage. The BM page needs to wait for auth context to be ready before calling loadData(). Playwright automation has known issues with React Native Web TouchableOpacity components.",
+  "tested_features": {
+    "backend_bm_list": "PASS",
+    "backend_bm_calculate": "PASS",
+    "backend_bm_create_with_per_item_cod_linha": "PASS",
+    "backend_bm_get_detail": "PASS",
+    "backend_bm_update": "PASS",
+    "backend_bm_delete": "PASS",
+    "backend_bm_pdf_generation": "PASS (200 OK, 68KB PDF)",
+    "backend_bm_pdf_linha_column": "PASS (code review verified)",
+    "backend_bm_pdf_cod_column": "PASS (code review verified)",
+    "backend_bm_pdf_title_centered": "PASS (code review verified)",
+    "backend_os_with_proposal_link": "PASS",
+    "backend_bm_timesheets_endpoint": "PASS",
+    "frontend_bm_page_loads": "PASS",
+    "frontend_bm_create_modal_opens": "PASS",
+    "frontend_os_options_displayed": "FAIL - 403 auth error",
+    "frontend_auto_proposal_fetch": "NOT TESTED - blocked by OS selection issue"
+  },
+  "api_verification": {
+    "POST /api/auth/login": "Working",
+    "GET /api/bm": "Working (with auth)",
+    "POST /api/bm/calculate/{os_id}": "Working",
+    "POST /api/bm": "Working - creates with per-item cod/linha",
+    "GET /api/bm/{id}": "Working - returns per-item cod/linha",
+    "PUT /api/bm/{id}": "Working - updates per-item cod/linha",
+    "DELETE /api/bm/{id}": "Working",
+    "GET /api/bm/{id}/pdf": "Working - returns PDF with Linha and CÓD columns",
+    "GET /api/service-orders": "Working (with auth)",
+    "GET /api/bm/timesheets/{os_id}": "Working"
+  },
+  "rca_of_the_issue": {
+    "issue": "Frontend BM page shows empty OS picker - API calls return 403",
+    "root_cause": "Race condition between page load and auth context initialization. The BM page's loadData() function is called in useEffect on mount, but the AsyncStorage.getItem('token') in the axios interceptor may not have completed yet, resulting in requests without Authorization header.",
+    "reproduction_steps": [
+      "1. Navigate directly to https://timesheet-pro-75.preview.emergentagent.com/admin/boletim-medicao",
+      "2. Observe console shows 403 errors for /api/bm, /api/service-orders, /api/client-prices",
+      "3. Click 'Novo Boletim' - modal opens but no OS options displayed"
+    ],
+    "mitigation": "Add auth context check in BM page before loading data, or implement retry logic for 403 responses"
+  }
+}

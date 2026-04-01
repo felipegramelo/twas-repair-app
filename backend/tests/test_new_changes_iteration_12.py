@@ -9,7 +9,7 @@ import requests
 import os
 import json
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://proposal-builder-56.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://timesheet-pro-75.preview.emergentagent.com')
 
 class TestSession:
     """Shared test session with authentication"""

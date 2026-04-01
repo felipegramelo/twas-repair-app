@@ -18,7 +18,7 @@ import io
 import re
 
 # Use the public URL for testing
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://proposal-builder-56.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://timesheet-pro-75.preview.emergentagent.com')
 REPORT_ID = "69bd49d5d50559f19c945730"
 
 # Test credentials

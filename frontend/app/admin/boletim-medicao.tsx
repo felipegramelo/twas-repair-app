@@ -74,6 +74,27 @@ export default function BMScreen() {
       setSelectedTimesheets(ts.map((t: any) => t.id));
     } catch { showMsg('Erro ao carregar timesheets'); }
     finally { setLoadingTimesheets(false); }
+
+    // Auto-fill proposal data from the selected OS
+    const so = serviceOrders.find((s: any) => s.id === osId);
+    if (so && so.proposal_id) {
+      try {
+        const proposta = await api.get(`/proposals/${so.proposal_id}`);
+        setBmForm(prev => ({
+          ...prev,
+          po_number: so.po_number || proposta.data.po_number || '',
+          proposta: proposta.data.numero_proposta || '',
+        }));
+      } catch {
+        // Proposal might not exist, just use PO from OS
+        setBmForm(prev => ({
+          ...prev,
+          po_number: so.po_number || '',
+        }));
+      }
+    } else if (so && so.po_number) {
+      setBmForm(prev => ({ ...prev, po_number: so.po_number }));
+    }
   };
 
   const toggleTimesheet = (id: string) => {
@@ -453,7 +474,25 @@ export default function BMScreen() {
                   {calcResult.items.map((item: any, i: number) => (
                     <View key={i} style={s.calcItem}>
                       <Text style={s.calcFunc}>{item.function_name}</Text>
-                      <Text style={s.calcDetail}>{item.qtd} diária(s) x {formatCurrency(item.valor_und)} = {formatCurrency(item.valor_total)}</Text>
+                      <Text style={s.calcDetail}>{item.qtd} diaria(s) x {formatCurrency(item.valor_und)} = {formatCurrency(item.valor_total)}</Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[s.label, { marginTop: 0, fontSize: 12 }]}>Cod.</Text>
+                          <TextInput style={[s.input, { paddingVertical: 8, fontSize: 13 }]} value={item.cod || ''} onChangeText={v => {
+                            const items = [...calcResult.items];
+                            items[i] = { ...items[i], cod: v };
+                            setCalcResult({ ...calcResult, items });
+                          }} placeholder="Cod." />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[s.label, { marginTop: 0, fontSize: 12 }]}>Linha</Text>
+                          <TextInput style={[s.input, { paddingVertical: 8, fontSize: 13 }]} value={item.linha || ''} onChangeText={v => {
+                            const items = [...calcResult.items];
+                            items[i] = { ...items[i], linha: v };
+                            setCalcResult({ ...calcResult, items });
+                          }} placeholder="Linha" />
+                        </View>
+                      </View>
                     </View>
                   ))}
                   <Text style={s.calcSubtotal}>Subtotal: {formatCurrency(calcResult.subtotal)}</Text>
@@ -461,7 +500,7 @@ export default function BMScreen() {
                   <Text style={s.label}>Data do Boletim</Text>
                   <TextInput style={s.input} value={bmForm.data} onChangeText={v => setBmForm({...bmForm, data: v})} placeholder="DD/MM/AAAA" />
 
-                  <Text style={s.label}>Revisão</Text>
+                  <Text style={s.label}>Revisao</Text>
                   <TextInput style={s.input} value={bmForm.rev} onChangeText={v => setBmForm({...bmForm, rev: v})} />
 
                   <Text style={s.label}>P.O.</Text>
@@ -469,9 +508,6 @@ export default function BMScreen() {
 
                   <Text style={s.label}>Proposta</Text>
                   <TextInput style={s.input} value={bmForm.proposta} onChangeText={v => setBmForm({...bmForm, proposta: v})} />
-
-                  <Text style={s.label}>CÓD.</Text>
-                  <TextInput style={s.input} value={bmForm.cod} onChangeText={v => setBmForm({...bmForm, cod: v})} />
 
                   {/* Impostos toggle */}
                   <View style={s.impostoToggleRow}>

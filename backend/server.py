@@ -1184,8 +1184,11 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
         sep_x = content_left + 4.6 * cm
         canvas_obj.line(sep_x, header_bottom, sep_x, header_top)
         
-        # Title "BOLETIM DE MEDIÇÃO"
-        title_x = sep_x + (content_width - 4.6 * cm) / 2
+        # Title "BOLETIM DE MEDIÇÃO" - centered between logo separator and right side info
+        right_info_width = 3.5 * cm
+        title_area_start = sep_x
+        title_area_end = content_left + content_width - right_info_width
+        title_x = title_area_start + (title_area_end - title_area_start) / 2
         canvas_obj.setFont("Helvetica-Bold", 11)
         canvas_obj.drawCentredString(title_x, header_top - 0.6 * cm, "BOLETIM DE MEDIÇÃO")
         canvas_obj.setFont("Helvetica", 7)
@@ -1299,7 +1302,7 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
 
     header_row = [
         Paragraph("Data Inicial", th_style), Paragraph("Data Final", th_style),
-        Paragraph("PO/ AC", th_style), Paragraph("CÓD.", th_style),
+        Paragraph("Linha", th_style), Paragraph("CÓD.", th_style),
         Paragraph("Descrição das Atividades", th_style), Paragraph("Valor und", th_style),
         Paragraph("Qtd", th_style), Paragraph("Valor total", th_style),
     ]
@@ -1311,8 +1314,8 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
         table_data.append([
             Paragraph(item.get("data_inicial", ""), td_style),
             Paragraph(item.get("data_final", ""), td_style),
-            Paragraph(str(idx + 1), td_style),
-            Paragraph(bm.get("cod", ""), td_style),
+            Paragraph(item.get("linha", str(idx + 1)), td_style),
+            Paragraph(item.get("cod", bm.get("cod", "")), td_style),
             Paragraph(item.get("function_name", ""), td_left),
             Paragraph(format_currency(item.get("valor_und", 0)), td_right),
             Paragraph(str(item.get("qtd", 0)), td_style),

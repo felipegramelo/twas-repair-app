@@ -6,7 +6,7 @@ import requests
 import os
 import io
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://proposal-builder-56.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://timesheet-pro-75.preview.emergentagent.com')
 
 class TestNewFeatures:
     """Tests for new duplicate report and photo features"""

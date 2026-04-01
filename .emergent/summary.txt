@@ -12,42 +12,34 @@ PRODUCT REQUIREMENTS:
 **User's preferred language**: Portuguese (pt-BR). INSTRUCT next agent to respond in the user's preferred language only.
 
 **what currently exists?** 
-A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Core features (Reports, Timesheets, OS Archive, Boletim de Medição) are fully functional. The app has a complete PDF engine. Recent updates introduced a supervisor workflow (supervisors can Finalize documents, locking them out and sending them to the Admin), an Admin Devolver (Revert) workflow, and an overhauled Daily Report featuring daily entries (Entradas Diárias) with photos mapped as sub-sections in the PDF.
+A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Core features (Reports, Timesheets, OS Archive, Boletim de Medição, Propostas Comerciais) are functional. The app has a complex PDF engine. Recently, the app received full CRUD for Commercial Proposals, an auto-OS creation workflow from approved proposals, advanced photo caption/layout management in PDFs, and updates to the Boletim de Medição (BM) form structure.
 
 **Last working item**:
-    - Last item agent was working: Implementing the new Proposta Comercial (Commercial Proposal) feature. The agent had just analyzed the user's PDF template and started reviewing  to add the required backend CRUD, auto-numbering logic, and PDF generation.
-    - Status: IN PROGRESS
+    - Last item agent was working: Adjusting the Boletim de Medição (BM) feature. The user requested changing the PO/AC column to Linha (Line), making the Código (Code) and Linha fields function-specific (per item) instead of global, centralizing the PDF title, and auto-fetching the proposal when an O.S. is selected. The agent wrote the backend and frontend code to implement this but finished the task without testing.
+    - Status: TESTING PENDING
     - Agent Testing Done: N
-    - Which testing method agent to use? both (Frontend testing agent for UI, backend manual testing for PDF generation and numbering logic).
+    - Which testing method agent to use? both (manual frontend screenshot of the BM creation form + curl/python test to verify BM PDF generation).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  Issue 1: Commercial Proposal Auto-Numbering & PDF Generation (P0)
-     - Attempted fixes: The agent reviewed the required fields from the user's uploaded PDF but did not write the implementation code yet.
+  Issue 1: Verify and Test BM (Boletim de Medição) form and PDF updates (P0)
+     - Attempted fixes: The agent updated  and  to remove the global  input, add  and  state inputs per item in the table, centralize the PDF title, and auto-fetch the proposal. 
      - Next debug checklist: 
-       - : Create endpoints . Implement auto-numbering logic: format is  (e.g., ). *Note: The sequence number is global for the year and resets when the year changes.*
-       - : Build  leveraging the existing ReportLab header/footer structure.
-       - : Add  boolean to User model and admin endpoints.
-       - : Create a new folder/UI page for Commercial Proposals with a creation modal (Fields: Empresa, Pessoa de Contato, Email, Embarcação, Equipamento, and a rich text or section array for the proposal content).
-       - : Add toggle to grant  to admins.
-     - Why fix this issue and what will be achieved with the fix? Fulfills the user's explicit requirement to manage commercial proposals within the app following a strict sequential numbering standard.
-     - Status: IN PROGRESS
+       - : Verify if the UI correctly displays the new CÓD. and Linha inputs for *each* function row in the calculation results. Verify if selecting an O.S. populates the proposal field.
+       - : Verify if  and  properly receive and render  and  per item.
+     - Why fix this issue and what will be achieved with the fix? The code was modified but never tested. An untested PDF or UI form might crash the application for users attempting to generate a BM.
+     - Status: TESTING PENDING
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: None
 
 **In progress Task List**:
-  Task 1: Build Proposta Comercial Feature (P0)
-     - Where to resume: Start by adding the MongoDB collection operations and auto-numbering function in , then create the PDF logic, and finally build the Frontend UI.
-     - What will be achieved with this? Allows admins to generate standard commercial proposals directly from the app.
-     - Status: IN PROGRESS
-     - Should Test frontend/backend/both after fix? both
-     - Blocked on something: None
+  None.
 
 **Upcoming and Future Tasks**:
   Upcoming Tasks:
   - Add  (06-18 / 07-19) in the Service Orders (OS) UI (P1).
-  - Refactor  (P1): The file is now over 3150 lines and contains all routes, DB logic, and PDF generation. It urgently needs to be split into a modular structure (e.g., , , ).
+  - Refactor  (P1): The file is now nearing 4000 lines. It urgently needs to be split into a modular structure (e.g., , , ).
   
   Future Tasks:
   - Refactor  into smaller, reusable components (P2).
@@ -55,20 +47,20 @@ A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Cor
   - EAS Build (P2): Prepare  and  for App Store and Play Store deployment.
 
 **Completed work in this session**:
-- **Boletim de Medição (BM) Improvements**: Added timesheet selection via checkboxes, auto-filled Data fields (removed Periodo input), updated function names (E=ENGENHEIRO, EN=ENCARREGADO, removed ELETRICISTA), implemented BM editing via PUT endpoint, and added optional tax percentage calculation.
-- **Daily Reports Overhaul**: Removed NDT/Pressure/Satisfaction Evaluation from Daily Reports. Implemented Entradas Diárias (Daily Entries) with checkboxes to select which days are rendered in the PDF. Each day renders as a subsection (4.1, 4.2) inside the Service Description section. Auto-calculates Data Fim based on the last entry.
-- **Supervisor vs Admin Workflow**: Implemented  ('draft' or 'finalized') for Timesheets and Reports. Added a Finalizar button for Supervisors. Once finalized, documents move from the Supervisor dashboard to the Admin Arquivo por O.S. dashboard. Added a Devolver (Revert) button for Admins to return documents to 'draft' status for the supervisor.
-- **Timesheets**: Added a Duplicar (Duplicate) button.
-- **PDF Fixes**: Fixed alignment issues in the Service Report Satisfaction Evaluation page (fields are now perfectly aligned with the text block below, extended divider lines, added padding to the table).
+- **Proposta Comercial**: Implemented full CRUD,  permissions, auto-numbering (), and custom Commercial/Technical PDF generation.
+- **Informar P.O. Workflow**: Added an Informar P.O. button on Proposals. Approving it automatically creates a Service Order (O.S.) linked to the proposal. Added Month/Year filters for Proposals and O.S. lists.
+- **Service Report Cover Update**: Replaced the merged EMBARCAÇÃO/LOCAL row with separate rows. Removed the SUPERVISOR row. Added  to the O.S. creation form.
+- **Photos & Captions**: Created an endpoint to save edited photo captions. Adjusted ReportLab's  to prevent excessive blank pages after photos. Increased maximum photo size allowed on the page.
+- **Custom Report Sections**: Fixed a bug where custom sections dropped their numbering in the PDF. Added a delete button to remove custom sections from the TOC. Allowed custom sections to have descriptions and photos without needing a subsection.
+- **BM Field Updates**: Updated Boletim de Medição to make  and  per-item fields instead of global, and centralized the PDF title (Code written, testing pending).
 
 **Earlier issues found/mentioned but not fixed**:
   - None.
 
 **Known issue recurrence from previous fork**:
   - Issue recurrence in previous fork: **Aggressive Expo Metro Caching**.
-  - Recurrence count: 5+
-  - Status: IN PROGRESS (Agent frequently had to use  and  bash commands to force the UI to update during testing, as state/API changes sometimes failed to reflect instantly on the frontend).
-  - Note: Next agent must proactively restart Expo using bash if frontend structural changes do not appear.
+  - Recurrence count: 10+
+  - Status: IN PROGRESS (Agent frequently had to use  and  bash commands to force the UI to update during testing, as state/API changes sometimes failed to reflect instantly on the frontend. Next agent must proactively restart Expo using bash if UI structural changes do not appear).
 
 **Code Architecture**:
 
@@ -79,10 +71,10 @@ A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Cor
 - **PDF Generation**: ReportLab (layout/drawing) + PyMuPDF ().
 
 **key DB schema**:
-  - : { , , , , , ,  (to be added) }
-  - : { , , ,  (draft/finalized), : [{id, date, content, photos}], ... }
-  - : { , ,  (draft/finalized), , ... }
-  -  (To be created): { ,  (e.g. 2605 - 10), , , , , , ,  }
+  - : { , , , , , ,  }
+  - : { , , , , , ,  }
+  - : { , , , , , , , , , ... }
+  - : { , , , , , ... }
 
 **changes in tech stack**:
   - None.
@@ -90,58 +82,58 @@ A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Cor
 **All files of reference**:
   - : Contains API endpoints and PDF logic.
   - : API service wrappers.
-  - : Supervisor dashboard handling finalized document visibility.
-  - : Admin view for finalized documents.
+  - : Boletim de Medição form and UI.
+  - : Commercial Proposals list and actions.
+  - : Report editor handling sections, subsections, and photos.
 
 **Areas that need refactoring**:
-  - : P1 Priority. 3150+ lines monolith.
+  - : P1 Priority. Nearly 3800 lines monolith.
   - : Huge file with complex photo upload state management.
 
 **key api endpoints**:
-  - : Marks a report as finalized.
-  - : Marks a timesheet as finalized.
-  - : Admin endpoint to revert a report to draft.
+  - : Creates a commercial proposal.
+  - : Informs P.O., marks proposal as approved, and creates a Service Order.
+  - : Saves an edited caption for a photo.
+  - : Calculates pricing for a BM based on timesheets.
 
 **Critical Info for New Agent**:
-  - The next task is the **Commercial Proposal (Proposta Comercial)**. Do not forget the exact numbering requirement: **** (where Seq is a sequential number for the year, e.g., 2605 - 10. The next one is 2605 - 11. If the year changes to 2027, it should reset to 2701 - 01).
-  - Ensure you create the  flag inside the  collection to allow admins to view this new dashboard, matching the pattern used for  and .
-  - Supervisor workflows depend on the  flag ( vs ). Ensure any new features regarding supervisors respect this visibility state.
+  - **Verify the BM Edits immediately**: The last action modified how the Boletim de Medição calculates and renders cod and linha per row instead of globally. The code was injected but the agent hit the  tool without running a single frontend or backend test. Verify the UI and PDF generation first.
+  - **Expo Cache**: You will likely face issues where React Native Web caches old files. Run  and  frequently when your frontend edits do not seem to apply in screenshots.
 
 **documents and test reports created in this job**:
   - 
   - 
-  - 
-  - 
-  - 
+  -  (Propostas tests)
+  -  (Informar P.O. tests)
 
 **Last 10 User Messages and any pending HUMAN messages**:
-1. **(PENDING)** User requests a new Proposta Comercial (Commercial Proposal) feature with restricted access, specific fields (Empresa, contato, embarcação, etc.), custom PDF generation with header/footer, and auto-numbering rule (YYMM - Seq).
-2. User complains the duplicate timesheet button and revert button didn't appear. Agent fixes visibility rules (Supervisor only sees 'draft', Admin only sees 'finalized').
-3. User reports PDF alignment issues in the Client Satisfaction page. Agent corrects ReportLab layout paddings.
-4. User requests Finalize button for supervisors (locks document, moves it to Admin) and Devolver (Revert) button for Admins, plus a Duplicate Timesheet button.
-5. User clarifies they want to pick which daily entries go to the PDF via checkboxes, and auto-calculate Data Fim.
-6. User mentions daily entries should act as subsections (e.g., 4.1) under Service Description, and no Client Satisfaction evaluation is needed for daily reports.
-7. User asks to remove the (Assembly/Disassembly) subsections from Daily Reports to make way for the daily entries logic.
-8. User asks for Daily Reports to have the same format as Service Reports (Intro, Equip, Objective, Description) plus daily entries with photos.
-9. User asks for preview login links.
-10. User corrects BM function names (E=ENGENHEIRO, EN=ENCARREGADO, removes ELETRICISTA) and asks to allow editing of existing BMs.
+1. User requests adding the new Commercial Proposals (Propostas Comerciais) feature with structure, pricing, and custom PDF outputs.
+2. User requests Informar P.O. button on proposals that automatically creates a Service Order (O.S.) mapped sequentially, and adds Month/Year filters.
+3. User requests removing EMBARCAÇÃO / LOCAL from the Service Report cover table, splitting them into separate rows, and showing the embarcacao name below the cover photo.
+4. User states that when creating a Service Order, embarcacao should be a required input field that goes straight to the table.
+5. User requests removing the SUPERVISOR row from the cover table since EXECUTADO POR is already present.
+6. User points out that the Embarcação field is not appearing on the Service Order creation form. (Agent fixed cache issue).
+7. User reports they cannot delete photos from the service report, and the photo captions do not update in the PDF. User also states that photos need to stay on the same page as their sub-sections.
+8. User reports that adding custom sections loses its numbering in the PDF, and requests the ability to add photos/files and descriptions directly to custom sections without creating subsections.
+9. User requests adding a delete button for custom sections, and separate buttons for Description and Photos.
+10. **(PENDING VERIFICATION)** User requests changes to the Boletim de Medição: the PO/AC column should become Linha (per function/row), CÓD. should be per function/row, the BM title should be centralized, and the proposal should be auto-fetched when selecting an O.S.
 
 **Project Health Check**:
-- **Working**: Backend, Timesheets, Service/Daily Reports, PDF Engine, Admin/Supervisor Workflow, Boletim de Medição.
-- **In Progress**: Proposta Comercial.
+- **Working**: Backend, Timesheets, Service/Daily Reports, PDF Engine, Admin/Supervisor Workflow, Propostas Comerciais, Informar P.O.
+- **Testing Pending**: Boletim de Medição (BM) form and PDF generation updates.
 
 **3rd Party Integrations**:
 - Emergent Object Storage — uses Emergent LLM Key.
 
 **Testing status**:
-  - Testing agent used after significant changes: YES (Iterations 23-26)
-  - Troubleshoot agent used after agent stuck in loop: NO
+  - Testing agent used after significant changes: YES (For Propostas and P.O. iterations).
+  - Troubleshoot agent used after agent stuck in loop: NO.
   - Test files created:  to .
-  - Known regressions: None.
+  - Known regressions: None confirmed, but BM logic was altered without tests.
 
 **Credentials to test flow**:
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
 **What agent forgot to execute**:
-The agent gathered the PDF requirements and the logic for the Proposta Comercial feature but ran out of context before writing any code. The next agent must start directly with implementing this feature.</analysis>
+The agent implemented the user's final request regarding the Boletim de Medição (making  and  item-specific, centralizing the PDF title, and auto-fetching the proposal), but the agent executed the  tool immediately after editing the files. The agent completely forgot to test the frontend UI form via screenshot and forgot to test the BM PDF generation via curl/python. The next agent must prioritize testing this flow.</analysis>

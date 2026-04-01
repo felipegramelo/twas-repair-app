@@ -173,6 +173,7 @@ class ServiceOrder(BaseModel):
     os_number: str
     client: str
     location: str
+    embarcacao: Optional[str] = ""
     service: str
     employees: List[SOEmployee] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -186,6 +187,7 @@ class ServiceOrderCreate(BaseModel):
     os_number: str
     client: str
     location: str
+    embarcacao: Optional[str] = ""
     service: str
     employees: List[SOEmployee] = []
     schedule_type: Optional[str] = "07-19"
@@ -684,6 +686,8 @@ async def get_service_orders(month: Optional[int] = Query(None), year: Optional[
             so["proposal_id"] = ""
         if "po_number" not in so:
             so["po_number"] = ""
+        if "embarcacao" not in so:
+            so["embarcacao"] = ""
     return service_orders
 
 
@@ -1981,6 +1985,7 @@ async def create_report(report: ReportCreate, user: dict = Depends(get_current_u
         "os_number": os_data["os_number"],
         "client": os_data["client"],
         "location": os_data["location"],
+        "embarcacao": os_data.get("embarcacao", ""),
         "service": os_data["service"],
         "supervisor_id": str(user["_id"]),
         "supervisor_name": user["name"],
@@ -2584,15 +2589,16 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             img.hAlign = 'CENTER'
             elements.append(img)
     
-    # Vessel name below photo -> show client name only
-    client_cover_name = report.get("client", "").upper()
+    # Vessel/Embarcacao name below photo
+    embarcacao_cover_name = report.get("embarcacao", "").upper()
     vessel_cover_style = ParagraphStyle('VesselCover', parent=styles['Normal'], fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceBefore=12, spaceAfter=16)
-    elements.append(Paragraph(client_cover_name, vessel_cover_style))
+    elements.append(Paragraph(embarcacao_cover_name, vessel_cover_style))
     elements.append(Spacer(1, 0.5*cm))
     
     # Info table
     info_data = [
         [Paragraph("<b>CLIENTE:</b>", label_style), Paragraph(report.get("client", ""), value_style)],
+        [Paragraph("<b>EMBARCA\u00c7\u00c3O:</b>", label_style), Paragraph(report.get("embarcacao", ""), value_style)],
         [Paragraph("<b>LOCAL:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
         [Paragraph("<b>ORDEM DE SERVIÇO:</b>", label_style), Paragraph(report.get("os_number", ""), value_style)],
         [Paragraph("<b>SERVIÇO:</b>", label_style), Paragraph(report.get("service", ""), value_style)],
@@ -3371,7 +3377,8 @@ async def informar_po(proposal_id: str, data: InformarPORequest, current_user: D
     so_dict = {
         "os_number": os_number,
         "client": p.get("empresa", ""),
-        "location": p.get("embarcacao", ""),
+        "embarcacao": p.get("embarcacao", ""),
+        "location": "",
         "service": p.get("equipamento", ""),
         "employees": [],
         "schedule_type": "07-19",

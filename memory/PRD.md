@@ -1,23 +1,20 @@
 # TWAS REPAIR - PRD
 
 ## Reports
+### Relatório de Serviço - PDF Capa
+- Tabela da capa: Linhas separadas para CLIENTE, EMBARCAÇÃO e LOCAL (não mais "Embarcação / Local")
+- Abaixo da foto da capa: mostra o nome da EMBARCAÇÃO (não o cliente/local)
+- Seções completas com NDT, Avaliação, etc
+
 ### Relatório Diário
 - Criação: Apenas Data Início (Data Fim = última data das entradas diárias)
-- Seções: Introdução, Equipamentos, Objetivo, Descrição dos Serviços (sem subseções)
-- WITHOUT: NDT, Teste de Pressão, Certificados, Avaliação
+- Seções: Introdução, Equipamentos, Objetivo, Descrição dos Serviços
 - Entradas Diárias: subseções 4.1, 4.2... com data, descrição e fotos
-- Seleção de dias para PDF: checkboxes
-
-### Relatório de Serviço
-- Seções completas com NDT, Avaliação, etc
-- PDF Avaliação: campos alinhados com cabeçalho/rodapé, linhas mais compridas, tabela com mais espaçamento
 
 ## Supervisor Finalization Flow
 - Botão "Finalizar" em timesheets e relatórios
-- Após finalizar: badge "Finalizado", editar/excluir bloqueados
-- **Apenas admin pode "Devolver"** documento ao supervisor (botão no Arquivo por O.S.)
-- Supervisor não pode reverter (403)
-- Duplicar timesheet (mesma funcionalidade do duplicar relatório)
+- Admin pode "Devolver" documento ao supervisor
+- Duplicar timesheet
 
 ## Functions
 - E=ENGENHEIRO, EN=ENCARREGADO, Sup=SUPERVISOR, T=TÉCNICO, M=MECÂNICO, TS=TÉCNICO DE SEGURANÇA
@@ -27,34 +24,28 @@
 
 ## Proposta Comercial
 - CRUD completo com seções estruturadas (itens com título, descrição, valor)
-- Auto-numeração: YYMM - Seq (ex: 2603 - 01), sequência global por ano, reseta ao mudar o ano
+- Auto-numeração: YYMM - Seq
 - Dois PDFs: Proposta Comercial (com preço) e Proposta Técnica (sem preço)
-- Acesso restrito via `proposta_access` no modelo de usuário
-- PDF com header/footer padrão TWAS, watermark, borda, numeração de páginas
-- Campos: Empresa, Contato (A/C), Email, Embarcação, Equipamento, Itens, Observações
-- **Informar P.O.**: Botão para informar a Purchase Order, muda status para "Aprovada"
-- **Auto-criação de O.S.**: Ao informar P.O., cria O.S. automaticamente com numeração SEQ - Nº_PROPOSTA (sequencial global por ano)
-- **Filtros por mês/ano**: Nas propostas e nas ordens de serviço, com contagem de pendentes/aprovadas
+- Informar P.O.: muda status para "Aprovada", cria O.S. automaticamente (SEQ - Nº_PROPOSTA)
+- Filtros por mês/ano nas propostas e ordens de serviço
+
+## Ordens de Serviço
+- Campos: Número, Cliente, Embarcação (novo campo separado), Local, Serviço, Funcionários
+- Filtro por mês/ano
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
-## Completed (as of 2026-03-31)
+## Completed (as of 2026-04-01)
 - [x] Role-based auth, Timesheet/Report CRUD, PDF generation
 - [x] Arquivo por O.S., BM with all features
-- [x] Functions: E=ENGENHEIRO, EN=ENCARREGADO
-- [x] BM: timesheet selection, date pickers, edit, impostos toggle (%)
-- [x] Daily Report: Entradas Diárias como subseções (4.1...) com descrição + fotos
-- [x] Daily Report: Seleção de dias para PDF, Data Fim automática
-- [x] Supervisor Finalization: finalizar/bloquear edição, badge visual
-- [x] Admin Revert: devolver documento ao supervisor
-- [x] Duplicate Timesheet
-- [x] PDF Avaliação: campos alinhados
-- [x] Proposta Comercial: CRUD, auto-numeração YYMM-Seq, PDF Comercial e Técnica
-- [x] Informar P.O.: Botão, modal, muda status para "Aprovada"
-- [x] Auto-criação de O.S. ao informar P.O. (SEQ - Nº_PROPOSTA)
+- [x] Supervisor Finalization, Admin Revert, Duplicate Timesheet
+- [x] Daily Report: Entradas Diárias como subseções
+- [x] Proposta Comercial: CRUD, auto-numeração, PDF Comercial/Técnica
+- [x] Informar P.O. + Auto-criação de O.S.
 - [x] Filtros por mês/ano em Propostas e Ordens de Serviço
+- [x] PDF Capa: Separar EMBARCAÇÃO e LOCAL em linhas distintas, foto mostra embarcação
 
 ## Backlog
 ### P1

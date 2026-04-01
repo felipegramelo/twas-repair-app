@@ -22,6 +22,7 @@ export default function ServiceOrdersScreen() {
   const [osNumber, setOsNumber] = useState('');
   const [client, setClient] = useState('');
   const [location, setLocation] = useState('');
+  const [embarcacao, setEmbarcacao] = useState('');
   const [service, setService] = useState('');
   const [soEmployees, setSOEmployees] = useState<SOEmployee[]>([]);
   const [employeePickerVisible, setEmployeePickerVisible] = useState(false);
@@ -57,25 +58,25 @@ export default function ServiceOrdersScreen() {
   };
 
   const openAdd = () => {
-    setEditingSO(null); setOsNumber(''); setClient(''); setLocation(''); setService(''); setSOEmployees([]);
+    setEditingSO(null); setOsNumber(''); setClient(''); setLocation(''); setEmbarcacao(''); setService(''); setSOEmployees([]);
     setModalVisible(true);
   };
 
   const openEdit = (so: ServiceOrder) => {
-    setEditingSO(so); setOsNumber(so.os_number); setClient(so.client); setLocation(so.location); setService(so.service);
+    setEditingSO(so); setOsNumber(so.os_number); setClient(so.client); setLocation(so.location); setEmbarcacao(so.embarcacao || ''); setService(so.service);
     setSOEmployees(so.employees || []);
     setModalVisible(true);
   };
 
   const handleSave = async () => {
-    if (!osNumber || !client || !location || !service) {
-      if (Platform.OS === 'web') window.alert('Preencha todos os campos');
-      else Alert.alert('Erro', 'Preencha todos os campos');
+    if (!osNumber || !client || !service) {
+      if (Platform.OS === 'web') window.alert('Preencha todos os campos obrigatorios');
+      else Alert.alert('Erro', 'Preencha todos os campos obrigatorios');
       return;
     }
     try {
-      if (editingSO) await serviceOrderAPI.update(editingSO.id, osNumber, client, location, service, soEmployees);
-      else await serviceOrderAPI.create(osNumber, client, location, service, soEmployees);
+      if (editingSO) await serviceOrderAPI.update(editingSO.id, osNumber, client, location, service, soEmployees, embarcacao);
+      else await serviceOrderAPI.create(osNumber, client, location, service, soEmployees, embarcacao);
       setModalVisible(false); loadServiceOrders();
     } catch {
       if (Platform.OS === 'web') window.alert('Erro ao salvar');
@@ -212,8 +213,10 @@ export default function ServiceOrdersScreen() {
           <TextInput style={s.input} value={osNumber} onChangeText={setOsNumber} placeholder="Ex: 2602-14" />
           <Text style={s.label}>Cliente *</Text>
           <TextInput style={s.input} value={client} onChangeText={setClient} placeholder="Nome do cliente" />
-          <Text style={s.label}>Localização *</Text>
-          <TextInput style={s.input} value={location} onChangeText={setLocation} placeholder="Local do serviço" />
+          <Text style={s.label}>Embarcacao</Text>
+          <TextInput style={s.input} value={embarcacao} onChangeText={setEmbarcacao} placeholder="Ex: Plataforma P-71" />
+          <Text style={s.label}>Local</Text>
+          <TextInput style={s.input} value={location} onChangeText={setLocation} placeholder="Local do servico" />
           <Text style={s.label}>Serviço *</Text>
           <TextInput style={s.input} value={service} onChangeText={setService} placeholder="Descrição" />
 

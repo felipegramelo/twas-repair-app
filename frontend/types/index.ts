@@ -48,6 +48,7 @@ export interface ServiceOrder {
   os_number: string;
   client: string;
   location: string;
+  embarcacao?: string;
   service: string;
   employees: SOEmployee[];
 }

@@ -1,40 +1,45 @@
 # TWAS REPAIR - PRD
 
-## Reports
-### Relatório de Serviço - PDF Capa
-- Tabela da capa: Linhas separadas para CLIENTE, EMBARCAÇÃO e LOCAL (não mais "Embarcação / Local")
-- Abaixo da foto da capa: mostra o nome da EMBARCAÇÃO (não o cliente/local)
-- Seções completas com NDT, Avaliação, etc
+## Core Features
+### Reports
+- Relatorio de Servico - PDF Capa: Linhas separadas para CLIENTE, EMBARCACAO e LOCAL
+- Abaixo da foto da capa: nome da EMBARCACAO
+- Secoes completas com NDT, Avaliacao, etc
 
-### Relatório Diário
-- Criação: Apenas Data Início (Data Fim = última data das entradas diárias)
-- Seções: Introdução, Equipamentos, Objetivo, Descrição dos Serviços
-- Entradas Diárias: subseções 4.1, 4.2... com data, descrição e fotos
+### Relatorio Diario
+- Criacao: Apenas Data Inicio (Data Fim = ultima data das entradas diarias)
+- Secoes: Introducao, Equipamentos, Objetivo, Descricao dos Servicos
+- Entradas Diarias: subsecoes 4.1, 4.2... com data, descricao e fotos
 
-## Supervisor Finalization Flow
-- Botão "Finalizar" em timesheets e relatórios
-- Admin pode "Devolver" documento ao supervisor
-- Duplicar timesheet
+### Functions
+- E=ENGENHEIRO, EN=ENCARREGADO, Sup=SUPERVISOR, T=TECNICO, M=MECANICO, TS=TECNICO DE SEGURANCA
 
-## Functions
-- E=ENGENHEIRO, EN=ENCARREGADO, Sup=SUPERVISOR, T=TÉCNICO, M=MECÂNICO, TS=TÉCNICO DE SEGURANÇA
-
-## BM (Boletim de Medição)
-- Seleção de timesheets, date pickers, edição, impostos toggle (%)
-- Campos "CÓD." e "Linha" por item/função (não mais global)
-- Título "BOLETIM DE MEDIÇÃO" centralizado no PDF
+### BM (Boletim de Medicao)
+- Selecao de timesheets, date pickers, edicao, impostos toggle (%)
+- Campos "COD." e "Linha" por item/funcao (nao mais global)
+- Titulo "BOLETIM DE MEDICAO" centralizado no PDF
 - Auto-busca da proposta ao selecionar O.S. com proposal_id vinculado
 
-## Proposta Comercial
-- CRUD completo com seções estruturadas (itens com título, descrição, valor)
-- Auto-numeração: YYMM - Seq
-- Dois PDFs: Proposta Comercial (com preço) e Proposta Técnica (sem preço)
-- Informar P.O.: muda status para "Aprovada", cria O.S. automaticamente (SEQ - Nº_PROPOSTA)
-- Filtros por mês/ano nas propostas e ordens de serviço
+### Proposta Comercial (REESTRUTURADA em 01/04/2026)
+- Formato secoes numeradas (sem tabela)
+- Indice visivel apenas no formulario (NAO no PDF)
+- Cada secao: numero + titulo + descricao + valor + opcao de imagem
+- "Termos e Condicoes Gerais" como ultima secao numerada com texto padrao editavel
+- Dois PDFs: Comercial (com precos) e Tecnica (sem precos)
+- Informar P.O.: muda status, cria O.S. automaticamente
+- Filtros por mes/ano
 
-## Ordens de Serviço
-- Campos: Número, Cliente, Embarcação (novo campo separado), Local, Serviço, Funcionários
-- Filtro por mês/ano
+### Dashboard Financeiro (NOVO em 01/04/2026)
+- Pagina admin com controle de permissao (dashboard_access)
+- Cards: Total BMs, Propostas, O.S., Timesheets
+- Grafico de barras: BMs por mes (12 meses)
+- Barra horizontal empilhada: Propostas por status
+- Top 5 clientes por valor de BM
+- Toggle de permissao na pagina de administradores
+
+### Ordens de Servico
+- Campos: Numero, Cliente, Embarcacao, Local, Servico, Funcionarios
+- Filtro por mes/ano
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123
@@ -44,17 +49,20 @@
 - [x] Role-based auth, Timesheet/Report CRUD, PDF generation
 - [x] Arquivo por O.S., BM with all features
 - [x] Supervisor Finalization, Admin Revert, Duplicate Timesheet
-- [x] Daily Report: Entradas Diárias como subseções
-- [x] Proposta Comercial: CRUD, auto-numeração, PDF Comercial/Técnica
-- [x] Informar P.O. + Auto-criação de O.S.
-- [x] Filtros por mês/ano em Propostas e Ordens de Serviço
-- [x] PDF Capa: Separar EMBARCAÇÃO e LOCAL em linhas distintas, foto mostra embarcação
-- [x] BM: CÓD. e Linha por item, título centralizado, auto-busca proposta (Testado 01/04/2026)
+- [x] Daily Report: Entradas Diarias como subsecoes
+- [x] Proposta Comercial: CRUD, auto-numeracao, PDF Comercial/Tecnica
+- [x] Informar P.O. + Auto-criacao de O.S.
+- [x] Filtros por mes/ano em Propostas e Ordens de Servico
+- [x] PDF Capa: Separar EMBARCACAO e LOCAL
+- [x] BM: COD. e Linha por item, titulo centralizado, auto-busca proposta
+- [x] Dashboard Financeiro com graficos e controle de acesso
+- [x] Reestruturacao de Propostas: secoes numeradas, indice, termos gerais
 
 ## Backlog
 ### P1
-- Refactor backend/server.py into modular structure (3800+ lines)
+- Refactor backend/server.py into modular structure (3900+ lines)
 - Add schedule_type (06-18 / 07-19) to Service Orders UI
+- Adicionar upload de imagens/arquivos por secao nas propostas
 ### P2
 - Refactor edit-report.tsx into smaller components
 - Offline Mode / EAS Build

@@ -2604,7 +2604,6 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         [Paragraph("<b>SERVIÇO:</b>", label_style), Paragraph(report.get("service", ""), value_style)],
         [Paragraph("<b>EXECUTADO POR:</b>", label_style), Paragraph(report.get("executado_por", report.get("supervisor_name", "")), value_style)],
         [Paragraph("<b>PERÍODO:</b>", label_style), Paragraph(periodo_str, value_style)],
-        [Paragraph("<b>SUPERVISOR:</b>", label_style), Paragraph(report.get("supervisor_name", ""), value_style)],
     ]
     info_table = Table(info_data, colWidths=[5*cm, content_width - 5*cm])
     info_table.setStyle(TableStyle([

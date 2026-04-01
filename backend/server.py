@@ -2320,8 +2320,22 @@ async def get_report_photos(report_id: str, user: dict = Depends(get_current_use
             "storage_path": doc["storage_path"],
             "original_filename": doc["original_filename"],
             "content_type": doc.get("content_type", "image/jpeg"),
+            "caption": doc.get("caption", ""),
         })
     return {"photos": photos}
+
+
+@api_router.put("/reports/{report_id}/photos/{photo_id}/caption")
+async def update_photo_caption(report_id: str, photo_id: str, request: Request, user: dict = Depends(get_current_user)):
+    body = await request.json()
+    caption = body.get("caption", "")
+    result = await db.report_photos.update_one(
+        {"_id": ObjectId(photo_id), "report_id": report_id, "is_deleted": False},
+        {"$set": {"caption": caption}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Foto não encontrada")
+    return {"success": True, "caption": caption}
 
 
 @api_router.delete("/reports/{report_id}/photos/{photo_id}")
@@ -2871,7 +2885,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                         p = sec_photos[i + j]
                         img = load_photo_image(p["storage_path"], photo_img_w, photo_img_h)
                         row_imgs.append(img if img else Paragraph("", body_style))
-                        row_caps.append(Paragraph(p.get("original_filename", ""), caption_style))
+                        row_caps.append(Paragraph(p.get("caption", "") or p.get("original_filename", ""), caption_style))
                     else:
                         row_imgs.append(Paragraph("", body_style))
                         row_caps.append(Paragraph("", caption_style))

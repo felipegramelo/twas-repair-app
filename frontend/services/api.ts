@@ -341,6 +341,10 @@ export const reportAPI = {
     const response = await api.delete(`/reports/${reportId}/photos/${photoId}`);
     return response.data;
   },
+  updateCaption: async (reportId: string, photoId: string, caption: string) => {
+    const response = await api.put(`/reports/${reportId}/photos/${photoId}/caption`, { caption });
+    return response.data;
+  },
   finalize: async (id: string) => {
     const response = await api.put(`/reports/${id}/finalize`);
     return response.data;

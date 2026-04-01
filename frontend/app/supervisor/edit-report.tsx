@@ -10,7 +10,7 @@ interface Section {
   key: string; number: string; title: string; content: string; enabled: boolean; subsections: Section[];
 }
 interface Photo {
-  id: string; section_key: string; storage_path: string; original_filename: string;
+  id: string; section_key: string; storage_path: string; original_filename: string; caption?: string;
 }
 
 const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations', 'disassembly', 'assembly', 'ndt'];
@@ -102,6 +102,10 @@ export default function EditReportScreen() {
       setExecutadoPor(data.executado_por || ''); setOcWo(data.oc_wo || ''); setSections(data.sections || []); setPhotos(photosData);
       setDailyEntries(data.daily_entries || []);
       setPdfSelectedDays(new Set((data.daily_entries || []).map((e: any) => e.id)));
+      // Initialize captions from backend data
+      const initialCaptions: Record<string, string> = {};
+      photosData.forEach((p: any) => { if (p.caption) initialCaptions[p.id] = p.caption; });
+      setCaptions(initialCaptions);
     } catch { showMsg('Erro ao carregar relatório'); } finally { setLoading(false); }
   };
 
@@ -158,7 +162,13 @@ export default function EditReportScreen() {
 
   const handleDeletePhoto = async (photoId: string) => {
     if (Platform.OS === 'web' && !window.confirm('Excluir esta foto?')) return;
-    try { await reportAPI.deletePhoto(id!, photoId); setPhotos(prev => prev.filter(p => p.id !== photoId)); } catch { showMsg('Erro ao excluir foto'); }
+    try { await reportAPI.deletePhoto(id!, photoId); setPhotos(prev => prev.filter(p => p.id !== photoId)); showMsg('Foto excluida'); } catch { showMsg('Erro ao excluir foto'); }
+  };
+
+  const handleSaveCaption = async (photoId: string) => {
+    const caption = captions[photoId];
+    if (caption === undefined) return;
+    try { await reportAPI.updateCaption(id!, photoId, caption); } catch { showMsg('Erro ao salvar legenda'); }
   };
 
   const getPhotoUrl = (sp: string) => reportAPI.getPhotoUrl(sp, token);
@@ -238,7 +248,7 @@ export default function EditReportScreen() {
                   {token ? <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={styles.gridPhoto} resizeMode="cover" /> : <View style={[styles.gridPhoto, styles.photoPlaceholder]}><Ionicons name="image-outline" size={32} color="#999" /></View>}
                   <TouchableOpacity style={styles.photoDeleteBtn} onPress={() => handleDeletePhoto(photo.id)}><Ionicons name="close-circle" size={22} color="#d32f2f" /></TouchableOpacity>
                 </View>
-                <TextInput style={styles.captionInput} value={captions[photo.id] || photo.original_filename} onChangeText={(t) => setCaptions(prev => ({ ...prev, [photo.id]: t }))} placeholder="Legenda..." multiline />
+                <TextInput style={styles.captionInput} value={captions[photo.id] !== undefined ? captions[photo.id] : (photo.caption || '')} onChangeText={(t) => setCaptions(prev => ({ ...prev, [photo.id]: t }))} onBlur={() => handleSaveCaption(photo.id)} placeholder="Legenda..." multiline />
               </View>
             ))}
           </View>

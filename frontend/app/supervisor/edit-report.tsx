@@ -81,6 +81,7 @@ export default function EditReportScreen() {
   const [addingSectionTitle, setAddingSectionTitle] = useState('');
   const [addingSubsectionTitle, setAddingSubsectionTitle] = useState<Record<string, string>>({});
   const [showAddSubsection, setShowAddSubsection] = useState<string | null>(null);
+  const [customSectionMode, setCustomSectionMode] = useState<Record<string, Set<string>>>({});
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const [token, setToken] = useState('');
@@ -202,8 +203,27 @@ export default function EditReportScreen() {
 
   const addCustomSection = () => {
     if (!addingSectionTitle.trim()) return;
-    setSections(prev => [...prev, { key: `custom_${Date.now()}`, number: '', title: addingSectionTitle.trim().toUpperCase(), content: '', enabled: true, subsections: [] }]);
+    const key = `custom_${Date.now()}`;
+    setSections(prev => [...prev, { key, number: '', title: addingSectionTitle.trim().toUpperCase(), content: '', enabled: true, subsections: [] }]);
     setAddingSectionTitle('');
+    setCustomSectionMode(prev => ({ ...prev, [key]: new Set(['text', 'photos']) }));
+  };
+
+  const deleteCustomSection = (sectionKey: string) => {
+    if (Platform.OS === 'web') {
+      if (!window.confirm('Excluir esta seção?')) return;
+    }
+    setSections(prev => prev.filter(s => s.key !== sectionKey));
+  };
+
+  const toggleCustomMode = (sectionKey: string, mode: string) => {
+    setCustomSectionMode(prev => {
+      const current = prev[sectionKey] || new Set<string>();
+      const updated = new Set(current);
+      if (updated.has(mode)) updated.delete(mode);
+      else updated.add(mode);
+      return { ...prev, [sectionKey]: updated };
+    });
   };
 
   const addSubsection = (parentKey: string) => {
@@ -350,17 +370,44 @@ export default function EditReportScreen() {
           {/* Enabled Sections */}
           {sections.filter(s => s.enabled).map(sec => {
             const num = numberMap.get(sec.key) || '';
+            const isCustom = sec.key.startsWith('custom_');
+            const modes = customSectionMode[sec.key] || new Set(['text', 'photos']);
             return (
               <View key={sec.key} style={styles.card}>
                 <TouchableOpacity onPress={() => setEditingSection(editingSection === sec.key ? null : sec.key)} style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionNum}>{num}.</Text>
-                  <Text style={styles.sectionTitleText}>{sec.title}</Text>
+                  <Text style={[styles.sectionTitleText, { flex: 1 }]}>{sec.title}</Text>
+                  {isCustom && (
+                    <TouchableOpacity onPress={() => deleteCustomSection(sec.key)} style={{ padding: 4, marginRight: 8 }} data-testid={`delete-section-${sec.key}`}>
+                      <Ionicons name="trash-outline" size={20} color="#d32f2f" />
+                    </TouchableOpacity>
+                  )}
                   <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
                 </TouchableOpacity>
                 {editingSection === sec.key && (
                   <View style={{ marginTop: 12 }}>
-                    {!isPhotoOnlySection(sec.key) && !NO_TEXT_SECTIONS.includes(sec.key) && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
-                    {(isPhotoOnlySection(sec.key) || sec.key.startsWith('custom_')) && renderPhotoGrid(sec.key, true)}
+                    {isCustom && (
+                      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                        <TouchableOpacity
+                          style={[styles.modeBtn, modes.has('text') && styles.modeBtnActive]}
+                          onPress={() => toggleCustomMode(sec.key, 'text')}
+                        >
+                          <Ionicons name="document-text-outline" size={18} color={modes.has('text') ? '#fff' : '#1a237e'} />
+                          <Text style={[styles.modeBtnText, modes.has('text') && styles.modeBtnTextActive]}>Descricao</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.modeBtn, modes.has('photos') && styles.modeBtnActive]}
+                          onPress={() => toggleCustomMode(sec.key, 'photos')}
+                        >
+                          <Ionicons name="camera-outline" size={18} color={modes.has('photos') ? '#fff' : '#1a237e'} />
+                          <Text style={[styles.modeBtnText, modes.has('photos') && styles.modeBtnTextActive]}>Fotos / Arquivo</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {(!isCustom && !isPhotoOnlySection(sec.key) && !NO_TEXT_SECTIONS.includes(sec.key)) && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
+                    {(!isCustom && isPhotoOnlySection(sec.key)) && renderPhotoGrid(sec.key, true)}
+                    {isCustom && modes.has('text') && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
+                    {isCustom && modes.has('photos') && renderPhotoGrid(sec.key, true)}
                     {sec.subsections.filter(sub => sub.enabled).map(sub => {
                       const subNum = numberMap.get(sub.key) || '';
                       const isPhotos = isPhotoOnlySection(sub.key);
@@ -651,6 +698,11 @@ const styles = StyleSheet.create({
   addSubRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   addSubInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#1a237e', padding: 10, fontSize: 14, color: '#333' },
   addSubConfirmBtn: { padding: 2 },
+  // Mode buttons for custom sections
+  modeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1.5, borderColor: '#1a237e', justifyContent: 'center', backgroundColor: '#fff' },
+  modeBtnActive: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  modeBtnText: { fontSize: 13, fontWeight: '600', color: '#1a237e' },
+  modeBtnTextActive: { color: '#fff' },
   // Photos
   photoArea: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   photoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },

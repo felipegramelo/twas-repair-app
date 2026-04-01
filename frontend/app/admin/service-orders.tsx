@@ -191,7 +191,8 @@ export default function ServiceOrdersScreen() {
               <View style={s.badge}><Text style={s.badgeText}>{item.os_number}</Text></View>
               <View style={{ flex: 1 }}>
                 <Text style={s.cardTitle}>{item.client}</Text>
-                <Text style={s.cardSub}>{item.location}</Text>
+                {item.embarcacao ? <Text style={s.cardSub}>{item.embarcacao}</Text> : null}
+                {item.location ? <Text style={s.cardSub}>{item.location}</Text> : null}
                 <Text style={s.cardMeta}>{item.service}</Text>
                 <Text style={s.cardEmps} numberOfLines={2}>{getEmpSummary(item.employees || [])}</Text>
               </View>

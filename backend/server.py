@@ -2584,15 +2584,16 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             img.hAlign = 'CENTER'
             elements.append(img)
     
-    # Vessel name below photo
+    # Vessel name below photo -> show client name only
+    client_cover_name = report.get("client", "").upper()
     vessel_cover_style = ParagraphStyle('VesselCover', parent=styles['Normal'], fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceBefore=12, spaceAfter=16)
-    elements.append(Paragraph(vessel_name, vessel_cover_style))
+    elements.append(Paragraph(client_cover_name, vessel_cover_style))
     elements.append(Spacer(1, 0.5*cm))
     
     # Info table
     info_data = [
         [Paragraph("<b>CLIENTE:</b>", label_style), Paragraph(report.get("client", ""), value_style)],
-        [Paragraph("<b>EMBARCAÇÃO / LOCAL:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
+        [Paragraph("<b>LOCAL:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
         [Paragraph("<b>ORDEM DE SERVIÇO:</b>", label_style), Paragraph(report.get("os_number", ""), value_style)],
         [Paragraph("<b>SERVIÇO:</b>", label_style), Paragraph(report.get("service", ""), value_style)],
         [Paragraph("<b>EXECUTADO POR:</b>", label_style), Paragraph(report.get("executado_por", report.get("supervisor_name", "")), value_style)],

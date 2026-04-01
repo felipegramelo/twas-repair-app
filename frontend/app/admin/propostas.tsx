@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, TextInput, Modal,
-  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform,
+  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { proposalAPI } from '../../services/api';
 import { Proposal, ProposalItem } from '../../types';
 
@@ -32,8 +33,16 @@ const DEFAULT_TERMOS = `\u2212 Horas de Viagem e Espera: Ser\u00e3o cobradas con
 \u2212 Ajuste Anual: As taxas ser\u00e3o reajustadas anualmente com base no \u00cdndice Geral de Pre\u00e7os do Mercado (IGP-M), publicado pela Funda\u00e7\u00e3o Get\u00falio Vargas (FGV), e em conformidade com o acordo coletivo vigente celebrado entre [RJ METAL/SIMMMERJ-RJ metal] e [TWAS Repair Servi\u00e7os Navais e Industriais Ltda], ou conforme a legisla\u00e7\u00e3o em vigor. O reajuste ser\u00e1 autom\u00e1tico e n\u00e3o haver\u00e1 necessidade de aviso pr\u00e9vio.
 Quaisquer pre\u00e7os e prazos diferentes relacionados ao servi\u00e7o em negocia\u00e7\u00e3o devem ser previamente acordados antes da aceita\u00e7\u00e3o do servi\u00e7o.`;
 
+interface ProposalPhoto {
+  id: string;
+  section_index: number;
+  storage_path: string;
+  original_filename: string;
+}
+
 export default function PropostasScreen() {
   const router = useRouter();
+  const [authToken, setAuthToken] = useState('');
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -43,6 +52,12 @@ export default function PropostasScreen() {
   const [poProposal, setPOProposal] = useState<Proposal | null>(null);
   const [poNumber, setPONumber] = useState('');
   const [submittingPO, setSubmittingPO] = useState(false);
+
+  // Photos
+  const [photos, setPhotos] = useState<ProposalPhoto[]>([]);
+  const [uploadingSection, setUploadingSection] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const currentUploadSection = useRef<number>(0);
 
   // Filters
   const now = new Date();
@@ -59,9 +74,14 @@ export default function PropostasScreen() {
   const [observacoes, setObservacoes] = useState('');
   const [itens, setItens] = useState<ProposalItem[]>([]);
   const [termosGerais, setTermosGerais] = useState(DEFAULT_TERMOS);
-  const [showTermos, setShowTermos] = useState(false);
+  const [showTermos, setShowTermos] = useState(true);
 
-  useEffect(() => { loadProposals(); }, [filterMonth, filterYear]);
+  useEffect(() => { loadProposals(); loadToken(); }, [filterMonth, filterYear]);
+
+  const loadToken = async () => {
+    const t = await AsyncStorage.getItem('token');
+    if (t) setAuthToken(t);
+  };
 
   const loadProposals = async () => {
     setLoading(true);
@@ -70,22 +90,26 @@ export default function PropostasScreen() {
       const data = await proposalAPI.getAllFiltered(m, filterYear);
       setProposals(data);
     } catch {
-      if (Platform.OS === 'web') window.alert('Erro ao carregar propostas');
-      else Alert.alert('Erro', 'Erro ao carregar propostas');
+      showMsg('Erro ao carregar propostas');
     } finally {
       setLoading(false);
     }
   };
 
+  const showMsg = (msg: string) => {
+    if (Platform.OS === 'web') window.alert(msg);
+    else Alert.alert('Aviso', msg);
+  };
+
   const resetForm = () => {
     setEmpresa(''); setContato(''); setEmail(''); setEmbarcacao('');
     setEquipamento(''); setObservacoes(''); setItens([]); setEditingProposal(null);
-    setTermosGerais(DEFAULT_TERMOS); setShowTermos(false);
+    setTermosGerais(DEFAULT_TERMOS); setShowTermos(true); setPhotos([]);
   };
 
   const openAddModal = () => { resetForm(); setModalVisible(true); };
 
-  const handleEdit = (proposal: Proposal) => {
+  const handleEdit = async (proposal: Proposal) => {
     setEditingProposal(proposal);
     setEmpresa(proposal.empresa);
     setContato(proposal.contato);
@@ -95,7 +119,12 @@ export default function PropostasScreen() {
     setObservacoes(proposal.observacoes || '');
     setItens(proposal.itens || []);
     setTermosGerais(proposal.termos_gerais || DEFAULT_TERMOS);
-    setShowTermos(false);
+    setShowTermos(true);
+    // Load photos
+    try {
+      const p = await proposalAPI.getPhotos(proposal.id);
+      setPhotos(p);
+    } catch { setPhotos([]); }
     setModalVisible(true);
   };
 
@@ -122,23 +151,49 @@ export default function PropostasScreen() {
     setItens(updated);
   };
 
-  const handleSave = async () => {
-    if (!empresa.trim() || !contato.trim()) {
-      if (Platform.OS === 'web') window.alert('Preencha Empresa e Contato');
-      else Alert.alert('Erro', 'Preencha Empresa e Contato');
-      return;
-    }
-    if (itens.length === 0) {
-      if (Platform.OS === 'web') window.alert('Adicione pelo menos uma secao no escopo');
-      else Alert.alert('Erro', 'Adicione pelo menos uma secao no escopo');
-      return;
-    }
-    for (const item of itens) {
-      if (!item.titulo.trim()) {
-        if (Platform.OS === 'web') window.alert('Preencha o titulo de todas as secoes');
-        else Alert.alert('Erro', 'Preencha o titulo de todas as secoes');
-        return;
+  // Photo upload
+  const triggerUpload = (sectionIndex: number) => {
+    currentUploadSection.current = sectionIndex;
+    if (Platform.OS === 'web' && fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleFileSelected = async (event: any) => {
+    const files = event.target.files;
+    if (!files || files.length === 0 || !editingProposal) return;
+    const secIdx = currentUploadSection.current;
+    setUploadingSection(secIdx);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        await proposalAPI.uploadPhoto(editingProposal.id, files[i], secIdx, files[i].name);
       }
+      const p = await proposalAPI.getPhotos(editingProposal.id);
+      setPhotos(p);
+      showMsg('Arquivo enviado com sucesso');
+    } catch (e: any) {
+      showMsg('Erro ao enviar arquivo: ' + (e.message || ''));
+    } finally {
+      setUploadingSection(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!editingProposal) return;
+    if (Platform.OS === 'web' && !window.confirm('Excluir esta foto/arquivo?')) return;
+    try {
+      await proposalAPI.deletePhoto(editingProposal.id, photoId);
+      setPhotos(prev => prev.filter(p => p.id !== photoId));
+    } catch { showMsg('Erro ao excluir'); }
+  };
+
+  const getPhotoUrl = (storagePath: string) => proposalAPI.getPhotoUrl(storagePath, authToken);
+  const sectionPhotos = (sectionIndex: number) => photos.filter(p => p.section_index === sectionIndex);
+
+  const handleSave = async () => {
+    if (!empresa.trim() || !contato.trim()) { showMsg('Preencha Empresa e Contato'); return; }
+    if (itens.length === 0) { showMsg('Adicione pelo menos uma secao no escopo'); return; }
+    for (const item of itens) {
+      if (!item.titulo.trim()) { showMsg('Preencha o titulo de todas as secoes'); return; }
     }
     try {
       const payload = { empresa, contato, email, embarcacao, equipamento, observacoes, itens, termos_gerais: termosGerais };
@@ -150,13 +205,9 @@ export default function PropostasScreen() {
       setModalVisible(false);
       resetForm();
       loadProposals();
-      const msg = editingProposal ? 'Proposta atualizada' : 'Proposta criada com sucesso';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Sucesso', msg);
+      showMsg(editingProposal ? 'Proposta atualizada' : 'Proposta criada com sucesso');
     } catch (error: any) {
-      const errorMsg = error.response?.data?.detail || 'Erro ao salvar proposta';
-      if (Platform.OS === 'web') window.alert(errorMsg);
-      else Alert.alert('Erro', errorMsg);
+      showMsg(error.response?.data?.detail || 'Erro ao salvar proposta');
     }
   };
 
@@ -164,7 +215,7 @@ export default function PropostasScreen() {
     if (Platform.OS === 'web') {
       if (window.confirm(`Excluir a proposta ${proposal.numero_proposta}?`)) performDelete(proposal);
     } else {
-      Alert.alert('Confirmar', `Excluir a proposta ${proposal.numero_proposta}?`, [
+      Alert.alert('Confirmar', `Excluir?`, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Excluir', style: 'destructive', onPress: () => performDelete(proposal) },
       ]);
@@ -172,14 +223,8 @@ export default function PropostasScreen() {
   };
 
   const performDelete = async (proposal: Proposal) => {
-    try {
-      await proposalAPI.delete(proposal.id);
-      loadProposals();
-    } catch (error: any) {
-      const msg = error.response?.data?.detail || 'Erro ao excluir';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Erro', msg);
-    }
+    try { await proposalAPI.delete(proposal.id); loadProposals(); }
+    catch (error: any) { showMsg(error.response?.data?.detail || 'Erro ao excluir'); }
   };
 
   const handleDownloadPDF = async (proposal: Proposal, tipo: string) => {
@@ -191,105 +236,58 @@ export default function PropostasScreen() {
         const a = document.createElement('a');
         a.href = url;
         a.download = `Proposta_${tipo}_${proposal.numero_proposta.replace(/ /g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       }
     } catch (error: any) {
-      const msg = error.response?.data?.detail || 'Erro ao gerar PDF';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Erro', msg);
-    } finally {
-      setDownloading(null);
-    }
+      showMsg(error.response?.data?.detail || 'Erro ao gerar PDF');
+    } finally { setDownloading(null); }
   };
 
-  const openPOModal = (proposal: Proposal) => {
-    setPOProposal(proposal);
-    setPONumber('');
-    setPOModalVisible(true);
-  };
+  const openPOModal = (proposal: Proposal) => { setPOProposal(proposal); setPONumber(''); setPOModalVisible(true); };
 
   const handleInformarPO = async () => {
-    if (!poNumber.trim()) {
-      if (Platform.OS === 'web') window.alert('Informe o numero da P.O.');
-      else Alert.alert('Erro', 'Informe o numero da P.O.');
-      return;
-    }
-    if (!poProposal) return;
+    if (!poNumber.trim() || !poProposal) { showMsg('Informe o numero da P.O.'); return; }
     setSubmittingPO(true);
     try {
       await proposalAPI.informarPO(poProposal.id, poNumber.trim());
-      setPOModalVisible(false);
-      setPOProposal(null);
-      setPONumber('');
+      setPOModalVisible(false); setPOProposal(null); setPONumber('');
       loadProposals();
-      if (Platform.OS === 'web') window.alert('P.O. informada! Ordem de Servico criada automaticamente.');
-      else Alert.alert('Sucesso', 'P.O. informada! Ordem de Servico criada automaticamente.');
+      showMsg('P.O. informada! Ordem de Servico criada automaticamente.');
     } catch (error: any) {
-      const msg = error.response?.data?.detail || 'Erro ao informar P.O.';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Erro', msg);
-    } finally {
-      setSubmittingPO(false);
-    }
+      showMsg(error.response?.data?.detail || 'Erro ao informar P.O.');
+    } finally { setSubmittingPO(false); }
   };
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    try {
-      const d = new Date(dateStr);
-      return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-    } catch { return dateStr; }
-  };
-
-  const calcTotal = (items: ProposalItem[]) => items.reduce((sum, i) => sum + (i.valor || 0), 0);
-
-  const formatCurrency = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  const getFilterLabel = () => {
-    const monthLabel = MONTHS.find(m => m.value === filterMonth)?.label || 'Todos';
-    return filterMonth === 0 ? `${filterYear}` : `${monthLabel}/${filterYear}`;
-  };
-
+  const formatDate = (d: string) => { try { const dt = new Date(d); return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`; } catch { return d; } };
+  const calcTotal = (items: ProposalItem[]) => items.reduce((s, i) => s + (i.valor || 0), 0);
+  const formatCurrency = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const getFilterLabel = () => { const m = MONTHS.find(m => m.value === filterMonth)?.label || 'Todos'; return filterMonth === 0 ? `${filterYear}` : `${m}/${filterYear}`; };
   const pendentesCount = proposals.filter(p => (p.status || 'pendente') === 'pendente').length;
   const aprovadasCount = proposals.filter(p => p.status === 'aprovada').length;
+  const termosSection = itens.length + 1;
 
   const renderProposal = ({ item }: { item: Proposal }) => {
     const isAprovada = item.status === 'aprovada';
     return (
       <View style={[s.card, isAprovada && { borderLeftWidth: 4, borderLeftColor: '#2e7d32' }]} data-testid={`proposal-card-${item.id}`}>
         <View style={s.cardHeader}>
-          <View style={s.numberBadge}>
-            <Text style={s.numberText}>{item.numero_proposta}</Text>
-          </View>
+          <View style={s.numberBadge}><Text style={s.numberText}>{item.numero_proposta}</Text></View>
           <View style={s.headerRight}>
             <View style={[s.statusBadge, isAprovada ? { backgroundColor: '#E8F5E9' } : { backgroundColor: '#FFF3E0' }]}>
-              <Text style={[s.statusText, isAprovada ? { color: '#2e7d32' } : { color: '#e65100' }]}>
-                {isAprovada ? 'Aprovada' : 'Pendente'}
-              </Text>
+              <Text style={[s.statusText, isAprovada ? { color: '#2e7d32' } : { color: '#e65100' }]}>{isAprovada ? 'Aprovada' : 'Pendente'}</Text>
             </View>
             <Text style={s.dateText}>{formatDate(item.created_at)}</Text>
           </View>
         </View>
-
         <Text style={s.cardTitle}>{item.empresa}</Text>
         <Text style={s.cardSub}>A/C: {item.contato}</Text>
         {item.embarcacao ? <Text style={s.cardSub}>Embarcacao: {item.embarcacao}</Text> : null}
-        {item.equipamento ? <Text style={s.cardSub}>Equipamento: {item.equipamento}</Text> : null}
         <Text style={s.cardTotal}>{formatCurrency(calcTotal(item.itens))} ({item.itens.length} {item.itens.length === 1 ? 'secao' : 'secoes'})</Text>
 
         {isAprovada && (
           <View style={s.approvedInfo}>
-            <View style={s.infoRow}>
-              <Ionicons name="receipt" size={14} color="#1a237e" />
-              <Text style={s.infoText}>P.O.: {item.po_number}</Text>
-            </View>
-            <View style={s.infoRow}>
-              <Ionicons name="document-text" size={14} color="#2e7d32" />
-              <Text style={s.infoText}>O.S.: {item.os_number}</Text>
-            </View>
+            <View style={s.infoRow}><Ionicons name="receipt" size={14} color="#1a237e" /><Text style={s.infoText}>P.O.: {item.po_number}</Text></View>
+            <View style={s.infoRow}><Ionicons name="document-text" size={14} color="#2e7d32" /><Text style={s.infoText}>O.S.: {item.os_number}</Text></View>
           </View>
         )}
 
@@ -301,35 +299,11 @@ export default function PropostasScreen() {
         )}
 
         <View style={s.pdfRow}>
-          <TouchableOpacity
-            style={[s.pdfBtn, { backgroundColor: '#1a237e' }]}
-            onPress={() => handleDownloadPDF(item, 'comercial')}
-            disabled={downloading === `${item.id}-comercial`}
-            data-testid={`pdf-comercial-${item.id}`}
-          >
-            {downloading === `${item.id}-comercial` ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="document-text" size={16} color="#fff" />
-                <Text style={s.pdfBtnText}>PDF Comercial</Text>
-              </>
-            )}
+          <TouchableOpacity style={[s.pdfBtn, { backgroundColor: '#1a237e' }]} onPress={() => handleDownloadPDF(item, 'comercial')} disabled={downloading === `${item.id}-comercial`} data-testid={`pdf-comercial-${item.id}`}>
+            {downloading === `${item.id}-comercial` ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="document-text" size={16} color="#fff" /><Text style={s.pdfBtnText}>PDF Comercial</Text></>}
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.pdfBtn, { backgroundColor: '#2e7d32' }]}
-            onPress={() => handleDownloadPDF(item, 'tecnica')}
-            disabled={downloading === `${item.id}-tecnica`}
-            data-testid={`pdf-tecnica-${item.id}`}
-          >
-            {downloading === `${item.id}-tecnica` ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="document" size={16} color="#fff" />
-                <Text style={s.pdfBtnText}>PDF Tecnica</Text>
-              </>
-            )}
+          <TouchableOpacity style={[s.pdfBtn, { backgroundColor: '#2e7d32' }]} onPress={() => handleDownloadPDF(item, 'tecnica')} disabled={downloading === `${item.id}-tecnica`} data-testid={`pdf-tecnica-${item.id}`}>
+            {downloading === `${item.id}-tecnica` ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="document" size={16} color="#fff" /><Text style={s.pdfBtnText}>PDF Tecnica</Text></>}
           </TouchableOpacity>
         </View>
 
@@ -347,22 +321,26 @@ export default function PropostasScreen() {
     );
   };
 
-  // Section number including termos gerais
-  const termosSection = itens.length + 1;
-
   return (
     <SafeAreaView style={s.container}>
+      {/* Hidden file input for web uploads */}
+      {Platform.OS === 'web' && (
+        <input
+          type="file"
+          ref={(r: any) => { fileInputRef.current = r; }}
+          style={{ display: 'none' }}
+          accept="image/*,.pdf"
+          multiple
+          onChange={handleFileSelected}
+        />
+      )}
+
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1a237e" />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}><Ionicons name="arrow-back" size={24} color="#1a237e" /></TouchableOpacity>
         <Text style={s.title}>Propostas</Text>
-        <TouchableOpacity onPress={openAddModal} style={s.addBtn} data-testid="add-proposal-btn">
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={openAddModal} style={s.addBtn} data-testid="add-proposal-btn"><Ionicons name="add" size={24} color="#fff" /></TouchableOpacity>
       </View>
 
-      {/* Filter Bar */}
       <View style={s.filterBar}>
         <TouchableOpacity style={s.filterBtn} onPress={() => setFilterPickerVisible(true)} data-testid="filter-btn">
           <Ionicons name="calendar" size={18} color="#1a237e" />
@@ -370,31 +348,16 @@ export default function PropostasScreen() {
           <Ionicons name="chevron-down" size={16} color="#1a237e" />
         </TouchableOpacity>
         <View style={s.statsRow}>
-          <View style={[s.statBadge, { backgroundColor: '#FFF3E0' }]}>
-            <Text style={[s.statText, { color: '#e65100' }]}>{pendentesCount} Pendente{pendentesCount !== 1 ? 's' : ''}</Text>
-          </View>
-          <View style={[s.statBadge, { backgroundColor: '#E8F5E9' }]}>
-            <Text style={[s.statText, { color: '#2e7d32' }]}>{aprovadasCount} Aprovada{aprovadasCount !== 1 ? 's' : ''}</Text>
-          </View>
+          <View style={[s.statBadge, { backgroundColor: '#FFF3E0' }]}><Text style={[s.statText, { color: '#e65100' }]}>{pendentesCount} Pend.</Text></View>
+          <View style={[s.statBadge, { backgroundColor: '#E8F5E9' }]}><Text style={[s.statText, { color: '#2e7d32' }]}>{aprovadasCount} Aprov.</Text></View>
         </View>
       </View>
 
       {loading ? (
         <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>
       ) : (
-        <FlatList
-          data={proposals}
-          renderItem={renderProposal}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16 }}
-          ListEmptyComponent={
-            <View style={s.empty}>
-              <Ionicons name="briefcase-outline" size={64} color="#ccc" />
-              <Text style={s.emptyText}>Nenhuma proposta encontrada</Text>
-              <Text style={s.emptySubText}>Toque no + para criar ou altere o filtro</Text>
-            </View>
-          }
-        />
+        <FlatList data={proposals} renderItem={renderProposal} keyExtractor={(item) => item.id} contentContainerStyle={{ padding: 16 }}
+          ListEmptyComponent={<View style={s.empty}><Ionicons name="briefcase-outline" size={64} color="#ccc" /><Text style={s.emptyText}>Nenhuma proposta encontrada</Text></View>} />
       )}
 
       {/* Filter Picker Modal */}
@@ -405,22 +368,16 @@ export default function PropostasScreen() {
             <Text style={s.label}>Ano</Text>
             <View style={s.yearRow}>
               {[2025, 2026, 2027].map(y => (
-                <TouchableOpacity key={y} style={[s.yearBtn, filterYear === y && s.yearBtnActive]} onPress={() => setFilterYear(y)}>
-                  <Text style={[s.yearBtnText, filterYear === y && s.yearBtnTextActive]}>{y}</Text>
-                </TouchableOpacity>
+                <TouchableOpacity key={y} style={[s.yearBtn, filterYear === y && s.yearBtnActive]} onPress={() => setFilterYear(y)}><Text style={[s.yearBtnText, filterYear === y && s.yearBtnTextActive]}>{y}</Text></TouchableOpacity>
               ))}
             </View>
             <Text style={[s.label, { marginTop: 12 }]}>Mes</Text>
             <View style={s.monthGrid}>
               {MONTHS.map(m => (
-                <TouchableOpacity key={m.value} style={[s.monthBtn, filterMonth === m.value && s.monthBtnActive]} onPress={() => setFilterMonth(m.value)}>
-                  <Text style={[s.monthBtnText, filterMonth === m.value && s.monthBtnTextActive]}>{m.label}</Text>
-                </TouchableOpacity>
+                <TouchableOpacity key={m.value} style={[s.monthBtn, filterMonth === m.value && s.monthBtnActive]} onPress={() => setFilterMonth(m.value)}><Text style={[s.monthBtnText, filterMonth === m.value && s.monthBtnTextActive]}>{m.label}</Text></TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={[s.modalBtn, s.saveBtn, { marginTop: 16 }]} onPress={() => setFilterPickerVisible(false)}>
-              <Text style={s.saveText}>Aplicar</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={[s.modalBtn, s.saveBtn, { marginTop: 16 }]} onPress={() => setFilterPickerVisible(false)}><Text style={s.saveText}>Aplicar</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -430,32 +387,13 @@ export default function PropostasScreen() {
         <View style={s.modalOverlay}>
           <View style={[s.modalContent, { maxWidth: 400, alignSelf: 'center' }]}>
             <Text style={s.modalTitle}>Informar P.O.</Text>
-            {poProposal && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={s.cardSub}>Proposta: <Text style={{ fontWeight: '700', color: '#1a237e' }}>{poProposal.numero_proposta}</Text></Text>
-                <Text style={s.cardSub}>{poProposal.empresa}</Text>
-              </View>
-            )}
+            {poProposal && <View style={{ marginBottom: 16 }}><Text style={s.cardSub}>Proposta: <Text style={{ fontWeight: '700', color: '#1a237e' }}>{poProposal.numero_proposta}</Text></Text><Text style={s.cardSub}>{poProposal.empresa}</Text></View>}
             <Text style={s.label}>Numero da P.O. *</Text>
-            <TextInput
-              style={s.input}
-              placeholder="Ex: PO-2026-001"
-              value={poNumber}
-              onChangeText={setPONumber}
-              autoFocus
-              data-testid="po-number-input"
-            />
-            <Text style={s.hintText}>Ao informar a P.O., a proposta sera aprovada e uma Ordem de Servico sera criada automaticamente.</Text>
+            <TextInput style={s.input} placeholder="Ex: PO-2026-001" value={poNumber} onChangeText={setPONumber} autoFocus data-testid="po-number-input" />
+            <Text style={s.hintText}>Ao informar a P.O., a proposta sera aprovada e uma O.S. sera criada.</Text>
             <View style={s.modalBtns}>
-              <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => setPOModalVisible(false)}>
-                <Text style={s.cancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.modalBtn, s.saveBtn, submittingPO && { opacity: 0.6 }]}
-                onPress={handleInformarPO}
-                disabled={submittingPO}
-                data-testid="confirm-po-btn"
-              >
+              <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => setPOModalVisible(false)}><Text style={s.cancelText}>Cancelar</Text></TouchableOpacity>
+              <TouchableOpacity style={[s.modalBtn, s.saveBtn, submittingPO && { opacity: 0.6 }]} onPress={handleInformarPO} disabled={submittingPO} data-testid="confirm-po-btn">
                 {submittingPO ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.saveText}>Confirmar</Text>}
               </TouchableOpacity>
             </View>
@@ -477,37 +415,35 @@ export default function PropostasScreen() {
               <TextInput style={s.input} placeholder="Nome do contato" value={contato} onChangeText={setContato} data-testid="proposal-contato-input" />
 
               <Text style={s.label}>Email</Text>
-              <TextInput style={s.input} placeholder="email@exemplo.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" data-testid="proposal-email-input" />
+              <TextInput style={s.input} placeholder="email@exemplo.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
 
               <Text style={s.label}>Embarcacao / Plataforma</Text>
-              <TextInput style={s.input} placeholder="Ex: Plataforma P-71" value={embarcacao} onChangeText={setEmbarcacao} data-testid="proposal-embarcacao-input" />
+              <TextInput style={s.input} placeholder="Ex: Plataforma P-71" value={embarcacao} onChangeText={setEmbarcacao} />
 
               <Text style={s.label}>Equipamento</Text>
-              <TextInput style={s.input} placeholder="Ex: Turbina Principal" value={equipamento} onChangeText={setEquipamento} data-testid="proposal-equipamento-input" />
+              <TextInput style={s.input} placeholder="Ex: Turbina Principal" value={equipamento} onChangeText={setEquipamento} />
 
-              {/* === INDEX / INDICE === */}
+              {/* === INDICE === */}
               <View style={s.indexSection}>
                 <Text style={s.indexTitle}>Indice da Proposta</Text>
                 <View style={s.indexList}>
                   {itens.map((item, idx) => (
                     <View key={item.id} style={s.indexItem}>
-                      <Text style={s.indexNum}>{idx + 1}.</Text>
+                      <View style={s.indexNumBadge}><Text style={s.indexNumText}>{idx + 1}</Text></View>
                       <Text style={s.indexItemText} numberOfLines={1}>{item.titulo || '(sem titulo)'}</Text>
                     </View>
                   ))}
-                  {termosGerais.trim() ? (
-                    <View style={s.indexItem}>
-                      <Text style={s.indexNum}>{termosSection}.</Text>
-                      <Text style={[s.indexItemText, { color: '#666' }]}>Termos e Condicoes Gerais</Text>
-                    </View>
-                  ) : null}
-                  {itens.length === 0 && <Text style={{ color: '#999', fontSize: 12, fontStyle: 'italic' }}>Nenhuma secao adicionada</Text>}
+                  <View style={s.indexItem}>
+                    <View style={[s.indexNumBadge, { backgroundColor: '#546E7A' }]}><Text style={s.indexNumText}>{termosSection}</Text></View>
+                    <Text style={[s.indexItemText, { fontStyle: 'italic', color: '#546E7A' }]}>Termos e Condicoes Gerais</Text>
+                  </View>
+                  {itens.length === 0 && <Text style={{ color: '#999', fontSize: 12, fontStyle: 'italic', marginTop: 4 }}>Adicione secoes ao escopo abaixo</Text>}
                 </View>
               </View>
 
               {/* === ESCOPO SECTIONS === */}
               <View style={s.itemsHeader}>
-                <Text style={s.label}>Escopo dos Servicos *</Text>
+                <Text style={s.sectionTitle}>Escopo dos Servicos</Text>
                 <TouchableOpacity onPress={addItem} style={s.addItemBtn} data-testid="add-item-btn">
                   <Ionicons name="add-circle" size={28} color="#1a237e" />
                 </TouchableOpacity>
@@ -516,43 +452,40 @@ export default function PropostasScreen() {
               {itens.map((item, idx) => (
                 <View key={item.id} style={s.sectionCard}>
                   <View style={s.sectionHeader}>
-                    <View style={s.sectionNumBadge}>
-                      <Text style={s.sectionNumText}>{idx + 1}</Text>
-                    </View>
+                    <View style={s.sectionNumBadge}><Text style={s.sectionNumText}>{idx + 1}</Text></View>
+                    <Text style={s.sectionLabel}>Secao {idx + 1}</Text>
                     <View style={{ flex: 1 }} />
-                    <TouchableOpacity onPress={() => moveItem(idx, 'up')} disabled={idx === 0} style={{ opacity: idx === 0 ? 0.3 : 1, padding: 4 }}>
-                      <Ionicons name="arrow-up" size={20} color="#1a237e" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => moveItem(idx, 'down')} disabled={idx === itens.length - 1} style={{ opacity: idx === itens.length - 1 ? 0.3 : 1, padding: 4 }}>
-                      <Ionicons name="arrow-down" size={20} color="#1a237e" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => removeItem(idx)} style={{ padding: 4 }} data-testid={`remove-item-${idx}`}>
-                      <Ionicons name="close-circle" size={22} color="#d32f2f" />
-                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => moveItem(idx, 'up')} disabled={idx === 0} style={{ opacity: idx === 0 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-up" size={18} color="#1a237e" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => moveItem(idx, 'down')} disabled={idx === itens.length - 1} style={{ opacity: idx === itens.length - 1 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-down" size={18} color="#1a237e" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeItem(idx)} style={{ padding: 4 }} data-testid={`remove-item-${idx}`}><Ionicons name="close-circle" size={22} color="#d32f2f" /></TouchableOpacity>
                   </View>
-                  <TextInput
-                    style={s.input}
-                    placeholder="Titulo da secao *"
-                    value={item.titulo}
-                    onChangeText={(v) => updateItem(idx, 'titulo', v)}
-                    data-testid={`item-titulo-${idx}`}
-                  />
-                  <TextInput
-                    style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]}
-                    placeholder="Descricao detalhada do escopo"
-                    value={item.descricao}
-                    onChangeText={(v) => updateItem(idx, 'descricao', v)}
-                    multiline
-                    data-testid={`item-descricao-${idx}`}
-                  />
-                  <TextInput
-                    style={s.input}
-                    placeholder="Valor (R$)"
-                    value={item.valor ? String(item.valor) : ''}
-                    onChangeText={(v) => updateItem(idx, 'valor', parseFloat(v) || 0)}
-                    keyboardType="numeric"
-                    data-testid={`item-valor-${idx}`}
-                  />
+
+                  <TextInput style={s.input} placeholder="Titulo da secao *" value={item.titulo} onChangeText={(v) => updateItem(idx, 'titulo', v)} data-testid={`item-titulo-${idx}`} />
+                  <TextInput style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} placeholder="Descricao detalhada do escopo" value={item.descricao} onChangeText={(v) => updateItem(idx, 'descricao', v)} multiline data-testid={`item-descricao-${idx}`} />
+                  <TextInput style={s.input} placeholder="Valor (R$)" value={item.valor ? String(item.valor) : ''} onChangeText={(v) => updateItem(idx, 'valor', parseFloat(v) || 0)} keyboardType="numeric" data-testid={`item-valor-${idx}`} />
+
+                  {/* Photos for this section */}
+                  {editingProposal && (
+                    <View style={s.photosArea}>
+                      {sectionPhotos(idx).map(photo => (
+                        <View key={photo.id} style={s.photoItem}>
+                          <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={s.photoThumb} />
+                          <Text style={s.photoName} numberOfLines={1}>{photo.original_filename}</Text>
+                          <TouchableOpacity onPress={() => handleDeletePhoto(photo.id)} style={s.photoDeleteBtn}>
+                            <Ionicons name="trash-outline" size={16} color="#d32f2f" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      <TouchableOpacity style={s.uploadBtn} onPress={() => triggerUpload(idx)} disabled={uploadingSection === idx} data-testid={`upload-photo-${idx}`}>
+                        {uploadingSection === idx ? <ActivityIndicator size="small" color="#1a237e" /> : (
+                          <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={s.uploadBtnText}>Adicionar Foto/Arquivo</Text></>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {!editingProposal && (
+                    <Text style={s.hintText}>Salve a proposta primeiro para adicionar fotos/arquivos</Text>
+                  )}
                 </View>
               ))}
 
@@ -565,16 +498,14 @@ export default function PropostasScreen() {
 
               {/* === TERMOS GERAIS === */}
               <TouchableOpacity style={s.termosToggle} onPress={() => setShowTermos(!showTermos)} data-testid="termos-toggle">
-                <View style={s.sectionNumBadge}>
-                  <Text style={s.sectionNumText}>{termosSection}</Text>
-                </View>
+                <View style={[s.sectionNumBadge, { backgroundColor: '#546E7A' }]}><Text style={s.sectionNumText}>{termosSection}</Text></View>
                 <Text style={s.termosToggleText}>Termos e Condicoes Gerais</Text>
-                <Ionicons name={showTermos ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
+                <Ionicons name={showTermos ? 'chevron-up' : 'chevron-down'} size={20} color="#546E7A" />
               </TouchableOpacity>
               {showTermos && (
                 <View style={s.termosContainer}>
                   <TextInput
-                    style={[s.input, { minHeight: 200, textAlignVertical: 'top', fontSize: 12 }]}
+                    style={[s.input, { minHeight: 260, textAlignVertical: 'top', fontSize: 12, lineHeight: 18 }]}
                     value={termosGerais}
                     onChangeText={setTermosGerais}
                     multiline
@@ -588,22 +519,11 @@ export default function PropostasScreen() {
               )}
 
               <Text style={[s.label, { marginTop: 16 }]}>Observacoes</Text>
-              <TextInput
-                style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]}
-                placeholder="Observacoes gerais da proposta"
-                value={observacoes}
-                onChangeText={setObservacoes}
-                multiline
-                data-testid="proposal-observacoes-input"
-              />
+              <TextInput style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} placeholder="Observacoes gerais" value={observacoes} onChangeText={setObservacoes} multiline data-testid="proposal-observacoes-input" />
 
               <View style={s.modalBtns}>
-                <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => { setModalVisible(false); resetForm(); }}>
-                  <Text style={s.cancelText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.modalBtn, s.saveBtn]} onPress={handleSave} data-testid="save-proposal-btn">
-                  <Text style={s.saveText}>Salvar</Text>
-                </TouchableOpacity>
+                <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => { setModalVisible(false); resetForm(); }}><Text style={s.cancelText}>Cancelar</Text></TouchableOpacity>
+                <TouchableOpacity style={[s.modalBtn, s.saveBtn]} onPress={handleSave} data-testid="save-proposal-btn"><Text style={s.saveText}>Salvar</Text></TouchableOpacity>
               </View>
             </ScrollView>
           </View>
@@ -649,37 +569,47 @@ const s = StyleSheet.create({
   actionBtn: { padding: 8 },
   empty: { alignItems: 'center', paddingVertical: 64 },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
-  emptySubText: { fontSize: 13, color: '#bbb', marginTop: 4 },
-  hintText: { fontSize: 12, color: '#888', marginTop: 8, fontStyle: 'italic' },
+  hintText: { fontSize: 12, color: '#888', marginTop: 4, fontStyle: 'italic' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '95%' },
   modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 6, marginTop: 10 },
   input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 4 },
-  itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 4 },
-  addItemBtn: { padding: 4 },
   // Index
-  indexSection: { backgroundColor: '#E8EAF6', borderRadius: 10, padding: 14, marginTop: 16 },
-  indexTitle: { fontSize: 14, fontWeight: '700', color: '#1a237e', marginBottom: 8 },
-  indexList: { gap: 4 },
-  indexItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  indexNum: { fontSize: 13, fontWeight: '700', color: '#1a237e', width: 24 },
-  indexItemText: { fontSize: 13, color: '#333', flex: 1 },
-  // Section cards
-  sectionCard: { backgroundColor: '#f9f9f9', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#e0e0e0' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 4 },
+  indexSection: { backgroundColor: '#E8EAF6', borderRadius: 10, padding: 14, marginTop: 16, borderWidth: 1, borderColor: '#C5CAE9' },
+  indexTitle: { fontSize: 15, fontWeight: '700', color: '#1a237e', marginBottom: 10 },
+  indexList: { gap: 6 },
+  indexItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  indexNumBadge: { backgroundColor: '#1a237e', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  indexNumText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  indexItemText: { fontSize: 14, color: '#333', flex: 1, fontWeight: '500' },
+  // Section
+  itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
+  addItemBtn: { padding: 4 },
+  sectionCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#C5CAE9' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
   sectionNumBadge: { backgroundColor: '#1a237e', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
   sectionNumText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  // Totals
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#1a237e' },
+  // Photos
+  photosArea: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e8e8e8' },
+  photoItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, backgroundColor: '#f5f5f5', borderRadius: 8, padding: 6 },
+  photoThumb: { width: 48, height: 48, borderRadius: 6, backgroundColor: '#ddd' },
+  photoName: { flex: 1, fontSize: 12, color: '#333' },
+  photoDeleteBtn: { padding: 6 },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#e3f2fd', borderRadius: 8, alignSelf: 'flex-start', marginTop: 6 },
+  uploadBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },
+  // Total
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#E8EAF6', borderRadius: 8, marginTop: 8 },
   totalLabel: { fontSize: 15, fontWeight: '700', color: '#1a237e' },
   totalValue: { fontSize: 15, fontWeight: '700', color: '#2e7d32' },
-  // Termos Gerais
-  termosToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#f9f9f9', borderRadius: 10, padding: 12, marginTop: 16, borderWidth: 1, borderColor: '#e0e0e0' },
-  termosToggleText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1a237e' },
-  termosContainer: { marginTop: 4 },
+  // Termos
+  termosToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#ECEFF1', borderRadius: 10, padding: 12, marginTop: 16, borderWidth: 1, borderColor: '#B0BEC5' },
+  termosToggleText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#546E7A' },
+  termosContainer: { marginTop: 4, marginBottom: 8 },
   resetTermosBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', padding: 8, marginTop: 4 },
-  // Modal buttons
+  // Buttons
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 16 },
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f5f5f5' },

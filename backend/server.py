@@ -3507,6 +3507,114 @@ async def delete_proposal(proposal_id: str, current_user: Dict[str, Any] = Depen
         raise HTTPException(status_code=404, detail="Proposta não encontrada")
     return {"message": "Proposta excluída com sucesso"}
 
+# ==================== PROPOSAL PHOTOS ====================
+
+@api_router.post("/proposals/{proposal_id}/upload-photo")
+async def upload_proposal_photo(
+    proposal_id: str,
+    file: UploadFile = File(...),
+    section_index: int = Query(default=0),
+    user: dict = Depends(get_current_user)
+):
+    proposal = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposta não encontrada")
+
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
+    if ext not in MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Formato não suportado. Use jpg, png, gif, webp ou pdf.")
+
+    data = await file.read()
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Arquivo muito grande. Máximo 20MB.")
+
+    uploaded_paths = []
+
+    if ext == "pdf":
+        try:
+            pages = convert_pdf_to_images(data)
+        except Exception as e:
+            logging.error(f"PDF conversion error: {e}")
+            raise HTTPException(status_code=400, detail="Erro ao converter PDF para imagens")
+        for img_data, img_name in pages:
+            pil_img = PILImage.open(io.BytesIO(img_data))
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            out_buf = io.BytesIO()
+            pil_img.save(out_buf, format='JPEG', quality=60)
+            compressed = out_buf.getvalue()
+            file_id = str(uuid.uuid4())
+            storage_path = f"{APP_NAME}/proposals/{proposal_id}/{section_index}/{file_id}.jpeg"
+            try:
+                result = put_object(storage_path, compressed, "image/jpeg")
+            except Exception as e:
+                logging.error(f"Upload error: {e}")
+                continue
+            await db.proposal_photos.insert_one({
+                "proposal_id": proposal_id,
+                "section_index": section_index,
+                "storage_path": result["path"],
+                "original_filename": f"{file.filename} - {img_name}",
+                "content_type": "image/jpeg",
+                "is_deleted": False,
+                "created_at": datetime.utcnow(),
+            })
+            uploaded_paths.append(result["path"])
+        return {"storage_paths": uploaded_paths, "section_index": section_index, "pages_converted": len(uploaded_paths)}
+    else:
+        content_type = MIME_TYPES.get(ext, "image/jpeg")
+        try:
+            pil_img = PILImage.open(io.BytesIO(data))
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            max_dim = 2000
+            if max(pil_img.size) > max_dim:
+                pil_img.thumbnail((max_dim, max_dim), PILImage.LANCZOS)
+            out_buf = io.BytesIO()
+            pil_img.save(out_buf, format='JPEG', quality=60)
+            data = out_buf.getvalue()
+            ext = "jpeg"
+            content_type = "image/jpeg"
+        except Exception:
+            pass
+        file_id = str(uuid.uuid4())
+        storage_path = f"{APP_NAME}/proposals/{proposal_id}/{section_index}/{file_id}.{ext}"
+        try:
+            result = put_object(storage_path, data, content_type)
+        except Exception as e:
+            logging.error(f"Upload error: {e}")
+            raise HTTPException(status_code=500, detail="Erro no upload")
+        await db.proposal_photos.insert_one({
+            "proposal_id": proposal_id,
+            "section_index": section_index,
+            "storage_path": result["path"],
+            "original_filename": file.filename,
+            "content_type": content_type,
+            "is_deleted": False,
+            "created_at": datetime.utcnow(),
+        })
+        return {"storage_path": result["path"], "section_index": section_index, "filename": file.filename}
+
+@api_router.get("/proposals/{proposal_id}/photos")
+async def get_proposal_photos(proposal_id: str, user: dict = Depends(get_current_user)):
+    photos = await db.proposal_photos.find({"proposal_id": proposal_id, "is_deleted": {"$ne": True}}).sort("created_at", 1).to_list(200)
+    return [{
+        "id": str(p["_id"]),
+        "section_index": p.get("section_index", 0),
+        "storage_path": p.get("storage_path", ""),
+        "original_filename": p.get("original_filename", ""),
+    } for p in photos]
+
+@api_router.delete("/proposals/{proposal_id}/photos/{photo_id}")
+async def delete_proposal_photo(proposal_id: str, photo_id: str, user: dict = Depends(get_current_user)):
+    result = await db.proposal_photos.update_one(
+        {"_id": ObjectId(photo_id), "proposal_id": proposal_id},
+        {"$set": {"is_deleted": True}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Foto não encontrada")
+    return {"message": "Foto excluída"}
+
 # ==================== INFORMAR P.O. (Approve proposal & create O.S.) ====================
 
 class InformarPORequest(BaseModel):
@@ -3728,29 +3836,22 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
 
     elements = []
 
-    # === CLIENT INFO TABLE ===
-    info_data = [
-        [Paragraph("<b>Empresa:</b>", label_style), Paragraph(proposal.get("empresa", ""), body_style)],
-        [Paragraph("<b>A/C:</b>", label_style), Paragraph(proposal.get("contato", ""), body_style)],
-        [Paragraph("<b>Email:</b>", label_style), Paragraph(proposal.get("email", ""), body_style)],
-        [Paragraph("<b>Embarca\u00e7\u00e3o:</b>", label_style), Paragraph(proposal.get("embarcacao", ""), body_style)],
-        [Paragraph("<b>Equipamento:</b>", label_style), Paragraph(proposal.get("equipamento", ""), body_style)],
+    # === CLIENT INFO (plain text, no table) ===
+    import html as html_mod
+    info_style = ParagraphStyle('InfoLine', parent=styles['Normal'], fontSize=9, leading=13, spaceAfter=1, textColor=colors.black)
+    info_fields = [
+        ("Empresa", proposal.get("empresa", "")),
+        ("A/C", proposal.get("contato", "")),
+        ("Email", proposal.get("email", "")),
+        ("Embarca\u00e7\u00e3o", proposal.get("embarcacao", "")),
+        ("Equipamento", proposal.get("equipamento", "")),
     ]
-    info_table = Table(info_data, colWidths=[content_width * 0.2, content_width * 0.8])
-    info_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#DDDDDD')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F5F5F5')),
-    ]))
-    elements.append(info_table)
+    for lbl, val in info_fields:
+        if val:
+            elements.append(Paragraph(f"<b>{lbl}:</b> {html_mod.escape(val)}", info_style))
     elements.append(Spacer(1, 0.5 * cm))
 
     # === NUMBERED SECTIONS (Escopo) ===
-    import html as html_mod
     itens = proposal.get("itens", [])
     section_num = 1
     total_valor = 0.0
@@ -3779,9 +3880,26 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
             desc_escaped = html_mod.escape(descricao).replace('\n', '<br/>')
             elements.append(Paragraph(desc_escaped, body_style))
 
-        # Images (if any)
-        images = item.get("images", [])
-        for img_url in images:
+        # Images from item.images (inline URLs) + proposal_photos collection
+        from reportlab.platypus import Image as RLImage
+        all_images = list(item.get("images", []))
+
+        # Also fetch photos from DB for this section index
+        db_photos = await db.proposal_photos.find({
+            "proposal_id": str(proposal["_id"]),
+            "section_index": idx,
+            "is_deleted": {"$ne": True},
+        }).to_list(50)
+        for dp in db_photos:
+            sp = dp.get("storage_path", "")
+            if sp:
+                try:
+                    photo_url = get_object_url(sp)
+                    all_images.append(photo_url)
+                except Exception:
+                    pass
+
+        for img_url in all_images:
             try:
                 if img_url.startswith("http"):
                     import urllib.request

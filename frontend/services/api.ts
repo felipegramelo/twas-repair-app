@@ -289,6 +289,26 @@ export const proposalAPI = {
     const response = await api.put(`/users/admins/${userId}/proposta-access`);
     return response.data;
   },
+  uploadPhoto: async (proposalId: string, file: File | Blob, sectionIndex: number, filename?: string) => {
+    const formData = new FormData();
+    formData.append('file', file, filename || 'photo.jpg');
+    const response = await api.post(`/proposals/${proposalId}/upload-photo?section_index=${sectionIndex}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+  getPhotos: async (proposalId: string) => {
+    const response = await api.get(`/proposals/${proposalId}/photos`);
+    return response.data;
+  },
+  deletePhoto: async (proposalId: string, photoId: string) => {
+    const response = await api.delete(`/proposals/${proposalId}/photos/${photoId}`);
+    return response.data;
+  },
+  getPhotoUrl: (storagePath: string, token: string) => {
+    const baseUrl = api.defaults.baseURL || '';
+    return `${baseUrl}/photos/${storagePath}?auth=${token}`;
+  },
 };
 
 // Report API (local backend)

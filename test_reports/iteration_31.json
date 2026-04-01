@@ -1,0 +1,73 @@
+{
+  "summary": "Iteration 31: Proposal Restructuring Backend Testing. All 15/15 tests passed. Verified: Proposal CRUD with termos_gerais field, photo upload/list/delete endpoints, PDF generation (comercial vs tecnica), PDF content verification (plain text client info, numbered sections, TERMOS E CONDIÇÕES GERAIS section, OBSERVAÇÕES section), backward compatibility for proposals without termos_gerais, and dashboard functionality.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_31_proposal_restructure.py",
+    "/app/test_reports/pytest/test_iteration_31.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Proposal CRUD correctly handles termos_gerais field in create, read, update operations (server.py lines 3363-3499)",
+    "Photo upload endpoint POST /api/proposals/{id}/upload-photo works with section_index query param (server.py lines 3512-3596)",
+    "Photo list endpoint GET /api/proposals/{id}/photos returns photos with id, section_index, storage_path (server.py lines 3598-3606)",
+    "Photo delete endpoint DELETE /api/proposals/{id}/photos/{photo_id} performs soft delete (server.py lines 3608-3616)",
+    "PDF generation fetches photos from DB via proposal_photos collection per section_index (server.py lines 3888-3900)",
+    "Commercial PDF shows plain text client info (no table), numbered sections with prices, VALOR TOTAL, TERMOS E CONDIÇÕES GERAIS, OBSERVAÇÕES",
+    "Technical PDF shows numbered sections WITHOUT prices, no VALOR TOTAL, but includes TERMOS E CONDIÇÕES GERAIS",
+    "Backward compatibility: proposals without termos_gerais return empty string"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_31_proposal_restructure.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "Not tested (backend only requested)"
+  },
+  "test_credentials": {
+    "admin": "admin@twasrepair.com / admin123 (proposta_access=true, dashboard_access=true)"
+  },
+  "seed_data_creation": "Test proposals created and cleaned up during backend tests (prefixed with TEST_)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 31 tested Proposal Restructuring features. All backend tests pass (15/15). Features verified: 1) Proposal CRUD with termos_gerais field works correctly, 2) Photo upload/list/delete endpoints work with section_index, 3) Commercial PDF has plain text client info (no table), numbered sections with prices, TERMOS E CONDIÇÕES GERAIS section, OBSERVAÇÕES section, 4) Technical PDF has numbered sections WITHOUT prices, 5) Backward compatibility for old proposals without termos_gerais, 6) Dashboard still works. Photos are stored in Emergent Object Storage and fetched from proposal_photos collection during PDF generation.",
+  "tested_features": {
+    "backend_proposal_create_with_termos": "PASS - saves termos_gerais field",
+    "backend_proposal_get_returns_termos": "PASS - returns termos_gerais field",
+    "backend_proposal_update_termos": "PASS - updates termos_gerais field",
+    "backend_proposal_backward_compat": "PASS - old proposals return empty termos_gerais",
+    "backend_photo_upload": "PASS - uploads to section_index, returns storage_path",
+    "backend_photo_list": "PASS - returns photos with id, section_index, storage_path",
+    "backend_photo_delete": "PASS - soft deletes photo",
+    "backend_pdf_comercial_plain_text_client": "PASS - client info as plain text, not table",
+    "backend_pdf_comercial_numbered_sections": "PASS - sections numbered 1., 2., 3., etc.",
+    "backend_pdf_comercial_prices": "PASS - shows R$ values and VALOR TOTAL",
+    "backend_pdf_comercial_termos_gerais": "PASS - TERMOS E CONDIÇÕES GERAIS section present",
+    "backend_pdf_comercial_observacoes": "PASS - OBSERVAÇÕES section present",
+    "backend_pdf_tecnica_no_prices": "PASS - no VALOR TOTAL, no R$ values",
+    "backend_pdf_tecnica_numbered_sections": "PASS - sections numbered",
+    "backend_dashboard_works": "PASS - returns bm_by_month, proposals_by_status, totals",
+    "backend_proposals_list_works": "PASS - returns list with termos_gerais field"
+  },
+  "api_verification": {
+    "POST /api/auth/login": "Working",
+    "POST /api/proposals": "Working - creates with termos_gerais",
+    "GET /api/proposals/{id}": "Working - returns termos_gerais",
+    "PUT /api/proposals/{id}": "Working - updates termos_gerais",
+    "DELETE /api/proposals/{id}": "Working",
+    "POST /api/proposals/{id}/upload-photo?section_index=N": "Working - uploads to object storage",
+    "GET /api/proposals/{id}/photos": "Working - returns photos per section",
+    "DELETE /api/proposals/{id}/photos/{photo_id}": "Working - soft delete",
+    "GET /api/proposals/{id}/pdf?tipo=comercial": "Working - numbered sections with prices, termos gerais",
+    "GET /api/proposals/{id}/pdf?tipo=tecnica": "Working - numbered sections without prices",
+    "GET /api/dashboard/summary": "Working",
+    "GET /api/proposals": "Working - returns list with termos_gerais"
+  }
+}

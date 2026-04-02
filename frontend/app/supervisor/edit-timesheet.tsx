@@ -122,6 +122,16 @@ export default function EditTimesheetScreen() {
   const handleAddEntry = () => {
     if (!entryDate || !selectedEmployee || !serviceStart || !serviceEnd) { if (Platform.OS === 'web') window.alert('Preencha data, funcionário, início e fim'); else Alert.alert('Erro', 'Preencha data, funcionário, início e fim'); return; }
     if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.'); else Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet. Crie um novo.'); return; }
+    // Validate travel vs service conflict
+    if (hasTravel && travelStart && travelEnd) {
+      const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+      const ss = toMin(serviceStart), se = toMin(serviceEnd), ts = toMin(travelStart), te = toMin(travelEnd);
+      if (ts < se && ss < te) {
+        const msg = `O horario de viagem (${travelStart}-${travelEnd}) nao pode coincidir com o horario de servico (${serviceStart}-${serviceEnd}). A viagem deve ser antes ou depois do periodo de servico.`;
+        if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Conflito de Horario', msg);
+        return;
+      }
+    }
     const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart, service_end: serviceEnd, travel_start: hasTravel ? travelStart : '-', travel_end: hasTravel ? travelEnd : '-' };
     if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u.sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); } else { setEntries([...entries, newEntry].sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); }
     setEmployeeModalVisible(false); resetEntryForm();

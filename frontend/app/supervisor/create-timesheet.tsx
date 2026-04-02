@@ -219,6 +219,16 @@ export default function CreateTimesheetScreen() {
       }
       return;
     }
+    // Validate travel vs service conflict
+    if (hasTravel && travelStart && travelEnd) {
+      const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+      const ss = toMin(serviceStart), se = toMin(serviceEnd), ts = toMin(travelStart), te = toMin(travelEnd);
+      if (ts < se && ss < te) {
+        const msg = `O horario de viagem (${travelStart}-${travelEnd}) nao pode coincidir com o horario de servico (${serviceStart}-${serviceEnd}). A viagem deve ser antes ou depois do periodo de servico.`;
+        if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Conflito de Horario', msg);
+        return;
+      }
+    }
     const newEntry: TimesheetEntry = {
       date: entryDate,
       employee_id: selectedEmployee.id,

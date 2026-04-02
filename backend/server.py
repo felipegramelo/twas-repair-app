@@ -205,6 +205,45 @@ class TimesheetEntry(BaseModel):
     travel_end: Optional[str] = ""  # HH:MM
 
 
+def _time_to_minutes(t: str) -> int:
+    """Convert HH:MM to minutes since midnight."""
+    try:
+        parts = t.strip().split(':')
+        return int(parts[0]) * 60 + int(parts[1])
+    except (ValueError, IndexError):
+        return -1
+
+
+def _travel_overlaps_service(service_start: str, service_end: str, travel_start: str, travel_end: str) -> bool:
+    """Check if travel time overlaps with service time."""
+    ss = _time_to_minutes(service_start)
+    se = _time_to_minutes(service_end)
+    ts = _time_to_minutes(travel_start)
+    te = _time_to_minutes(travel_end)
+    if ss < 0 or se < 0 or ts < 0 or te < 0:
+        return False
+    return ts < se and ss < te
+
+
+def _validate_timesheet_entries(entries):
+    """Validate travel vs service conflict for all entries."""
+    for i, entry in enumerate(entries):
+        travel_s = entry.travel_start if hasattr(entry, 'travel_start') else entry.get("travel_start", "")
+        travel_e = entry.travel_end if hasattr(entry, 'travel_end') else entry.get("travel_end", "")
+        serv_s = entry.service_start if hasattr(entry, 'service_start') else entry.get("service_start", "")
+        serv_e = entry.service_end if hasattr(entry, 'service_end') else entry.get("service_end", "")
+        emp_name = entry.employee_name if hasattr(entry, 'employee_name') else entry.get("employee_name", "")
+
+        if travel_s and travel_e and travel_s not in ("", "-", "0") and travel_e not in ("", "-", "0"):
+            if _travel_overlaps_service(serv_s, serv_e, travel_s, travel_e):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Conflito de horário para {emp_name}: "
+                           f"A viagem ({travel_s}-{travel_e}) não pode coincidir com o serviço ({serv_s}-{serv_e}). "
+                           f"A viagem deve ser antes ou depois do horário de serviço."
+                )
+
+
 class Timesheet(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     os_id: str
@@ -1468,6 +1507,7 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
 async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
     if len(ts_data.entries) > 12:
         raise HTTPException(status_code=400, detail="Máximo de 12 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
+    _validate_timesheet_entries(ts_data.entries)
     # Get service order details
     so = await db.service_orders.find_one({"_id": ObjectId(ts_data.os_id)})
     if not so:
@@ -1529,6 +1569,7 @@ async def update_timesheet(ts_id: str, ts_data: TimesheetCreate, current_user: D
         raise HTTPException(status_code=403, detail="Timesheet finalizada. Não é possível editar.")
     if len(ts_data.entries) > 12:
         raise HTTPException(status_code=400, detail="Máximo de 12 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
+    _validate_timesheet_entries(ts_data.entries)
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not ts:
         raise HTTPException(status_code=404, detail="Timesheet not found")

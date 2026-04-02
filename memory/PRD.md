@@ -17,6 +17,8 @@
 
 ### Proposta Comercial
 - Formato secoes numeradas (sem tabela), info cliente em texto simples
+- **Campo "Servico" obrigatorio** no formulario
+- **Texto introdutorio automatico**: "Prezados, Agradecemos a consulta e temos o prazer de apresentar nossa proposta comercial para o servico de [Servico] a ser realizado na(o) [Embarcacao]." - visivel no formulario (fundo amarelo) e no PDF
 - Indice visivel no formulario com numeracao hierarquica (1, 1.1, 1.2, 2, 2.1...)
 - Subsecoes dentro de cada secao (adicionar/editar/remover)
 - Upload de fotos/arquivos por secao e subsecao com section_key
@@ -39,9 +41,10 @@
 - [x] Arquivo por O.S., BM com todos os recursos
 - [x] Proposta Comercial: CRUD, secoes numeradas, termos gerais, upload fotos
 - [x] Dashboard Financeiro com graficos e controle de acesso
-- [x] Validacao de conflito viagem vs servico no timesheet (02/04/2026)
-- [x] Propostas com subsecoes: indice hierarquico, CRUD subsecoes, fotos por subsecao, termos gerais (02/04/2026)
-- [x] Backend update_proposal corrigido para preservar subsections (02/04/2026)
+- [x] Validacao de conflito viagem vs servico no timesheet
+- [x] Propostas com subsecoes: indice hierarquico, CRUD subsecoes, fotos por subsecao, termos gerais
+- [x] Backend update_proposal corrigido para preservar subsections
+- [x] Campo "Servico" obrigatorio + texto introdutorio no formulario e PDF (02/04/2026)
 
 ## Backlog
 ### P1

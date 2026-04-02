@@ -32,6 +32,7 @@ export interface Proposal {
   email: string;
   embarcacao: string;
   equipamento: string;
+  servico: string;
   itens: ProposalItem[];
   termos_gerais?: string;
   observacoes?: string;

@@ -3380,6 +3380,7 @@ class ProposalCreate(BaseModel):
     email: str = ""
     embarcacao: str = ""
     equipamento: str = ""
+    servico: str = ""
     itens: List[ProposalItemModel] = []
     termos_gerais: str = ""
     observacoes: str = ""
@@ -3390,6 +3391,7 @@ class ProposalUpdate(BaseModel):
     email: Optional[str] = None
     embarcacao: Optional[str] = None
     equipamento: Optional[str] = None
+    servico: Optional[str] = None
     itens: Optional[List[ProposalItemModel]] = None
     termos_gerais: Optional[str] = None
     observacoes: Optional[str] = None
@@ -3437,6 +3439,7 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "email": data.email,
         "embarcacao": data.embarcacao,
         "equipamento": data.equipamento,
+        "servico": data.servico,
         "itens": itens,
         "termos_gerais": data.termos_gerais,
         "observacoes": data.observacoes,
@@ -3457,6 +3460,7 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "email": data.email,
         "embarcacao": data.embarcacao,
         "equipamento": data.equipamento,
+        "servico": data.servico,
         "itens": itens,
         "termos_gerais": data.termos_gerais,
         "observacoes": data.observacoes,
@@ -3478,6 +3482,7 @@ def serialize_proposal(p):
         "email": p.get("email", ""),
         "embarcacao": p.get("embarcacao", ""),
         "equipamento": p.get("equipamento", ""),
+        "servico": p.get("servico", ""),
         "itens": p.get("itens", []),
         "termos_gerais": p.get("termos_gerais", ""),
         "observacoes": p.get("observacoes", ""),
@@ -3535,6 +3540,8 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: 
         update_dict["embarcacao"] = data.embarcacao
     if data.equipamento is not None:
         update_dict["equipamento"] = data.equipamento
+    if data.servico is not None:
+        update_dict["servico"] = data.servico
     if data.observacoes is not None:
         update_dict["observacoes"] = data.observacoes
     if data.termos_gerais is not None:
@@ -3913,11 +3920,20 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
         ("Email", proposal.get("email", "")),
         ("Embarca\u00e7\u00e3o", proposal.get("embarcacao", "")),
         ("Equipamento", proposal.get("equipamento", "")),
+        ("Servi\u00e7o", proposal.get("servico", "")),
     ]
     for lbl, val in info_fields:
         if val:
             elements.append(Paragraph(f"<b>{lbl}:</b> {html_mod.escape(val)}", info_style))
-    elements.append(Spacer(1, 0.5 * cm))
+    elements.append(Spacer(1, 0.4 * cm))
+
+    # === INTRO TEXT ===
+    servico_val = proposal.get("servico", "")
+    embarcacao_val = proposal.get("embarcacao", "")
+    intro_text = f"Prezados,<br/>Agradecemos a consulta e temos o prazer de apresentar nossa proposta comercial para o servi\u00e7o de <b>{html_mod.escape(servico_val) if servico_val else '____________________'}</b> a ser realizado na(o) <b>{html_mod.escape(embarcacao_val) if embarcacao_val else '____________________'}</b>."
+    intro_style = ParagraphStyle('IntroText', parent=styles['Normal'], fontSize=9, leading=14, spaceAfter=6, textColor=colors.black, alignment=TA_JUSTIFY)
+    elements.append(Paragraph(intro_text, intro_style))
+    elements.append(Spacer(1, 0.3 * cm))
 
     # === NUMBERED SECTIONS (Escopo) ===
     itens = proposal.get("itens", [])

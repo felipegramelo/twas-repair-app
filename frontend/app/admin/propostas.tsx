@@ -73,6 +73,7 @@ export default function PropostasScreen() {
   const [email, setEmail] = useState('');
   const [embarcacao, setEmbarcacao] = useState('');
   const [equipamento, setEquipamento] = useState('');
+  const [servico, setServico] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [itens, setItens] = useState<ProposalItem[]>([]);
   const [termosGerais, setTermosGerais] = useState(DEFAULT_TERMOS);
@@ -106,7 +107,7 @@ export default function PropostasScreen() {
 
   const resetForm = () => {
     setEmpresa(''); setContato(''); setEmail(''); setEmbarcacao('');
-    setEquipamento(''); setObservacoes(''); setItens([]); setEditingProposal(null);
+    setEquipamento(''); setServico(''); setObservacoes(''); setItens([]); setEditingProposal(null);
     setTermosGerais(DEFAULT_TERMOS); setShowTermos(true); setPhotos([]);
     setExpandedSection(null);
   };
@@ -120,6 +121,7 @@ export default function PropostasScreen() {
     setEmail(proposal.email);
     setEmbarcacao(proposal.embarcacao);
     setEquipamento(proposal.equipamento);
+    setServico(proposal.servico || '');
     setObservacoes(proposal.observacoes || '');
     setItens(proposal.itens || []);
     setTermosGerais(proposal.termos_gerais || DEFAULT_TERMOS);
@@ -222,13 +224,14 @@ export default function PropostasScreen() {
   // === Save ===
   const handleSave = async () => {
     if (!empresa.trim() || !contato.trim()) { showMsg('Preencha Empresa e Contato'); return; }
+    if (!servico.trim()) { showMsg('Preencha o campo Servico'); return; }
     if (itens.length === 0) { showMsg('Adicione pelo menos uma secao no escopo'); return; }
     for (const item of itens) {
       if (!item.titulo.trim()) { showMsg('Preencha o titulo de todas as secoes'); return; }
     }
     try {
       const payload = {
-        empresa, contato, email, embarcacao, equipamento, observacoes,
+        empresa, contato, email, embarcacao, equipamento, servico, observacoes,
         itens: itens.map(item => ({
           ...item,
           subsections: (item.subsections || []).map(sub => ({
@@ -497,6 +500,19 @@ export default function PropostasScreen() {
               <Text style={s.label}>Equipamento</Text>
               <TextInput style={s.input} placeholder="Ex: Turbina Principal" value={equipamento} onChangeText={setEquipamento} />
 
+              <Text style={s.label}>Servico *</Text>
+              <TextInput style={s.input} placeholder="Ex: Reparo de valvulas" value={servico} onChangeText={setServico} data-testid="proposal-servico-input" />
+
+              {/* === INTRO TEXT PREVIEW === */}
+              <View style={s.introContainer} data-testid="intro-text-preview">
+                <Text style={s.introText}>
+                  Prezados,{'\n'}Agradecemos a consulta e temos o prazer de apresentar nossa proposta comercial para o servico de{' '}
+                  <Text style={s.introBold}>{servico || '____________________'}</Text>
+                  {' '}a ser realizado na(o){' '}
+                  <Text style={s.introBold}>{embarcacao || '____________________'}</Text>.
+                </Text>
+              </View>
+
               {/* === INDICE === */}
               <View style={s.indexSection} data-testid="proposal-index">
                 <Text style={s.indexTitle}>Indice da Proposta</Text>
@@ -690,6 +706,10 @@ const s = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 6, marginTop: 10 },
   input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 4 },
+  // Intro
+  introContainer: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 14, marginTop: 12, borderWidth: 1, borderColor: '#FFE082' },
+  introText: { fontSize: 13, color: '#555', lineHeight: 20 },
+  introBold: { fontWeight: '700', color: '#1a237e' },
   // Index
   indexSection: { backgroundColor: '#E8EAF6', borderRadius: 10, padding: 14, marginTop: 16, borderWidth: 1, borderColor: '#C5CAE9' },
   indexTitle: { fontSize: 15, fontWeight: '700', color: '#1a237e', marginBottom: 10 },

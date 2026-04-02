@@ -3361,12 +3361,18 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
 
 # ==================== PROPOSTA COMERCIAL (PROPOSALS) ====================
 
+class ProposalSubsectionModel(BaseModel):
+    id: str = ""
+    titulo: str
+    descricao: str = ""
+
 class ProposalItemModel(BaseModel):
     id: str = ""
     titulo: str
     descricao: str = ""
     valor: Optional[float] = 0.0
     images: Optional[List[str]] = []
+    subsections: Optional[List[ProposalSubsectionModel]] = []
 
 class ProposalCreate(BaseModel):
     empresa: str
@@ -3409,12 +3415,20 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
     now = datetime.utcnow()
     itens = []
     for item in data.itens:
+        subs = []
+        for sub in (item.subsections or []):
+            subs.append({
+                "id": sub.id or str(uuid.uuid4()),
+                "titulo": sub.titulo,
+                "descricao": sub.descricao,
+            })
         itens.append({
             "id": item.id or str(uuid.uuid4()),
             "titulo": item.titulo,
             "descricao": item.descricao,
             "valor": item.valor or 0.0,
             "images": item.images or [],
+            "subsections": subs,
         })
     doc = {
         "numero_proposta": numero,
@@ -3555,6 +3569,7 @@ async def upload_proposal_photo(
     proposal_id: str,
     file: UploadFile = File(...),
     section_index: int = Query(default=0),
+    section_key: str = Query(default=""),
     user: dict = Depends(get_current_user)
 ):
     proposal = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
@@ -3594,6 +3609,7 @@ async def upload_proposal_photo(
             await db.proposal_photos.insert_one({
                 "proposal_id": proposal_id,
                 "section_index": section_index,
+                "section_key": section_key,
                 "storage_path": result["path"],
                 "original_filename": f"{file.filename} - {img_name}",
                 "content_type": "image/jpeg",
@@ -3628,6 +3644,7 @@ async def upload_proposal_photo(
         await db.proposal_photos.insert_one({
             "proposal_id": proposal_id,
             "section_index": section_index,
+            "section_key": section_key,
             "storage_path": result["path"],
             "original_filename": file.filename,
             "content_type": content_type,
@@ -3642,6 +3659,7 @@ async def get_proposal_photos(proposal_id: str, user: dict = Depends(get_current
     return [{
         "id": str(p["_id"]),
         "section_index": p.get("section_index", 0),
+        "section_key": p.get("section_key", ""),
         "storage_path": p.get("storage_path", ""),
         "original_filename": p.get("original_filename", ""),
     } for p in photos]
@@ -3971,6 +3989,52 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
                 elements.append(RLImage(temp_img, width=draw_w, height=draw_h))
             except Exception:
                 pass
+
+        # Subsections
+        subsections = item.get("subsections", [])
+        for sub_idx, sub in enumerate(subsections):
+            sub_titulo = sub.get("titulo", "")
+            sub_descricao = sub.get("descricao", "")
+            sub_heading = f"<b>{section_num}.{sub_idx + 1} {html_mod.escape(sub_titulo)}</b>"
+            sub_heading_style = ParagraphStyle('SubHeading', parent=styles['Normal'], fontSize=9, leading=13, spaceAfter=3, textColor=colors.HexColor('#333333'), fontName='Helvetica-Bold')
+            elements.append(Spacer(1, 0.15 * cm))
+            elements.append(Paragraph(sub_heading, sub_heading_style))
+            if sub_descricao:
+                sub_desc_escaped = html_mod.escape(sub_descricao).replace('\n', '<br/>')
+                elements.append(Paragraph(sub_desc_escaped, body_style))
+
+            # Subsection photos (section_key = "{idx}.{sub_idx}")
+            sub_photos = await db.proposal_photos.find({
+                "proposal_id": str(proposal["_id"]),
+                "section_key": f"{idx}.{sub_idx}",
+                "is_deleted": {"$ne": True},
+            }).to_list(50)
+            for sp in sub_photos:
+                sp_path = sp.get("storage_path", "")
+                if sp_path:
+                    try:
+                        photo_url = get_object_url(sp_path)
+                        import urllib.request
+                        img_data = io.BytesIO()
+                        with urllib.request.urlopen(photo_url, timeout=10) as resp_data:
+                            img_data.write(resp_data.read())
+                        img_data.seek(0)
+                        pil = PILImage.open(img_data)
+                        iw, ih = pil.size
+                        max_w = content_width * 0.8
+                        max_h = 7 * cm
+                        ratio = min(max_w / iw, max_h / ih)
+                        draw_w = iw * ratio
+                        draw_h = ih * ratio
+                        temp_img = io.BytesIO()
+                        if pil.mode != 'RGB':
+                            pil = pil.convert('RGB')
+                        pil.save(temp_img, format='JPEG')
+                        temp_img.seek(0)
+                        elements.append(Spacer(1, 0.15 * cm))
+                        elements.append(RLImage(temp_img, width=draw_w, height=draw_h))
+                    except Exception:
+                        pass
 
         elements.append(Spacer(1, 0.3 * cm))
         section_num += 1

@@ -289,10 +289,12 @@ export const proposalAPI = {
     const response = await api.put(`/users/admins/${userId}/proposta-access`);
     return response.data;
   },
-  uploadPhoto: async (proposalId: string, file: File | Blob, sectionIndex: number, filename?: string) => {
+  uploadPhoto: async (proposalId: string, file: File | Blob, sectionIndex: number, filename?: string, sectionKey?: string) => {
     const formData = new FormData();
     formData.append('file', file, filename || 'photo.jpg');
-    const response = await api.post(`/proposals/${proposalId}/upload-photo?section_index=${sectionIndex}`, formData, {
+    const params = new URLSearchParams({ section_index: String(sectionIndex) });
+    if (sectionKey) params.append('section_key', sectionKey);
+    const response = await api.post(`/proposals/${proposalId}/upload-photo?${params.toString()}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;

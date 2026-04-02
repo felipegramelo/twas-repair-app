@@ -1,45 +1,47 @@
 <analysis>**original_problem_statement**: 
-The user wants to unify two separate applications (a Timesheet Tracker and a Service/Daily Report app) into a single TWAS REPAIR app. The application requires role-based authentication (Admin/Supervisor), full CRUD functionalities for Timesheets and Reports, and an advanced A4 PDF generation system with custom headers, footers, watermarks, dynamic tables of contents, and photo/PDF attachments.
-
+The user wants to unify two separate applications (a Timesheet Tracker and a Service/Daily Report app) into a single TWAS REPAIR app. The application requires role-based authentication (Admin/Supervisor), full CRUD functionalities for Timesheets and Reports, and an advanced A4 PDF generation system with custom headers, footers, watermarks, dynamic tables of contents, and photo/PDF attachments. 
 PRODUCT REQUIREMENTS:
 - Role-based authentication (Admin, Supervisor).
 - Full CRUD for Timesheet, Service Orders, and Service/Daily Report entities.
-- Advanced PDF generation engine (ReportLab/PyMuPDF) managing complex page breaks, custom borders, multi-level TOC, embedded images, and signatures.
-- Boletim de Medição (Measurement Bulletin) feature for billing calculation based on timesheet functions and dynamic client pricing.
-- Granular administrative permissions to hide/show specific financial or structural panels.
-- Proposta Comercial (Commercial Proposals) feature with auto-numbering and custom PDF.
+- Advanced PDF generation engine (ReportLab/PyMuPDF).
+- Boletim de Medição (Measurement Bulletin) feature for billing calculation.
+- Dashboard Financeiro with charts and summary metrics.
+- Restructured Proposta Comercial feature with nested sections/subsections, photo/PDF uploads, and Termos Gerais at the bottom.
+- Timesheet validation for travel and service time conflicts.
 
 **User's preferred language**: Portuguese (pt-BR). INSTRUCT next agent to respond in the user's preferred language only.
 
 **what currently exists?** 
-A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Core features (Reports, Timesheets, OS Archive, Boletim de Medição, Propostas Comerciais) are functional. The app has a complex PDF engine. Recently, the app received full CRUD for Commercial Proposals, an auto-OS creation workflow from approved proposals, advanced photo caption/layout management in PDFs, and updates to the Boletim de Medição (BM) form structure.
+A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Features including Reports, Timesheets, OS Archive, Boletim de Medição, and Dashboard Financeiro are functional. Timesheets now have overlap validation blocking travel time from occurring during service time. The Propostas Comerciais (Commercial Proposals) backend was just refactored to support a nested section/subsection structure (similar to Service Reports) with  for photo uploads and Termos Gerais, but the frontend is currently out of sync with these backend changes.
 
 **Last working item**:
-    - Last item agent was working: Adjusting the Boletim de Medição (BM) feature. The user requested changing the PO/AC column to Linha (Line), making the Código (Code) and Linha fields function-specific (per item) instead of global, centralizing the PDF title, and auto-fetching the proposal when an O.S. is selected. The agent wrote the backend and frontend code to implement this but finished the task without testing.
-    - Status: TESTING PENDING
+    - Last item agent was working: Refactoring the Commercial Proposals () frontend to use a nested Section/Subsection index structure, allowing descriptions, photo/PDF uploads per subsection, and ensuring Termos Gerais correctly saves and renders at the end of the PDF. The backend models, PDF generator, and  have already been updated for this.
+    - Status: IN PROGRESS
     - Agent Testing Done: N
-    - Which testing method agent to use? both (manual frontend screenshot of the BM creation form + curl/python test to verify BM PDF generation).
+    - Which testing method agent to use? both (Testing agent v3 fork is heavily recommended once the frontend UI is built to ensure the complex state management works).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  Issue 1: Verify and Test BM (Boletim de Medição) form and PDF updates (P0)
-     - Attempted fixes: The agent updated  and  to remove the global  input, add  and  state inputs per item in the table, centralize the PDF title, and auto-fetch the proposal. 
+  Issue 1: Rewrite  UI for Sections/Subsections and Termos Gerais (P0)
+     - Attempted fixes: The agent updated the backend models to accept  as a list of sections containing , updated the  endpoint to use , modified the PDF generator, and updated .
      - Next debug checklist: 
-       - : Verify if the UI correctly displays the new CÓD. and Linha inputs for *each* function row in the calculation results. Verify if selecting an O.S. populates the proposal field.
-       - : Verify if  and  properly receive and render  and  per item.
-     - Why fix this issue and what will be achieved with the fix? The code was modified but never tested. An untested PDF or UI form might crash the application for users attempting to generate a BM.
-     - Status: TESTING PENDING
+       - : Rewrite the proposal creation/edit form to manage nested sections and subsections (borrow UI logic from ). 
+       - Implement the photo upload UI per .
+       - Ensure the Termos Gerais text area is visible, editable, defaults to the standard text requested by the user, and sends data correctly to the backend.
+       - Restart the Expo server via bash to clear cache ( && ) and verify the UI updates.
+     - Why fix this issue and what will be achieved with the fix? The user explicitly requested the proposal form to look like the report form (with an index, photos, files) and complained that Termos Gerais wasn't rendering. The backend expects a new data structure now, so the frontend is broken until updated.
+     - Status: IN PROGRESS
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: None
 
 **In progress Task List**:
-  None.
+  None (All other tasks completed).
 
 **Upcoming and Future Tasks**:
   Upcoming Tasks:
   - Add  (06-18 / 07-19) in the Service Orders (OS) UI (P1).
-  - Refactor  (P1): The file is now nearing 4000 lines. It urgently needs to be split into a modular structure (e.g., , , ).
+  - Refactor  (P1): The file is now over 4100 lines. It urgently needs to be split into a modular structure (e.g., , , ).
   
   Future Tasks:
   - Refactor  into smaller, reusable components (P2).
@@ -47,93 +49,87 @@ A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Cor
   - EAS Build (P2): Prepare  and  for App Store and Play Store deployment.
 
 **Completed work in this session**:
-- **Proposta Comercial**: Implemented full CRUD,  permissions, auto-numbering (), and custom Commercial/Technical PDF generation.
-- **Informar P.O. Workflow**: Added an Informar P.O. button on Proposals. Approving it automatically creates a Service Order (O.S.) linked to the proposal. Added Month/Year filters for Proposals and O.S. lists.
-- **Service Report Cover Update**: Replaced the merged EMBARCAÇÃO/LOCAL row with separate rows. Removed the SUPERVISOR row. Added  to the O.S. creation form.
-- **Photos & Captions**: Created an endpoint to save edited photo captions. Adjusted ReportLab's  to prevent excessive blank pages after photos. Increased maximum photo size allowed on the page.
-- **Custom Report Sections**: Fixed a bug where custom sections dropped their numbering in the PDF. Added a delete button to remove custom sections from the TOC. Allowed custom sections to have descriptions and photos without needing a subsection.
-- **BM Field Updates**: Updated Boletim de Medição to make  and  per-item fields instead of global, and centralized the PDF title (Code written, testing pending).
+- **Boletim de Medição (BM)**: Successfully verified per-item  and  fields in UI and PDF.
+- **Dashboard Financeiro**: Created a new admin dashboard page with BM summary charts, OS counts, Proposal status counts, and top clients. Added  permission.
+- **Timesheet Conflict Validation**: Added logic to block Supervisors from entering travel times that overlap with service times (e.g., travel from 10:00-12:00 when service is 07:00-18:00 is now rejected with a clear 400 error).
 
 **Earlier issues found/mentioned but not fixed**:
-  - None.
+   - None.
 
 **Known issue recurrence from previous fork**:
   - Issue recurrence in previous fork: **Aggressive Expo Metro Caching**.
-  - Recurrence count: 10+
-  - Status: IN PROGRESS (Agent frequently had to use  and  bash commands to force the UI to update during testing, as state/API changes sometimes failed to reflect instantly on the frontend. Next agent must proactively restart Expo using bash if UI structural changes do not appear).
+  - Recurrence count: 15+
+  - Status: IN PROGRESS (The previous agent repeatedly had to use  and  bash commands to force the UI to update or recognize new routes like the Dashboard. Next agent MUST proactively restart Expo using bash when making structural UI changes in React Native Web).
 
 **Code Architecture**:
 
 
 **Key Technical Concepts**:
-- **Frontend**: React Native for Web (Expo Router), TypeScript.
-- **Backend**: FastAPI, MongoDB ().
-- **PDF Generation**: ReportLab (layout/drawing) + PyMuPDF ().
+- Frontend: React Native for Web (Expo Router), TypeScript.
+- Backend: FastAPI, MongoDB ().
+- PDF Generation: ReportLab (layout/drawing) + PyMuPDF ().
 
 **key DB schema**:
-  - : { , , , , , ,  }
-  - : { , , , , , ,  }
-  - : { , , , , , , , , , ... }
-  - : { , , , , , ... }
+  - : { , , , , ,  (array of sections with ), , ... }
+  - : { , , , , ... }
+  - : added  boolean.
 
 **changes in tech stack**:
   - None.
 
 **All files of reference**:
-  - : Contains API endpoints and PDF logic.
+  - : API endpoints and PDF logic.
   - : API service wrappers.
-  - : Boletim de Medição form and UI.
-  - : Commercial Proposals list and actions.
-  - : Report editor handling sections, subsections, and photos.
+  - : Needs major UI rewrite for nested sections.
+  - : Created this session.
+  - : Reference for how nested sections and photo uploads should be implemented.
 
 **Areas that need refactoring**:
-  - : P1 Priority. Nearly 3800 lines monolith.
-  - : Huge file with complex photo upload state management.
+  - : P1 Priority. Massive monolith.
+  - : P0 Priority. Needs to be rewritten right now.
 
 **key api endpoints**:
   - : Creates a commercial proposal.
-  - : Informs P.O., marks proposal as approved, and creates a Service Order.
-  - : Saves an edited caption for a photo.
-  - : Calculates pricing for a BM based on timesheets.
+  - : Uploads photo linked to .
+  - : Retrieves financial/status summaries.
+  - : Validates overlaps before creation.
 
 **Critical Info for New Agent**:
-  - **Verify the BM Edits immediately**: The last action modified how the Boletim de Medição calculates and renders cod and linha per row instead of globally. The code was injected but the agent hit the  tool without running a single frontend or backend test. Verify the UI and PDF generation first.
-  - **Expo Cache**: You will likely face issues where React Native Web caches old files. Run  and  frequently when your frontend edits do not seem to apply in screenshots.
+  - **Proposals State Sync**: The backend now expects proposals to have a nested structure ( -> ), but the frontend  still uses the old flat  array. You MUST immediately focus on rewriting the state management and UI of  to handle , , and a dedicated text area for . Look at  to copy the pattern for nested sections and photo uploads.
+  - **Expo Cache**: React Native Web routes and components get cached aggressively. Restart the server with  and  after your file edits.
 
 **documents and test reports created in this job**:
   - 
-  - 
-  -  (Propostas tests)
-  -  (Informar P.O. tests)
+  -  (BM Tests)
+  -  (Initial Proposal & Dashboard Tests)
+  -  (Refactored Proposal Backend Tests)
 
 **Last 10 User Messages and any pending HUMAN messages**:
-1. User requests adding the new Commercial Proposals (Propostas Comerciais) feature with structure, pricing, and custom PDF outputs.
-2. User requests Informar P.O. button on proposals that automatically creates a Service Order (O.S.) mapped sequentially, and adds Month/Year filters.
-3. User requests removing EMBARCAÇÃO / LOCAL from the Service Report cover table, splitting them into separate rows, and showing the embarcacao name below the cover photo.
-4. User states that when creating a Service Order, embarcacao should be a required input field that goes straight to the table.
-5. User requests removing the SUPERVISOR row from the cover table since EXECUTADO POR is already present.
-6. User points out that the Embarcação field is not appearing on the Service Order creation form. (Agent fixed cache issue).
-7. User reports they cannot delete photos from the service report, and the photo captions do not update in the PDF. User also states that photos need to stay on the same page as their sub-sections.
-8. User reports that adding custom sections loses its numbering in the PDF, and requests the ability to add photos/files and descriptions directly to custom sections without creating subsections.
-9. User requests adding a delete button for custom sections, and separate buttons for Description and Photos.
-10. **(PENDING VERIFICATION)** User requests changes to the Boletim de Medição: the PO/AC column should become Linha (per function/row), CÓD. should be per function/row, the BM title should be centralized, and the proposal should be auto-fetched when selecting an O.S.
+1. User requests adding Dashboard Financeiro and restructuring Propostas (no table, use index, standard Termos Gerais).
+2. User provides specific text to be used as default for Termos Gerais.
+3. User specifies Dashboard is for admins only and proposals should stay as 2 separate PDFs (Technical/Commercial).
+4. User states they cannot find the new dashboard.
+5. User asks for the preview link.
+6. User states that the initial info in proposals shouldn't be a table, the form needs an index (sections/subsections) for files and photos (like the reports), and Termos Gerais didn't appear.
+7. User requests conflict validation on Timesheets (travel time cannot overlap with service time).
+8. **(PENDING VERIFICATION)** User reiterates that Termos Gerais did not appear on newly created proposals and requests the section/subsection structure for the proposal index again.
 
 **Project Health Check**:
-- **Working**: Backend, Timesheets, Service/Daily Reports, PDF Engine, Admin/Supervisor Workflow, Propostas Comerciais, Informar P.O.
-- **Testing Pending**: Boletim de Medição (BM) form and PDF generation updates.
+- **Working**: Backend, Timesheets (with validation), Service/Daily Reports, PDF Engine, Admin/Supervisor Auth, BM, Dashboard Financeiro.
+- **Broken**: Frontend  UI is currently incompatible with the freshly refactored backend structure.
 
 **3rd Party Integrations**:
 - Emergent Object Storage — uses Emergent LLM Key.
 
 **Testing status**:
-  - Testing agent used after significant changes: YES (For Propostas and P.O. iterations).
+  - Testing agent used after significant changes: YES (iterations 29, 30, 31).
   - Troubleshoot agent used after agent stuck in loop: NO.
-  - Test files created:  to .
-  - Known regressions: None confirmed, but BM logic was altered without tests.
+  - Test files created:  through .
+  - Known regressions: Frontend  is temporarily broken due to backend schema changes.
 
 **Credentials to test flow**:
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
 **What agent forgot to execute**:
-The agent implemented the user's final request regarding the Boletim de Medição (making  and  item-specific, centralizing the PDF title, and auto-fetching the proposal), but the agent executed the  tool immediately after editing the files. The agent completely forgot to test the frontend UI form via screenshot and forgot to test the BM PDF generation via curl/python. The next agent must prioritize testing this flow.</analysis>
+The agent perfectly updated the backend () and API interface () to handle the user's request for nested sections, subsections, and photo uploads via  for Commercial Proposals. However, the agent ran out of time before they could rewrite the React Native UI in . The next agent must start immediately by updating this frontend file to match the new backend schema.</analysis>

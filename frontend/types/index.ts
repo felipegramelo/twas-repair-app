@@ -9,12 +9,19 @@ export interface User {
   dashboard_access?: boolean;
 }
 
+export interface ProposalSubsection {
+  id: string;
+  titulo: string;
+  descricao: string;
+}
+
 export interface ProposalItem {
   id: string;
   titulo: string;
   descricao: string;
   valor?: number;
   images?: string[];
+  subsections?: ProposalSubsection[];
 }
 
 export interface Proposal {

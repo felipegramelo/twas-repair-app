@@ -111,8 +111,8 @@ O PDF é gerado automaticamente com:
 
 ## 🌐 URLs
 
-- **Frontend:** https://timesheet-pro-75.preview.emergentagent.com
-- **Backend API:** https://timesheet-pro-75.preview.emergentagent.com/api
+- **Frontend:** https://repair-proposals-app.preview.emergentagent.com
+- **Backend API:** https://repair-proposals-app.preview.emergentagent.com/api
 
 ## 📱 Acesso Mobile
 

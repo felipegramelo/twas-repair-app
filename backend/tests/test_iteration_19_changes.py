@@ -19,7 +19,7 @@ import os
 import re
 
 # Use the public URL from environment
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://timesheet-pro-75.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://repair-proposals-app.preview.emergentagent.com')
 
 # Test credentials
 SUPERVISOR_EMAIL = "supervisor@twasrepair.com"

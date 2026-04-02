@@ -13,7 +13,7 @@ import os
 import io
 import fitz  # PyMuPDF for PDF content verification
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://timesheet-pro-75.preview.emergentagent.com')
+BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://repair-proposals-app.preview.emergentagent.com')
 
 class TestProposalRestructure:
     """Test proposal restructuring features"""

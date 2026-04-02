@@ -3542,11 +3542,20 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: 
     if data.itens is not None:
         itens = []
         for item in data.itens:
+            subs = []
+            for sub in (item.subsections or []):
+                subs.append({
+                    "id": sub.id or str(uuid.uuid4()),
+                    "titulo": sub.titulo,
+                    "descricao": sub.descricao,
+                })
             itens.append({
                 "id": item.id or str(uuid.uuid4()),
                 "titulo": item.titulo,
                 "descricao": item.descricao,
                 "valor": item.valor or 0.0,
+                "images": item.images or [],
+                "subsections": subs,
             })
         update_dict["itens"] = itens
     await db.propostas.update_one({"_id": ObjectId(proposal_id)}, {"$set": update_dict})

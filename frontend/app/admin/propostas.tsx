@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { proposalAPI } from '../../services/api';
-import { Proposal, ProposalItem } from '../../types';
+import { Proposal, ProposalItem, ProposalSubsection } from '../../types';
 
 const MONTHS = [
   { value: 0, label: 'Todos' }, { value: 1, label: 'Jan' }, { value: 2, label: 'Fev' }, { value: 3, label: 'Mar' },
@@ -36,6 +36,7 @@ Quaisquer pre\u00e7os e prazos diferentes relacionados ao servi\u00e7o em negoci
 interface ProposalPhoto {
   id: string;
   section_index: number;
+  section_key: string;
   storage_path: string;
   original_filename: string;
 }
@@ -55,9 +56,10 @@ export default function PropostasScreen() {
 
   // Photos
   const [photos, setPhotos] = useState<ProposalPhoto[]>([]);
-  const [uploadingSection, setUploadingSection] = useState<number | null>(null);
+  const [uploadingSectionKey, setUploadingSectionKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const currentUploadSection = useRef<number>(0);
+  const currentUploadKey = useRef<string>('');
+  const currentUploadIndex = useRef<number>(0);
 
   // Filters
   const now = new Date();
@@ -75,6 +77,7 @@ export default function PropostasScreen() {
   const [itens, setItens] = useState<ProposalItem[]>([]);
   const [termosGerais, setTermosGerais] = useState(DEFAULT_TERMOS);
   const [showTermos, setShowTermos] = useState(true);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => { loadProposals(); loadToken(); }, [filterMonth, filterYear]);
 
@@ -105,6 +108,7 @@ export default function PropostasScreen() {
     setEmpresa(''); setContato(''); setEmail(''); setEmbarcacao('');
     setEquipamento(''); setObservacoes(''); setItens([]); setEditingProposal(null);
     setTermosGerais(DEFAULT_TERMOS); setShowTermos(true); setPhotos([]);
+    setExpandedSection(null);
   };
 
   const openAddModal = () => { resetForm(); setModalVisible(true); };
@@ -120,7 +124,6 @@ export default function PropostasScreen() {
     setItens(proposal.itens || []);
     setTermosGerais(proposal.termos_gerais || DEFAULT_TERMOS);
     setShowTermos(true);
-    // Load photos
     try {
       const p = await proposalAPI.getPhotos(proposal.id);
       setPhotos(p);
@@ -128,8 +131,9 @@ export default function PropostasScreen() {
     setModalVisible(true);
   };
 
+  // === Section Management ===
   const addItem = () => {
-    setItens([...itens, { id: Date.now().toString(), titulo: '', descricao: '', valor: 0, images: [] }]);
+    setItens([...itens, { id: Date.now().toString(), titulo: '', descricao: '', valor: 0, subsections: [] }]);
   };
 
   const updateItem = (index: number, field: keyof ProposalItem, value: string | number) => {
@@ -151,20 +155,46 @@ export default function PropostasScreen() {
     setItens(updated);
   };
 
-  // Photo upload
-  const triggerUpload = (sectionIndex: number) => {
-    currentUploadSection.current = sectionIndex;
+  // === Subsection Management ===
+  const addSubsection = (sectionIndex: number) => {
+    const updated = [...itens];
+    const subs = updated[sectionIndex].subsections || [];
+    subs.push({ id: Date.now().toString(), titulo: '', descricao: '' });
+    updated[sectionIndex] = { ...updated[sectionIndex], subsections: subs };
+    setItens(updated);
+  };
+
+  const updateSubsection = (secIdx: number, subIdx: number, field: keyof ProposalSubsection, value: string) => {
+    const updated = [...itens];
+    const subs = [...(updated[secIdx].subsections || [])];
+    subs[subIdx] = { ...subs[subIdx], [field]: value };
+    updated[secIdx] = { ...updated[secIdx], subsections: subs };
+    setItens(updated);
+  };
+
+  const removeSubsection = (secIdx: number, subIdx: number) => {
+    const updated = [...itens];
+    const subs = (updated[secIdx].subsections || []).filter((_, i) => i !== subIdx);
+    updated[secIdx] = { ...updated[secIdx], subsections: subs };
+    setItens(updated);
+  };
+
+  // === Photo Upload ===
+  const triggerUpload = (sectionKey: string, sectionIndex: number) => {
+    currentUploadKey.current = sectionKey;
+    currentUploadIndex.current = sectionIndex;
     if (Platform.OS === 'web' && fileInputRef.current) fileInputRef.current.click();
   };
 
   const handleFileSelected = async (event: any) => {
     const files = event.target.files;
     if (!files || files.length === 0 || !editingProposal) return;
-    const secIdx = currentUploadSection.current;
-    setUploadingSection(secIdx);
+    const secKey = currentUploadKey.current;
+    const secIdx = currentUploadIndex.current;
+    setUploadingSectionKey(secKey);
     try {
       for (let i = 0; i < files.length; i++) {
-        await proposalAPI.uploadPhoto(editingProposal.id, files[i], secIdx, files[i].name);
+        await proposalAPI.uploadPhoto(editingProposal.id, files[i], secIdx, files[i].name, secKey);
       }
       const p = await proposalAPI.getPhotos(editingProposal.id);
       setPhotos(p);
@@ -172,7 +202,7 @@ export default function PropostasScreen() {
     } catch (e: any) {
       showMsg('Erro ao enviar arquivo: ' + (e.message || ''));
     } finally {
-      setUploadingSection(null);
+      setUploadingSectionKey(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -187,8 +217,9 @@ export default function PropostasScreen() {
   };
 
   const getPhotoUrl = (storagePath: string) => proposalAPI.getPhotoUrl(storagePath, authToken);
-  const sectionPhotos = (sectionIndex: number) => photos.filter(p => p.section_index === sectionIndex);
+  const getPhotosForKey = (key: string) => photos.filter(p => p.section_key === key);
 
+  // === Save ===
   const handleSave = async () => {
     if (!empresa.trim() || !contato.trim()) { showMsg('Preencha Empresa e Contato'); return; }
     if (itens.length === 0) { showMsg('Adicione pelo menos uma secao no escopo'); return; }
@@ -196,7 +227,18 @@ export default function PropostasScreen() {
       if (!item.titulo.trim()) { showMsg('Preencha o titulo de todas as secoes'); return; }
     }
     try {
-      const payload = { empresa, contato, email, embarcacao, equipamento, observacoes, itens, termos_gerais: termosGerais };
+      const payload = {
+        empresa, contato, email, embarcacao, equipamento, observacoes,
+        itens: itens.map(item => ({
+          ...item,
+          subsections: (item.subsections || []).map(sub => ({
+            id: sub.id,
+            titulo: sub.titulo,
+            descricao: sub.descricao,
+          })),
+        })),
+        termos_gerais: termosGerais,
+      };
       if (editingProposal) {
         await proposalAPI.update(editingProposal.id, payload);
       } else {
@@ -264,10 +306,43 @@ export default function PropostasScreen() {
   const getFilterLabel = () => { const m = MONTHS.find(m => m.value === filterMonth)?.label || 'Todos'; return filterMonth === 0 ? `${filterYear}` : `${m}/${filterYear}`; };
   const pendentesCount = proposals.filter(p => (p.status || 'pendente') === 'pendente').length;
   const aprovadasCount = proposals.filter(p => p.status === 'aprovada').length;
-  const termosSection = itens.length + 1;
 
+  // Count total items for termos section number
+  const termosNumber = itens.length + 1;
+
+  // === Photo Grid Render ===
+  const renderPhotoArea = (sectionKey: string, sectionIndex: number) => {
+    const sPhotos = getPhotosForKey(sectionKey);
+    return (
+      <View style={s.photosArea}>
+        {sPhotos.map(photo => (
+          <View key={photo.id} style={s.photoItem}>
+            <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={s.photoThumb} />
+            <Text style={s.photoName} numberOfLines={1}>{photo.original_filename}</Text>
+            <TouchableOpacity onPress={() => handleDeletePhoto(photo.id)} style={s.photoDeleteBtn}>
+              <Ionicons name="trash-outline" size={16} color="#d32f2f" />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity
+          style={s.uploadBtn}
+          onPress={() => triggerUpload(sectionKey, sectionIndex)}
+          disabled={uploadingSectionKey === sectionKey}
+          data-testid={`upload-photo-${sectionKey}`}
+        >
+          {uploadingSectionKey === sectionKey ? <ActivityIndicator size="small" color="#1a237e" /> : (
+            <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={s.uploadBtnText}>Adicionar Foto/Arquivo</Text></>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // === List Item Render ===
   const renderProposal = ({ item }: { item: Proposal }) => {
     const isAprovada = item.status === 'aprovada';
+    const totalSubs = (item.itens || []).reduce((acc, it) => acc + (it.subsections?.length || 0), 0);
+    const sectionLabel = `${item.itens.length} ${item.itens.length === 1 ? 'secao' : 'secoes'}${totalSubs > 0 ? `, ${totalSubs} sub` : ''}`;
     return (
       <View style={[s.card, isAprovada && { borderLeftWidth: 4, borderLeftColor: '#2e7d32' }]} data-testid={`proposal-card-${item.id}`}>
         <View style={s.cardHeader}>
@@ -282,7 +357,7 @@ export default function PropostasScreen() {
         <Text style={s.cardTitle}>{item.empresa}</Text>
         <Text style={s.cardSub}>A/C: {item.contato}</Text>
         {item.embarcacao ? <Text style={s.cardSub}>Embarcacao: {item.embarcacao}</Text> : null}
-        <Text style={s.cardTotal}>{formatCurrency(calcTotal(item.itens))} ({item.itens.length} {item.itens.length === 1 ? 'secao' : 'secoes'})</Text>
+        <Text style={s.cardTotal}>{formatCurrency(calcTotal(item.itens))} ({sectionLabel})</Text>
 
         {isAprovada && (
           <View style={s.approvedInfo}>
@@ -323,7 +398,6 @@ export default function PropostasScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      {/* Hidden file input for web uploads */}
       {Platform.OS === 'web' && (
         <input
           type="file"
@@ -424,17 +498,27 @@ export default function PropostasScreen() {
               <TextInput style={s.input} placeholder="Ex: Turbina Principal" value={equipamento} onChangeText={setEquipamento} />
 
               {/* === INDICE === */}
-              <View style={s.indexSection}>
+              <View style={s.indexSection} data-testid="proposal-index">
                 <Text style={s.indexTitle}>Indice da Proposta</Text>
                 <View style={s.indexList}>
                   {itens.map((item, idx) => (
-                    <View key={item.id} style={s.indexItem}>
-                      <View style={s.indexNumBadge}><Text style={s.indexNumText}>{idx + 1}</Text></View>
-                      <Text style={s.indexItemText} numberOfLines={1}>{item.titulo || '(sem titulo)'}</Text>
+                    <View key={item.id}>
+                      <View style={s.indexItem}>
+                        <View style={s.indexNumBadge}><Text style={s.indexNumText}>{idx + 1}</Text></View>
+                        <Text style={s.indexItemText} numberOfLines={1}>{item.titulo || '(sem titulo)'}</Text>
+                      </View>
+                      {(item.subsections || []).map((sub, subIdx) => (
+                        <View key={sub.id} style={[s.indexItem, { marginLeft: 24 }]}>
+                          <View style={[s.indexNumBadge, { width: 28, height: 20, borderRadius: 10, backgroundColor: '#5C6BC0' }]}>
+                            <Text style={[s.indexNumText, { fontSize: 9 }]}>{idx + 1}.{subIdx + 1}</Text>
+                          </View>
+                          <Text style={[s.indexItemText, { fontSize: 13, color: '#555' }]} numberOfLines={1}>{sub.titulo || '(sem titulo)'}</Text>
+                        </View>
+                      ))}
                     </View>
                   ))}
                   <View style={s.indexItem}>
-                    <View style={[s.indexNumBadge, { backgroundColor: '#546E7A' }]}><Text style={s.indexNumText}>{termosSection}</Text></View>
+                    <View style={[s.indexNumBadge, { backgroundColor: '#546E7A' }]}><Text style={s.indexNumText}>{termosNumber}</Text></View>
                     <Text style={[s.indexItemText, { fontStyle: 'italic', color: '#546E7A' }]}>Termos e Condicoes Gerais</Text>
                   </View>
                   {itens.length === 0 && <Text style={{ color: '#999', fontSize: 12, fontStyle: 'italic', marginTop: 4 }}>Adicione secoes ao escopo abaixo</Text>}
@@ -449,45 +533,76 @@ export default function PropostasScreen() {
                 </TouchableOpacity>
               </View>
 
-              {itens.map((item, idx) => (
-                <View key={item.id} style={s.sectionCard}>
-                  <View style={s.sectionHeader}>
-                    <View style={s.sectionNumBadge}><Text style={s.sectionNumText}>{idx + 1}</Text></View>
-                    <Text style={s.sectionLabel}>Secao {idx + 1}</Text>
-                    <View style={{ flex: 1 }} />
-                    <TouchableOpacity onPress={() => moveItem(idx, 'up')} disabled={idx === 0} style={{ opacity: idx === 0 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-up" size={18} color="#1a237e" /></TouchableOpacity>
-                    <TouchableOpacity onPress={() => moveItem(idx, 'down')} disabled={idx === itens.length - 1} style={{ opacity: idx === itens.length - 1 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-down" size={18} color="#1a237e" /></TouchableOpacity>
-                    <TouchableOpacity onPress={() => removeItem(idx)} style={{ padding: 4 }} data-testid={`remove-item-${idx}`}><Ionicons name="close-circle" size={22} color="#d32f2f" /></TouchableOpacity>
+              {itens.map((item, idx) => {
+                const sectionKey = String(idx);
+                const isExpanded = expandedSection === item.id;
+                return (
+                  <View key={item.id} style={s.sectionCard}>
+                    <TouchableOpacity style={s.sectionHeader} onPress={() => setExpandedSection(isExpanded ? null : item.id)}>
+                      <View style={s.sectionNumBadge}><Text style={s.sectionNumText}>{idx + 1}</Text></View>
+                      <Text style={s.sectionLabel} numberOfLines={1}>{item.titulo || `Secao ${idx + 1}`}</Text>
+                      <View style={{ flex: 1 }} />
+                      <TouchableOpacity onPress={() => moveItem(idx, 'up')} disabled={idx === 0} style={{ opacity: idx === 0 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-up" size={18} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => moveItem(idx, 'down')} disabled={idx === itens.length - 1} style={{ opacity: idx === itens.length - 1 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-down" size={18} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => removeItem(idx)} style={{ padding: 4 }} data-testid={`remove-item-${idx}`}><Ionicons name="close-circle" size={22} color="#d32f2f" /></TouchableOpacity>
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                      <View style={{ marginTop: 8 }}>
+                        <TextInput style={s.input} placeholder="Titulo da secao *" value={item.titulo} onChangeText={(v) => updateItem(idx, 'titulo', v)} data-testid={`item-titulo-${idx}`} />
+                        <TextInput style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} placeholder="Descricao detalhada do escopo" value={item.descricao} onChangeText={(v) => updateItem(idx, 'descricao', v)} multiline data-testid={`item-descricao-${idx}`} />
+                        <TextInput style={s.input} placeholder="Valor (R$)" value={item.valor ? String(item.valor) : ''} onChangeText={(v) => updateItem(idx, 'valor', parseFloat(v) || 0)} keyboardType="numeric" data-testid={`item-valor-${idx}`} />
+
+                        {/* Section-level photos */}
+                        {editingProposal && renderPhotoArea(sectionKey, idx)}
+                        {!editingProposal && <Text style={s.hintText}>Salve a proposta primeiro para adicionar fotos</Text>}
+
+                        {/* === SUBSECTIONS === */}
+                        {(item.subsections || []).map((sub, subIdx) => {
+                          const subKey = `${idx}.${subIdx}`;
+                          return (
+                            <View key={sub.id} style={s.subsectionCard}>
+                              <View style={s.subsectionHeader}>
+                                <View style={[s.sectionNumBadge, { width: 30, height: 22, backgroundColor: '#5C6BC0' }]}>
+                                  <Text style={[s.sectionNumText, { fontSize: 10 }]}>{idx + 1}.{subIdx + 1}</Text>
+                                </View>
+                                <Text style={s.subsectionLabel}>Subsecao {idx + 1}.{subIdx + 1}</Text>
+                                <View style={{ flex: 1 }} />
+                                <TouchableOpacity onPress={() => removeSubsection(idx, subIdx)} style={{ padding: 4 }} data-testid={`remove-sub-${idx}-${subIdx}`}>
+                                  <Ionicons name="close-circle" size={20} color="#d32f2f" />
+                                </TouchableOpacity>
+                              </View>
+                              <TextInput
+                                style={s.input}
+                                placeholder="Titulo da subsecao"
+                                value={sub.titulo}
+                                onChangeText={(v) => updateSubsection(idx, subIdx, 'titulo', v)}
+                                data-testid={`sub-titulo-${idx}-${subIdx}`}
+                              />
+                              <TextInput
+                                style={[s.input, { minHeight: 60, textAlignVertical: 'top' }]}
+                                placeholder="Descricao"
+                                value={sub.descricao}
+                                onChangeText={(v) => updateSubsection(idx, subIdx, 'descricao', v)}
+                                multiline
+                                data-testid={`sub-descricao-${idx}-${subIdx}`}
+                              />
+                              {/* Subsection photos */}
+                              {editingProposal && renderPhotoArea(subKey, idx)}
+                            </View>
+                          );
+                        })}
+
+                        <TouchableOpacity style={s.addSubBtn} onPress={() => addSubsection(idx)} data-testid={`add-subsection-${idx}`}>
+                          <Ionicons name="add-circle-outline" size={20} color="#5C6BC0" />
+                          <Text style={s.addSubBtnText}>Adicionar Subsecao</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
-
-                  <TextInput style={s.input} placeholder="Titulo da secao *" value={item.titulo} onChangeText={(v) => updateItem(idx, 'titulo', v)} data-testid={`item-titulo-${idx}`} />
-                  <TextInput style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} placeholder="Descricao detalhada do escopo" value={item.descricao} onChangeText={(v) => updateItem(idx, 'descricao', v)} multiline data-testid={`item-descricao-${idx}`} />
-                  <TextInput style={s.input} placeholder="Valor (R$)" value={item.valor ? String(item.valor) : ''} onChangeText={(v) => updateItem(idx, 'valor', parseFloat(v) || 0)} keyboardType="numeric" data-testid={`item-valor-${idx}`} />
-
-                  {/* Photos for this section */}
-                  {editingProposal && (
-                    <View style={s.photosArea}>
-                      {sectionPhotos(idx).map(photo => (
-                        <View key={photo.id} style={s.photoItem}>
-                          <Image source={{ uri: getPhotoUrl(photo.storage_path) }} style={s.photoThumb} />
-                          <Text style={s.photoName} numberOfLines={1}>{photo.original_filename}</Text>
-                          <TouchableOpacity onPress={() => handleDeletePhoto(photo.id)} style={s.photoDeleteBtn}>
-                            <Ionicons name="trash-outline" size={16} color="#d32f2f" />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                      <TouchableOpacity style={s.uploadBtn} onPress={() => triggerUpload(idx)} disabled={uploadingSection === idx} data-testid={`upload-photo-${idx}`}>
-                        {uploadingSection === idx ? <ActivityIndicator size="small" color="#1a237e" /> : (
-                          <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={s.uploadBtnText}>Adicionar Foto/Arquivo</Text></>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  {!editingProposal && (
-                    <Text style={s.hintText}>Salve a proposta primeiro para adicionar fotos/arquivos</Text>
-                  )}
-                </View>
-              ))}
+                );
+              })}
 
               {itens.length > 0 && (
                 <View style={s.totalRow}>
@@ -498,7 +613,7 @@ export default function PropostasScreen() {
 
               {/* === TERMOS GERAIS === */}
               <TouchableOpacity style={s.termosToggle} onPress={() => setShowTermos(!showTermos)} data-testid="termos-toggle">
-                <View style={[s.sectionNumBadge, { backgroundColor: '#546E7A' }]}><Text style={s.sectionNumText}>{termosSection}</Text></View>
+                <View style={[s.sectionNumBadge, { backgroundColor: '#546E7A' }]}><Text style={s.sectionNumText}>{termosNumber}</Text></View>
                 <Text style={s.termosToggleText}>Termos e Condicoes Gerais</Text>
                 <Ionicons name={showTermos ? 'chevron-up' : 'chevron-down'} size={20} color="#546E7A" />
               </TouchableOpacity>
@@ -588,10 +703,16 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
   addItemBtn: { padding: 4 },
   sectionCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#C5CAE9' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionNumBadge: { backgroundColor: '#1a237e', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
   sectionNumText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#1a237e' },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#1a237e', maxWidth: '40%' },
+  // Subsection
+  subsectionCard: { backgroundColor: '#f8f9ff', borderRadius: 8, padding: 10, marginTop: 8, marginLeft: 8, borderWidth: 1, borderColor: '#D1D5F0', borderLeftWidth: 3, borderLeftColor: '#5C6BC0' },
+  subsectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  subsectionLabel: { fontSize: 12, fontWeight: '600', color: '#5C6BC0' },
+  addSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, marginTop: 8, backgroundColor: '#EDE7F6', borderRadius: 8, alignSelf: 'flex-start' },
+  addSubBtnText: { fontSize: 13, fontWeight: '500', color: '#5C6BC0' },
   // Photos
   photosArea: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e8e8e8' },
   photoItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, backgroundColor: '#f5f5f5', borderRadius: 8, padding: 6 },

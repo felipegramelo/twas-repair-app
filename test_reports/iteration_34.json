@@ -1,0 +1,80 @@
+{
+  "summary": "Iteration 34: iOS Native Fixes Testing - All backend tests pass (14/14). Code review confirms iOS fixes are properly implemented. Fixed pre-existing bug in timesheet PDF generation (KeyError for missing fields).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [],
+    "fixed_this_iteration": [
+      {
+        "endpoint": "/api/timesheets/{id}/pdf",
+        "issue": "KeyError when timesheet missing 'service', 'client', 'location', 'os_number' fields",
+        "fix": "Changed ts['field'] to ts.get('field', '') in server.py lines 1769-1777 and 1833-1846"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Button clicks on React Native Web",
+        "issue": "Known limitation - button clicks via Playwright don't work reliably on React Native Web. Workaround: inject token via localStorage and navigate directly.",
+        "affected_selectors": ["div[role='button']", "TouchableOpacity"],
+        "priority": "LOW - Known limitation, not a bug"
+      }
+    ],
+    "design_issues": []
+  },
+  "code_review_results": {
+    "_layout.tsx": {
+      "status": "PASS",
+      "details": "GestureHandlerRootView wraps SafeAreaProvider wraps AuthProvider - correct order for iOS native"
+    },
+    "pdfHelper.ts": {
+      "status": "PASS",
+      "details": "Handles both web (createObjectURL + download link) and native (FileSystem.downloadAsync + Sharing.shareAsync)"
+    },
+    "create-timesheet.tsx": {
+      "status": "PASS",
+      "details": "Uses pendingPicker state machine with openPickerFromForm() and returnToForm() pattern to avoid nested modals on iOS"
+    },
+    "edit-timesheet.tsx": {
+      "status": "PASS",
+      "details": "Same pendingPicker + openPickerFromForm + returnToForm pattern as create-timesheet.tsx"
+    },
+    "edit-report.tsx": {
+      "status": "PASS",
+      "details": "Only has single modal (showSectionsModal), no nested modal issues"
+    },
+    "propostas.tsx": {
+      "status": "PASS",
+      "details": "Uses FileSystem + Sharing for iOS native PDF download"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_34_ios_fixes.py",
+    "/app/test_reports/pytest/test_iteration_34.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/server.py (fixed timesheet PDF KeyError)",
+    "/app/backend/tests/test_iteration_34_ios_fixes.py (new test file)"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% (web functionality verified, iOS fixes confirmed via code review)"
+  },
+  "test_credentials": {
+    "admin": "admin@twasrepair.com / admin123",
+    "supervisor": "supervisor@twasrepair.com / super123"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "iOS native fixes verified via code review: 1) GestureHandlerRootView + SafeAreaProvider in _layout.tsx 2) pendingPicker state machine in create-timesheet.tsx and edit-timesheet.tsx 3) pdfHelper.ts handles both web and native PDF download. Fixed pre-existing bug in timesheet PDF generation. All backend APIs working correctly.",
+  "ios_fixes_verification": {
+    "GestureHandlerRootView": "Confirmed in /app/frontend/app/_layout.tsx - wraps entire app",
+    "SafeAreaProvider": "Confirmed in /app/frontend/app/_layout.tsx - inside GestureHandlerRootView",
+    "nested_modals_eliminated": "Confirmed in create-timesheet.tsx and edit-timesheet.tsx using pendingPicker pattern",
+    "native_pdf_download": "Confirmed in pdfHelper.ts using expo-file-system + expo-sharing"
+  }
+}

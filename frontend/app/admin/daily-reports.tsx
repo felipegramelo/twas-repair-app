@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI } from '../../services/api';
+import { downloadAndSharePDF } from '../../utils/pdfHelper';
 
 interface ReportItem {
   id: string;
@@ -37,11 +38,13 @@ export default function DailyReportsScreen() {
 
   const handleOpenPDF = async (report: ReportItem) => {
     try {
-      if (Platform.OS === 'web') {
-        const blob = await reportAPI.downloadPDF(report.id);
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-      } else { Alert.alert('Info', 'PDF disponível apenas na versão web.'); }
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const nativeUrl = `${backendUrl}/reports/${report.id}/pdf?t=${Date.now()}`;
+      await downloadAndSharePDF(
+        () => reportAPI.downloadPDF(report.id),
+        nativeUrl,
+        `relatorio_diario_${report.os_number}.pdf`,
+      );
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
       else Alert.alert('Erro', 'Erro ao abrir PDF');
@@ -50,18 +53,14 @@ export default function DailyReportsScreen() {
 
   const handleDownloadPDF = async (report: ReportItem) => {
     try {
-      if (Platform.OS === 'web') {
-        const blob = await reportAPI.downloadPDF(report.id);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `relatorio_diario_${report.os_number}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        window.alert('PDF baixado com sucesso!');
-      } else { Alert.alert('Info', 'Download disponível apenas na versão web.'); }
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const nativeUrl = `${backendUrl}/reports/${report.id}/pdf?t=${Date.now()}`;
+      await downloadAndSharePDF(
+        () => reportAPI.downloadPDF(report.id),
+        nativeUrl,
+        `relatorio_diario_${report.os_number}.pdf`,
+      );
+      if (Platform.OS === 'web') window.alert('PDF baixado com sucesso!');
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');
       else Alert.alert('Erro', 'Erro ao baixar PDF');

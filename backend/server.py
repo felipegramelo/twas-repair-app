@@ -1766,11 +1766,11 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
         right_x = page_width - content_right - 0.2*cm
         detail_y = header_top - 0.35*cm
         canvas_obj.setFont("Helvetica-Bold", 6.5)
-        canvas_obj.drawRightString(right_x, detail_y, f"Cliente: {ts['client']}")
+        canvas_obj.drawRightString(right_x, detail_y, f"Cliente: {ts.get('client', '')}")
         detail_y -= 0.35*cm
-        canvas_obj.drawRightString(right_x, detail_y, f"Embarcação: {ts['location']}")
+        canvas_obj.drawRightString(right_x, detail_y, f"Embarcação: {ts.get('location', '')}")
         detail_y -= 0.35*cm
-        canvas_obj.drawRightString(right_x, detail_y, f"OS: {ts['os_number']}")
+        canvas_obj.drawRightString(right_x, detail_y, f"OS: {ts.get('os_number', '')}")
         detail_y -= 0.35*cm
         canvas_obj.setFont("Helvetica", 6.5)
         canvas_obj.drawRightString(right_x, detail_y, f"{current_date}  |  Rev.: 0")
@@ -1833,16 +1833,16 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
             Paragraph("<b>OS / PO (TWAS):</b>", styles['Normal'])
         ],
         [
-            Paragraph(ts["service"], styles['Normal']),
-            Paragraph(ts["os_number"], styles['Normal'])
+            Paragraph(ts.get("service", ""), styles['Normal']),
+            Paragraph(ts.get("os_number", ""), styles['Normal'])
         ],
         [
             Paragraph("<b>Cliente / Client:</b>", styles['Normal']),
             Paragraph("<b>Local / Location:</b>", styles['Normal'])
         ],
         [
-            Paragraph(ts["client"], styles['Normal']),
-            Paragraph(ts["location"], styles['Normal'])
+            Paragraph(ts.get("client", ""), styles['Normal']),
+            Paragraph(ts.get("location", ""), styles['Normal'])
         ]
     ]
     

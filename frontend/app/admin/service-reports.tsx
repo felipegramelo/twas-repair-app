@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI } from '../../services/api';
+import { downloadAndSharePDF } from '../../utils/pdfHelper';
 
 interface ReportItem {
   id: string;

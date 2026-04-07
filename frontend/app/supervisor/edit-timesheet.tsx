@@ -90,6 +90,29 @@ export default function EditTimesheetScreen() {
   const [hasTravel, setHasTravel] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [timePickerField, setTimePickerField] = useState<string | null>(null);
+  const [pendingPicker, setPendingPicker] = useState<string | null>(null);
+
+  // iOS fix: avoid nested modals
+  useEffect(() => {
+    if (!employeeModalVisible && pendingPicker) {
+      const timer = setTimeout(() => {
+        if (pendingPicker === 'calendar') setCalendarVisible(true);
+        else if (pendingPicker === 'employee') setEmployeePickerVisible(true);
+        else if (pendingPicker.startsWith('time:')) setTimePickerField(pendingPicker.replace('time:', ''));
+        setPendingPicker(null);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [employeeModalVisible, pendingPicker]);
+
+  const openPickerFromForm = (picker: string) => {
+    setEmployeeModalVisible(false);
+    setPendingPicker(picker);
+  };
+
+  const returnToForm = () => {
+    setTimeout(() => setEmployeeModalVisible(true), 100);
+  };
 
   useEffect(() => { if (id) loadTimesheetData(); else { if (Platform.OS === 'web') window.alert('ID não fornecido'); else Alert.alert('Erro', 'ID não fornecido'); router.back(); } }, []);
 
@@ -266,22 +289,22 @@ export default function EditTimesheetScreen() {
         <View style={s.modalOverlay}><View style={s.modalContent}><ScrollView>
           <Text style={s.modalTitle}>{editingEntryIndex !== null ? 'Editar Entrada' : 'Adicionar Entrada'}</Text>
           <Text style={s.inputLabel}>Data *</Text>
-          <TouchableOpacity style={s.selectButton} onPress={() => setCalendarVisible(true)}>
+          <TouchableOpacity style={s.selectButton} onPress={() => openPickerFromForm('calendar')}>
             <Text style={entryDate ? s.selectTextSelected : s.selectText}>{entryDate || 'Selecionar data'}</Text>
             <Ionicons name="calendar" size={20} color="#1a237e" />
           </TouchableOpacity>
           <Text style={s.inputLabel}>Funcionário *</Text>
-          <TouchableOpacity style={s.selectButton} onPress={() => setEmployeePickerVisible(true)}>
+          <TouchableOpacity style={s.selectButton} onPress={() => openPickerFromForm('employee')}>
             <Text style={selectedEmployee ? s.selectTextSelected : s.selectText}>{selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.function})` : 'Selecionar'}</Text>
             <Ionicons name="chevron-down" size={20} color="#666" />
           </TouchableOpacity>
           <Text style={s.inputLabel}>Serviço - Início *</Text>
-          <TouchableOpacity style={s.selectButton} onPress={() => openTimePicker('serviceStart')}>
+          <TouchableOpacity style={s.selectButton} onPress={() => openPickerFromForm('time:serviceStart')}>
             <Text style={serviceStart ? s.selectTextSelected : s.selectText}>{serviceStart || 'Selecionar horário'}</Text>
             <Ionicons name="time" size={20} color="#1a237e" />
           </TouchableOpacity>
           <Text style={s.inputLabel}>Serviço - Fim *</Text>
-          <TouchableOpacity style={s.selectButton} onPress={() => openTimePicker('serviceEnd')}>
+          <TouchableOpacity style={s.selectButton} onPress={() => openPickerFromForm('time:serviceEnd')}>
             <Text style={serviceEnd ? s.selectTextSelected : s.selectText}>{serviceEnd || 'Selecionar horário'}</Text>
             <Ionicons name="time" size={20} color="#1a237e" />
           </TouchableOpacity>
@@ -291,12 +314,12 @@ export default function EditTimesheetScreen() {
           </TouchableOpacity>
           {hasTravel && (<>
             <Text style={s.inputLabel}>Viagem - Início</Text>
-            <TouchableOpacity style={s.selectButton} onPress={() => openTimePicker('travelStart')}>
+            <TouchableOpacity style={s.selectButton} onPress={() => openPickerFromForm('time:travelStart')}>
               <Text style={travelStart ? s.selectTextSelected : s.selectText}>{travelStart || 'Selecionar horário'}</Text>
               <Ionicons name="time" size={20} color="#666" />
             </TouchableOpacity>
             <Text style={s.inputLabel}>Viagem - Fim</Text>
-            <TouchableOpacity style={s.selectButton} onPress={() => openTimePicker('travelEnd')}>
+            <TouchableOpacity style={s.selectButton} onPress={() => openPickerFromForm('time:travelEnd')}>
               <Text style={travelEnd ? s.selectTextSelected : s.selectText}>{travelEnd || 'Selecionar horário'}</Text>
               <Ionicons name="time" size={20} color="#666" />
             </TouchableOpacity>
@@ -309,13 +332,13 @@ export default function EditTimesheetScreen() {
       </Modal>
 
       {/* Employee Picker */}
-      <Modal visible={employeePickerVisible} animationType="slide" transparent onRequestClose={() => setEmployeePickerVisible(false)}>
+      <Modal visible={employeePickerVisible} animationType="slide" transparent onRequestClose={() => { setEmployeePickerVisible(false); returnToForm(); }}>
         <View style={s.modalOverlay}><View style={s.modalContent}>
           <Text style={s.modalTitle}>Selecionar Funcionário</Text>
           <ScrollView style={s.modalList}>
             {filteredEmployees.length === 0 ? <Text style={s.emptyText}>Nenhum funcionário vinculado</Text> :
               filteredEmployees.map((emp: any) => (
-                <TouchableOpacity key={emp.id} style={s.modalItem} onPress={() => { setSelectedEmployee(emp); setEmployeePickerVisible(false); }}>
+                <TouchableOpacity key={emp.id} style={s.modalItem} onPress={() => { setSelectedEmployee(emp); setEmployeePickerVisible(false); returnToForm(); }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View style={s.entryBadge}><Text style={s.entryBadgeText}>{emp.function}</Text></View>
                     <Text style={s.modalItemTitle}>{emp.name}</Text>
@@ -324,7 +347,7 @@ export default function EditTimesheetScreen() {
               ))
             }
           </ScrollView>
-          <TouchableOpacity style={s.modalCloseBtn} onPress={() => setEmployeePickerVisible(false)}><Text style={s.modalCloseBtnText}>Fechar</Text></TouchableOpacity>
+          <TouchableOpacity style={s.modalCloseBtn} onPress={() => { setEmployeePickerVisible(false); returnToForm(); }}><Text style={s.modalCloseBtnText}>Fechar</Text></TouchableOpacity>
         </View></View>
       </Modal>
 
@@ -343,8 +366,8 @@ export default function EditTimesheetScreen() {
         </View></View>
       </Modal>
 
-      <CalendarPicker visible={calendarVisible} onClose={() => setCalendarVisible(false)} onSelect={setEntryDate} />
-      <TimePickerModal visible={!!timePickerField} onClose={() => setTimePickerField(null)} onSelect={handleTimeSelect} title={getTimePickerTitle()} />
+      <CalendarPicker visible={calendarVisible} onClose={() => { setCalendarVisible(false); returnToForm(); }} onSelect={(date: string) => { setEntryDate(date); setCalendarVisible(false); returnToForm(); }} />
+      <TimePickerModal visible={!!timePickerField} onClose={() => { setTimePickerField(null); returnToForm(); }} onSelect={(time: string) => { handleTimeSelect(time); returnToForm(); }} title={getTimePickerTitle()} />
     </SafeAreaView>
   );
 }

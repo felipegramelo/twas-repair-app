@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { archiveAPI, timesheetAPI, reportAPI } from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { downloadAndSharePDF } from '../../utils/pdfHelper';
 
 interface DocItem {
   id: string;
@@ -91,54 +92,49 @@ export default function OSArchiveScreen() {
 
   const handleOpenTimesheetPDF = async (ts: DocItem) => {
     try {
-      if (Platform.OS === 'web') {
-        const blob = await timesheetAPI.downloadPDF(ts.id);
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-      }
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const nativeUrl = `${backendUrl}/timesheets/${ts.id}/pdf?t=${Date.now()}`;
+      await downloadAndSharePDF(
+        () => timesheetAPI.downloadPDF(ts.id),
+        nativeUrl,
+        `timesheet_${ts.os_number}.pdf`,
+      );
     } catch { showMsg('Erro ao abrir PDF do Timesheet'); }
   };
 
   const handleOpenReportPDF = async (report: DocItem) => {
     try {
-      if (Platform.OS === 'web') {
-        const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
-        const url = `${baseURL}/reports/${report.id}/pdf?token=${token}&t=${Date.now()}`;
-        window.open(url, '_blank');
-      }
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const nativeUrl = `${backendUrl}/reports/${report.id}/pdf?t=${Date.now()}`;
+      await downloadAndSharePDF(
+        () => reportAPI.downloadPDF(report.id),
+        nativeUrl,
+        `relatorio_${report.os_number}.pdf`,
+      );
     } catch { showMsg('Erro ao abrir PDF do Relatório'); }
   };
 
   const handleDownloadTimesheetPDF = async (ts: DocItem) => {
     try {
-      if (Platform.OS === 'web') {
-        const blob = await timesheetAPI.downloadPDF(ts.id);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `timesheet_${ts.os_number}_${ts.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const nativeUrl = `${backendUrl}/timesheets/${ts.id}/pdf?t=${Date.now()}`;
+      await downloadAndSharePDF(
+        () => timesheetAPI.downloadPDF(ts.id),
+        nativeUrl,
+        `timesheet_${ts.os_number}_${ts.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+      );
     } catch { showMsg('Erro ao baixar PDF'); }
   };
 
   const handleDownloadReportPDF = async (report: DocItem) => {
     try {
-      if (Platform.OS === 'web') {
-        const blob = await reportAPI.downloadPDF(report.id);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `relatorio_${report.os_number}_${report.report_type || 'service'}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const nativeUrl = `${backendUrl}/reports/${report.id}/pdf?t=${Date.now()}`;
+      await downloadAndSharePDF(
+        () => reportAPI.downloadPDF(report.id),
+        nativeUrl,
+        `relatorio_${report.os_number}_${report.report_type || 'service'}.pdf`,
+      );
     } catch { showMsg('Erro ao baixar PDF'); }
   };
 

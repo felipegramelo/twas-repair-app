@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { proposalAPI } from '../../services/api';
 import { Proposal, ProposalItem, ProposalSubsection } from '../../types';
 
@@ -275,13 +277,33 @@ export default function PropostasScreen() {
   const handleDownloadPDF = async (proposal: Proposal, tipo: string) => {
     setDownloading(`${proposal.id}-${tipo}`);
     try {
-      const blob = await proposalAPI.downloadPDF(proposal.id, tipo);
       if (Platform.OS === 'web') {
+        const blob = await proposalAPI.downloadPDF(proposal.id, tipo);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `Proposta_${tipo}_${proposal.numero_proposta.replace(/ /g, '_')}.pdf`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      } else {
+        // iOS/Android native: download via expo-file-system and share
+        const token = await AsyncStorage.getItem('token');
+        const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+        const pdfUrl = `${backendUrl}/proposals/${proposal.id}/pdf?tipo=${tipo}&t=${Date.now()}`;
+        const fileName = `Proposta_${tipo}_${proposal.numero_proposta.replace(/ /g, '_')}.pdf`;
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+        const downloadResult = await FileSystem.downloadAsync(pdfUrl, fileUri, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (downloadResult.status === 200) {
+          const canShare = await Sharing.isAvailableAsync();
+          if (canShare) {
+            await Sharing.shareAsync(downloadResult.uri, { mimeType: 'application/pdf', dialogTitle: fileName });
+          } else {
+            showMsg('PDF baixado com sucesso');
+          }
+        } else {
+          showMsg('Erro ao baixar PDF');
+        }
       }
     } catch (error: any) {
       showMsg(error.response?.data?.detail || 'Erro ao gerar PDF');

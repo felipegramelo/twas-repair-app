@@ -7,30 +7,28 @@
 - Relatorio Diario: Entradas Diarias como subsecoes
 
 ### Timesheet
-- Validacao de conflito viagem vs servico: viagem nao pode coincidir com horario de servico
-- Bloqueio no frontend (create + edit) e backend (create + update)
+- Validacao de conflito viagem vs servico
 - Maximo 12 funcionarios por timesheet
+- iOS: Modais nao-aninhados (pendingPicker pattern)
 
 ### BM (Boletim de Medicao)
 - Campos "COD." e "Linha" por item/funcao
-- Titulo centralizado, auto-busca proposta
 
 ### Proposta Comercial
-- Formato secoes numeradas (sem tabela), info cliente em texto simples
-- **Campo "Servico" obrigatorio** no formulario
-- **Texto introdutorio automatico**: "Prezados, Agradecemos a consulta e temos o prazer de apresentar nossa proposta comercial para o servico de [Servico] a ser realizado na(o) [Embarcacao]." - visivel no formulario (fundo amarelo) e no PDF
-- Indice visivel no formulario com numeracao hierarquica (1, 1.1, 1.2, 2, 2.1...)
-- Subsecoes dentro de cada secao (adicionar/editar/remover)
-- Upload de fotos/arquivos por secao e subsecao com section_key
-- "Termos e Condicoes Gerais" como ultima secao editavel com texto padrao
-- Dois PDFs: Comercial (com precos) e Tecnica (sem precos)
+- Campo "Servico" obrigatorio
+- Texto introdutorio automatico (Prezados...)
+- Secoes com subsecoes, upload fotos/arquivos, Termos Gerais
+- Dois PDFs: Comercial e Tecnica
+- iOS: PDF via expo-file-system + expo-sharing
 
 ### Dashboard Financeiro
-- Pagina admin com controle de permissao (dashboard_access)
-- Cards resumo, graficos BMs por mes, propostas por status, top clientes
+- Pagina admin com controle de permissao
 
-### Ordens de Servico
-- Campos: Numero, Cliente, Embarcacao, Local, Servico, Funcionarios
+### iOS Native Compatibility
+- GestureHandlerRootView + SafeAreaProvider no root layout
+- Modais nao-aninhados em create-timesheet e edit-timesheet (pendingPicker state machine)
+- PDF download nativo via expo-file-system + expo-sharing em TODAS as telas
+- Utility compartilhado: /frontend/utils/pdfHelper.ts
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123
@@ -39,12 +37,12 @@
 ## Completed
 - [x] Role-based auth, Timesheet/Report CRUD, PDF generation
 - [x] Arquivo por O.S., BM com todos os recursos
-- [x] Proposta Comercial: CRUD, secoes numeradas, termos gerais, upload fotos
-- [x] Dashboard Financeiro com graficos e controle de acesso
-- [x] Validacao de conflito viagem vs servico no timesheet
-- [x] Propostas com subsecoes: indice hierarquico, CRUD subsecoes, fotos por subsecao, termos gerais
-- [x] Backend update_proposal corrigido para preservar subsections
-- [x] Campo "Servico" obrigatorio + texto introdutorio no formulario e PDF (02/04/2026)
+- [x] Proposta Comercial: CRUD, secoes/subsecoes, termos gerais, upload fotos
+- [x] Dashboard Financeiro
+- [x] Validacao conflito viagem vs servico
+- [x] Campo "Servico" + texto introdutorio nas propostas
+- [x] iOS Native: GestureHandlerRootView, modais nao-aninhados, PDF nativo (07/04/2026)
+- [x] Fix timesheet PDF KeyError para campos faltantes (07/04/2026)
 
 ## Backlog
 ### P1

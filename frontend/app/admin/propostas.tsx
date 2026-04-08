@@ -7,7 +7,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { proposalAPI } from '../../services/api';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';

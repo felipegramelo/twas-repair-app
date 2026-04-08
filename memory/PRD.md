@@ -3,22 +3,17 @@
 ## Problema Original
 Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um único app "TWAS REPAIR" com autenticação role-based (Admin/Supervisor), CRUD completo, geração avançada de PDF A4, e funcionalidade cross-platform (React Native Web + iOS).
 
-## Requisitos do Produto
-- Autenticação role-based (Admin, Supervisor)
-- CRUD completo para Timesheet, Ordens de Serviço e Relatórios
-- Geração avançada de PDF (ReportLab/PyMuPDF)
-- "Boletim de Medição" para cálculo de faturamento
-- Dashboard Financeiro com gráficos
-- "Proposta Comercial" com seções/subseções, uploads de foto/PDF, e "Termos Gerais"
-- Validação de timesheet para conflitos de viagem/serviço
-- Cross-platform (React Native Web + iOS App Store)
-
 ## Stack Técnica
-- Frontend: React Native (Expo Router), TypeScript
+- Frontend: React Native (Expo SDK 54, Expo Router), TypeScript
 - Backend: FastAPI, MongoDB (motor)
 - PDF: ReportLab + PyMuPDF (fitz)
-- Módulos Nativos: expo-sharing, expo-file-system, expo-image-picker, expo-document-picker
+- Módulos Nativos: expo-sharing, expo-file-system/legacy, expo-image-picker, expo-document-picker
 - Storage: Emergent Object Storage
+
+## IMPORTANTE - Expo SDK 54
+- `expo-file-system`: Usar import de `expo-file-system/legacy` (a API padrão depreciou downloadAsync)
+- NÃO usar APIs web-only (window.alert, document.createElement) sem Platform.OS check
+- Modais aninhados não funcionam no iOS nativo - usar renderização inline
 
 ## Funcionalidades Implementadas
 - [x] Autenticação (Admin/Supervisor) com JWT
@@ -31,11 +26,11 @@ Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um único app "
 - [x] Propostas Técnicas (PDF)
 - [x] iOS Native: Touch interactions (GestureHandlerRootView)
 - [x] iOS Native: File pickers (expo-image-picker, expo-document-picker)
-- [x] iOS Native: PDF download/sharing (expo-file-system + expo-sharing)
+- [x] iOS Native: PDF download/sharing (expo-file-system/legacy + expo-sharing)
 - [x] iOS Native: Alert.alert em vez de window.alert
 - [x] iOS Native: Inline pickers no Timesheet (sem modais aninhados)
 - [x] iOS Native: Modal OS picker no Create Report
-- [x] iOS Native: Fix token duplicado em PDF de propostas
+- [x] iOS Native: Fix expo-file-system deprecated API (usar /legacy)
 
 ## Tarefas Pendentes
 
@@ -57,15 +52,16 @@ Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um único app "
 /app
 ├── backend/
 │   ├── .env
-│   ├── server.py         # Monolito (>4100 linhas)
+│   ├── server.py
 │   └── requirements.txt
 ├── frontend/
 │   ├── app/
 │   │   ├── _layout.tsx
 │   │   ├── admin/ (propostas, timesheets, reports, etc.)
 │   │   └── supervisor/ (create/edit timesheet, create/edit report)
-│   ├── utils/pdfHelper.ts
+│   ├── utils/pdfHelper.ts (expo-file-system/legacy)
 │   ├── services/api.ts
+│   ├── contexts/AuthContext.tsx (token key: 'token')
 │   └── types/index.ts
 └── memory/PRD.md
 ```

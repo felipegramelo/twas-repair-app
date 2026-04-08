@@ -111,8 +111,8 @@ O PDF é gerado automaticamente com:
 
 ## 🌐 URLs
 
-- **Frontend:** https://repair-proposals-app.preview.emergentagent.com
-- **Backend API:** https://repair-proposals-app.preview.emergentagent.com/api
+- **Frontend:** https://twas-repair-preview.preview.emergentagent.com
+- **Backend API:** https://twas-repair-preview.preview.emergentagent.com/api
 
 ## 📱 Acesso Mobile
 

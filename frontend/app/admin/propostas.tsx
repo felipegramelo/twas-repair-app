@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { proposalAPI } from '../../services/api';
+import { downloadAndSharePDF } from '../../utils/pdfHelper';
 import { Proposal, ProposalItem, ProposalSubsection } from '../../types';
 
 const MONTHS = [
@@ -288,22 +289,13 @@ export default function PropostasScreen() {
         // iOS/Android native: download via expo-file-system and share
         const token = await AsyncStorage.getItem('token');
         const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-        const pdfUrl = `${backendUrl}/proposals/${proposal.id}/pdf?tipo=${tipo}&t=${Date.now()}`;
+        const pdfUrl = `${backendUrl}/api/proposals/${proposal.id}/pdf?tipo=${tipo}&token=${encodeURIComponent(token || '')}&t=${Date.now()}`;
         const fileName = `Proposta_${tipo}_${proposal.numero_proposta.replace(/ /g, '_')}.pdf`;
-        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-        const downloadResult = await FileSystem.downloadAsync(pdfUrl, fileUri, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (downloadResult.status === 200) {
-          const canShare = await Sharing.isAvailableAsync();
-          if (canShare) {
-            await Sharing.shareAsync(downloadResult.uri, { mimeType: 'application/pdf', dialogTitle: fileName });
-          } else {
-            showMsg('PDF baixado com sucesso');
-          }
-        } else {
-          showMsg('Erro ao baixar PDF');
-        }
+        await downloadAndSharePDF(
+          () => proposalAPI.downloadPDF(proposal.id, tipo),
+          pdfUrl,
+          fileName,
+        );
       }
     } catch (error: any) {
       showMsg(error.response?.data?.detail || 'Erro ao gerar PDF');

@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Platform, Modal, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Platform, Modal, Image, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI } from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { downloadAndSharePDF } from '../../utils/pdfHelper';
 
 interface Section {
   key: string; number: string; title: string; content: string; enabled: boolean; subsections: Section[];
@@ -19,7 +22,7 @@ const NO_TEXT_SECTIONS = ['service_description', 'ndt'];
 const IMAGE_ONLY_SECTIONS = ['pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'];
 const PDF_UPLOAD_SECTIONS = new Set(['ndt', 'pressure_test', 'certificate']);
 const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(key);
-const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); };
+const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Aviso', msg); };
 
 const PlainTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
   if (Platform.OS === 'web') {
@@ -128,30 +131,89 @@ export default function EditReportScreen() {
     return `${baseUrl}/api/reports/${id}/pdf?token=${encodeURIComponent(token)}&t=${Date.now()}`;
   };
 
-  const handleOpenPDF = () => {
+  const handleOpenPDF = async () => {
+    let url = getPdfUrl();
+    if (report?.report_type === 'daily' && pdfSelectedDays.size > 0) {
+      const dayIds = Array.from(pdfSelectedDays).join(',');
+      url += `&day_ids=${encodeURIComponent(dayIds)}`;
+    }
     if (Platform.OS === 'web') {
-      let url = getPdfUrl();
-      // For daily reports, add selected day IDs
-      if (report?.report_type === 'daily' && pdfSelectedDays.size > 0) {
-        const dayIds = Array.from(pdfSelectedDays).join(',');
-        url += `&day_ids=${encodeURIComponent(dayIds)}`;
-      }
       window.open(url, '_blank');
       setPdfSuccess(true);
       setTimeout(() => setPdfSuccess(false), 4000);
+    } else {
+      setPdfLoading(true);
+      try {
+        const fileName = `relatorio_${report?.os_number || id}.pdf`;
+        await downloadAndSharePDF(
+          () => reportAPI.downloadPDF(id!),
+          url,
+          fileName,
+        );
+        setPdfSuccess(true);
+        setTimeout(() => setPdfSuccess(false), 4000);
+      } catch (e: any) {
+        showMsg('Erro ao abrir PDF: ' + (e.message || ''));
+      } finally {
+        setPdfLoading(false);
+      }
     }
   };
 
-  const handleSharePDF = () => {
+  const handleSharePDF = async () => {
+    const url = getPdfUrl();
     if (Platform.OS === 'web') {
-      const url = getPdfUrl();
       window.location.href = url;
+    } else {
+      try {
+        const fileName = `relatorio_${report?.os_number || id}.pdf`;
+        await downloadAndSharePDF(
+          () => reportAPI.downloadPDF(id!),
+          url,
+          fileName,
+        );
+      } catch (e: any) {
+        showMsg('Erro ao compartilhar PDF: ' + (e.message || ''));
+      }
     }
   };
 
-  const triggerFileUpload = (sectionKey: string) => {
+  const triggerFileUpload = async (sectionKey: string) => {
     setCurrentUploadSection(sectionKey);
-    if (Platform.OS === 'web' && fileInputRef.current) fileInputRef.current.click();
+    if (Platform.OS === 'web') {
+      if (fileInputRef.current) fileInputRef.current.click();
+    } else {
+      // iOS/Android native: use ImagePicker or DocumentPicker
+      const isPDF = PDF_UPLOAD_SECTIONS.has(sectionKey);
+      try {
+        if (isPDF) {
+          const result = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], multiple: true });
+          if (!result.canceled && result.assets) {
+            setUploading(sectionKey);
+            for (const asset of result.assets) {
+              const file = { uri: asset.uri, name: asset.name, type: asset.mimeType || 'application/octet-stream' };
+              await reportAPI.uploadPhoto(id!, file as any, sectionKey, asset.name);
+            }
+            setPhotos(await reportAPI.getPhotos(id!));
+          }
+        } else {
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.8 });
+          if (!result.canceled && result.assets) {
+            setUploading(sectionKey);
+            for (const asset of result.assets) {
+              const name = asset.fileName || `photo_${Date.now()}.jpg`;
+              const file = { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' };
+              await reportAPI.uploadPhoto(id!, file as any, sectionKey, name);
+            }
+            setPhotos(await reportAPI.getPhotos(id!));
+          }
+        }
+      } catch (e: any) {
+        showMsg('Erro ao enviar arquivo: ' + (e.message || ''));
+      } finally {
+        setUploading(null);
+      }
+    }
   };
 
   const handleFileSelected = async (event: any) => {
@@ -167,8 +229,17 @@ export default function EditReportScreen() {
   };
 
   const handleDeletePhoto = async (photoId: string) => {
-    if (Platform.OS === 'web' && !window.confirm('Excluir esta foto?')) return;
-    try { await reportAPI.deletePhoto(id!, photoId); setPhotos(prev => prev.filter(p => p.id !== photoId)); showMsg('Foto excluida'); } catch { showMsg('Erro ao excluir foto'); }
+    const doDelete = async () => {
+      try { await reportAPI.deletePhoto(id!, photoId); setPhotos(prev => prev.filter(p => p.id !== photoId)); showMsg('Foto excluida'); } catch { showMsg('Erro ao excluir foto'); }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Excluir esta foto?')) await doDelete();
+    } else {
+      Alert.alert('Confirmar', 'Excluir esta foto?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   };
 
   const handleSaveCaption = async (photoId: string) => {
@@ -210,10 +281,15 @@ export default function EditReportScreen() {
   };
 
   const deleteCustomSection = (sectionKey: string) => {
+    const doDelete = () => setSections(prev => prev.filter(s => s.key !== sectionKey));
     if (Platform.OS === 'web') {
-      if (!window.confirm('Excluir esta seção?')) return;
+      if (window.confirm('Excluir esta seção?')) doDelete();
+    } else {
+      Alert.alert('Confirmar', 'Excluir esta seção?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir', style: 'destructive', onPress: doDelete },
+      ]);
     }
-    setSections(prev => prev.filter(s => s.key !== sectionKey));
   };
 
   const toggleCustomMode = (sectionKey: string, mode: string) => {

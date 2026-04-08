@@ -25,10 +25,12 @@ export async function downloadAndSharePDF(
     URL.revokeObjectURL(url);
   } else {
     const token = await AsyncStorage.getItem('token');
+    // Ensure URL has /api prefix
+    const apiUrl = nativeUrl.includes('/api/') ? nativeUrl : nativeUrl.replace(/\/([^/]+\/[^/]+\/pdf)/, '/api/$1');
+    const separator = apiUrl.includes('?') ? '&' : '?';
+    const authUrl = token ? `${apiUrl}${separator}token=${encodeURIComponent(token)}` : apiUrl;
     const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-    const downloadResult = await FileSystem.downloadAsync(nativeUrl, fileUri, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const downloadResult = await FileSystem.downloadAsync(authUrl, fileUri);
     if (downloadResult.status === 200) {
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {

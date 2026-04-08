@@ -39,7 +39,7 @@ export default function DailyReportsScreen() {
   const handleOpenPDF = async (report: ReportItem) => {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const nativeUrl = `${backendUrl}/reports/${report.id}/pdf?t=${Date.now()}`;
+      const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => reportAPI.downloadPDF(report.id),
         nativeUrl,
@@ -54,7 +54,7 @@ export default function DailyReportsScreen() {
   const handleDownloadPDF = async (report: ReportItem) => {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const nativeUrl = `${backendUrl}/reports/${report.id}/pdf?t=${Date.now()}`;
+      const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => reportAPI.downloadPDF(report.id),
         nativeUrl,

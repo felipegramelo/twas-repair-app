@@ -1,0 +1,113 @@
+{
+  "summary": "Iteration 35: iOS Native Fixes Testing - All backend tests pass (12/12). Code review confirms iOS fixes are properly implemented: inline prop on CalendarPicker/TimePickerModal, no pendingPicker pattern, native file upload via expo-image-picker/document-picker, Alert.alert on native, PDF URLs with /api/ prefix and token in query param.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Button clicks on React Native Web",
+        "issue": "Known limitation - button clicks via Playwright don't work reliably on React Native Web. Workaround: inject token via localStorage and navigate directly.",
+        "affected_selectors": ["div[role='button']", "TouchableOpacity"],
+        "priority": "LOW - Known limitation documented in iterations 27-34, not a bug"
+      }
+    ],
+    "design_issues": []
+  },
+  "code_review_results": {
+    "_layout.tsx": {
+      "status": "PASS",
+      "details": "GestureHandlerRootView wraps SafeAreaProvider wraps AuthProvider - correct order for iOS native"
+    },
+    "pdfHelper.ts": {
+      "status": "PASS",
+      "details": "Native URLs include /api/ prefix check (line 29), token in query param (line 31), uses FileSystem.downloadAsync + Sharing.shareAsync for native"
+    },
+    "create-timesheet.tsx": {
+      "status": "PASS",
+      "details": "CalendarPicker and TimePickerModal have 'inline' prop. When inline={true}, renders without Modal wrapper. Uses inline={employeeModalVisible} (lines 603, 606). NO pendingPicker pattern, NO returnToForm - pickers directly set state."
+    },
+    "edit-timesheet.tsx": {
+      "status": "PASS",
+      "details": "Same inline picker pattern as create-timesheet.tsx. CalendarPicker and TimePickerModal have 'inline' prop. Uses inline={employeeModalVisible} (lines 358, 359). NO pendingPicker pattern."
+    },
+    "edit-report.tsx": {
+      "status": "PASS",
+      "details": "Uses expo-image-picker (line 8) and expo-document-picker (line 9) for native file upload. handleDeletePhoto uses Alert.alert on native (lines 237-240). showMsg uses Alert.alert on native (line 25). handleOpenPDF uses downloadAndSharePDF for native (lines 146-159)."
+    },
+    "propostas.tsx": {
+      "status": "PASS",
+      "details": "Native PDF URL has /api/ prefix (line 292). Token in query param. Uses downloadAndSharePDF for native (lines 293-298)."
+    },
+    "os-archive.tsx": {
+      "status": "PASS",
+      "details": "All native URLs have /api/ prefix (lines 96, 99, 108, 121, 124, 133, 136). Uses downloadAndSharePDF helper."
+    },
+    "daily-reports.tsx": {
+      "status": "PASS",
+      "details": "Native URLs have /api/ prefix (lines 42, 57). Uses downloadAndSharePDF helper."
+    },
+    "service-reports.tsx": {
+      "status": "PARTIAL",
+      "details": "Web-only PDF handling. Shows 'PDF disponível apenas na versão web' for native - intentional limitation, not a bug."
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_35_ios_fixes.py",
+    "/app/test_reports/pytest/test_iteration_35.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CalendarPicker inline prop: When inline={true}, renders content without Modal wrapper (create-timesheet.tsx line 96, edit-timesheet.tsx line 48)",
+    "TimePickerModal inline prop: When inline={true}, renders content without Modal wrapper (create-timesheet.tsx line 129, edit-timesheet.tsx line 67)",
+    "NO pendingPicker pattern in create-timesheet.tsx or edit-timesheet.tsx - pickers directly set state",
+    "NO returnToForm function - removed from both timesheet files",
+    "edit-report.tsx uses expo-image-picker for native image upload (line 200)",
+    "edit-report.tsx uses expo-document-picker for native document upload (line 191)",
+    "All native PDF URLs include /api/ prefix and token in query param",
+    "Alert.alert used on native for confirmations and messages"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_35_ios_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (web functionality verified, iOS fixes confirmed via code review)"
+  },
+  "test_credentials": {
+    "admin": "admin@twasrepair.com / admin123",
+    "supervisor": "supervisor@twasrepair.com / super123"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "iOS native fixes verified via code review: 1) CalendarPicker and TimePickerModal have 'inline' prop - when true, render without Modal wrapper (used when parent modal is open). 2) NO pendingPicker/returnToForm pattern - pickers directly set state. 3) edit-report.tsx uses expo-image-picker and expo-document-picker for native file upload. 4) All native PDF URLs have /api/ prefix and token in query param. 5) Alert.alert used on native for confirmations. All backend APIs working correctly (12/12 tests pass).",
+  "ios_fixes_verification": {
+    "GestureHandlerRootView": "Confirmed in /app/frontend/app/_layout.tsx - wraps entire app",
+    "SafeAreaProvider": "Confirmed in /app/frontend/app/_layout.tsx - inside GestureHandlerRootView",
+    "inline_prop_CalendarPicker": "Confirmed in create-timesheet.tsx (line 34) and edit-timesheet.tsx (line 21)",
+    "inline_prop_TimePickerModal": "Confirmed in create-timesheet.tsx (line 105) and edit-timesheet.tsx (line 56)",
+    "no_pendingPicker_pattern": "Confirmed - removed from both create-timesheet.tsx and edit-timesheet.tsx",
+    "no_returnToForm": "Confirmed - removed from both timesheet files",
+    "native_file_upload": "Confirmed in edit-report.tsx using expo-image-picker (line 200) and expo-document-picker (line 191)",
+    "native_Alert_alert": "Confirmed in edit-report.tsx for handleDeletePhoto (lines 237-240) and showMsg (line 25)",
+    "native_pdf_download": "Confirmed in pdfHelper.ts using expo-file-system + expo-sharing",
+    "api_prefix_in_native_urls": "Confirmed in pdfHelper.ts (line 29), propostas.tsx (line 292), os-archive.tsx, daily-reports.tsx"
+  },
+  "api_verification": {
+    "POST /api/auth/login (admin)": "PASS",
+    "POST /api/auth/login (supervisor)": "PASS",
+    "POST /api/auth/login (invalid)": "PASS (returns 401)",
+    "GET /api/proposals": "PASS",
+    "POST /api/proposals": "PASS",
+    "GET /api/proposals/{id}/pdf?tipo=comercial": "PASS",
+    "GET /api/proposals/{id}/pdf?tipo=tecnica": "PASS",
+    "GET /api/service-orders": "PASS",
+    "GET /api/timesheets": "PASS",
+    "GET /api/reports": "PASS",
+    "GET /api/employees": "PASS",
+    "GET /api/admin/os-archive": "PASS"
+  }
+}

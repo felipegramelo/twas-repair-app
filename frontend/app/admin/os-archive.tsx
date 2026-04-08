@@ -93,7 +93,7 @@ export default function OSArchiveScreen() {
   const handleOpenTimesheetPDF = async (ts: DocItem) => {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const nativeUrl = `${backendUrl}/timesheets/${ts.id}/pdf?t=${Date.now()}`;
+      const nativeUrl = `${backendUrl}/api/timesheets/${ts.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => timesheetAPI.downloadPDF(ts.id),
         nativeUrl,
@@ -105,7 +105,7 @@ export default function OSArchiveScreen() {
   const handleOpenReportPDF = async (report: DocItem) => {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const nativeUrl = `${backendUrl}/reports/${report.id}/pdf?t=${Date.now()}`;
+      const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => reportAPI.downloadPDF(report.id),
         nativeUrl,
@@ -117,7 +117,7 @@ export default function OSArchiveScreen() {
   const handleDownloadTimesheetPDF = async (ts: DocItem) => {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const nativeUrl = `${backendUrl}/timesheets/${ts.id}/pdf?t=${Date.now()}`;
+      const nativeUrl = `${backendUrl}/api/timesheets/${ts.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => timesheetAPI.downloadPDF(ts.id),
         nativeUrl,
@@ -129,7 +129,7 @@ export default function OSArchiveScreen() {
   const handleDownloadReportPDF = async (report: DocItem) => {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const nativeUrl = `${backendUrl}/reports/${report.id}/pdf?t=${Date.now()}`;
+      const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => reportAPI.downloadPDF(report.id),
         nativeUrl,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Platform, Alert, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,7 @@ export default function CreateReportScreen() {
   const [periodoFim, setPeriodoFim] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [showOSDropdown, setShowOSDropdown] = useState(false);
+  const [osModalVisible, setOsModalVisible] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -36,6 +36,7 @@ export default function CreateReportScreen() {
 
   const showMsg = (msg: string) => {
     if (Platform.OS === 'web') window.alert(msg);
+    else Alert.alert('Aviso', msg);
   };
 
   const handleCreate = async () => {
@@ -114,7 +115,7 @@ export default function CreateReportScreen() {
                 ))}
               </select>
             ) : (
-              <TouchableOpacity style={styles.dropdownBtn} onPress={() => setShowOSDropdown(!showOSDropdown)}>
+              <TouchableOpacity style={styles.dropdownBtn} onPress={() => setOsModalVisible(true)} data-testid="select-os-native-btn">
                 <Text style={[styles.dropdownText, !selectedOS && { color: '#999' }]}>
                   {selectedOSData ? `${selectedOSData.os_number} - ${selectedOSData.client}` : 'Selecione uma O.S...'}
                 </Text>
@@ -220,6 +221,27 @@ export default function CreateReportScreen() {
           </TouchableOpacity>
         </ScrollView>
       </View>
+
+      {/* Native OS Selection Modal */}
+      <Modal visible={osModalVisible} animationType="slide" transparent onRequestClose={() => setOsModalVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '80%' }}>
+            <Text style={{ fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 }}>Selecionar Ordem de Serviço</Text>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {serviceOrders.map(os => (
+                <TouchableOpacity key={os.id} style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }} onPress={() => { setSelectedOS(os.id); setOsModalVisible(false); }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#212121' }}>{os.os_number}</Text>
+                  <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>{os.client}</Text>
+                  <Text style={{ fontSize: 13, color: '#999', marginTop: 2 }}>{os.service}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={{ backgroundColor: '#f5f5f5', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 16 }} onPress={() => setOsModalVisible(false)}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#666' }}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -27,111 +27,63 @@ for (let h = 0; h < 24; h++) {
   }
 }
 
-// Generate calendar days
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-function CalendarPicker({ visible, onClose, onSelect, inline }: { visible: boolean; onClose: () => void; onSelect: (date: string) => void; inline?: boolean }) {
+// Inline calendar - renders directly in form without overlay/modal
+function InlineCalendar({ onSelect }: { onSelect: (date: string) => void }) {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-
-  const getDaysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
-
-  const days = getDaysInMonth(currentMonth, currentYear);
-  const firstDay = getFirstDayOfMonth(currentMonth, currentYear);
-  const blanks = Array(firstDay).fill(null);
-  const dayNumbers = Array.from({ length: days }, (_, i) => i + 1);
-  const allCells = [...blanks, ...dayNumbers];
-
-  const prevMonth = () => {
-    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); }
-    else setCurrentMonth(m => m - 1);
-  };
-
-  const nextMonth = () => {
-    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); }
-    else setCurrentMonth(m => m + 1);
-  };
-
-  const selectDay = (day: number) => {
-    const formatted = `${String(day).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
-    onSelect(formatted);
-    onClose();
-  };
-
-  if (!visible) return null;
-
-  const content = (
-    <View style={calStyles.overlay}>
-      <View style={calStyles.container}>
-        <View style={calStyles.header}>
-          <TouchableOpacity onPress={prevMonth}><Ionicons name="chevron-back" size={24} color="#1a237e" /></TouchableOpacity>
-          <Text style={calStyles.monthText}>{MONTHS[currentMonth]} {currentYear}</Text>
-          <TouchableOpacity onPress={nextMonth}><Ionicons name="chevron-forward" size={24} color="#1a237e" /></TouchableOpacity>
-        </View>
-        <View style={calStyles.weekRow}>
-          {WEEKDAYS.map(d => <Text key={d} style={calStyles.weekDay}>{d}</Text>)}
-        </View>
-        <View style={calStyles.daysGrid}>
-          {allCells.map((cell, idx) => (
-            <TouchableOpacity
-              key={idx}
-              style={[calStyles.dayCell, cell ? calStyles.dayCellActive : null]}
-              onPress={() => cell && selectDay(cell)}
-              disabled={!cell}
-            >
-              <Text style={cell ? calStyles.dayText : calStyles.dayTextEmpty}>{cell || ''}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <TouchableOpacity style={calStyles.closeBtn} onPress={onClose}>
-          <Text style={calStyles.closeBtnText}>Fechar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  // Inline mode: render without Modal wrapper (for use inside another Modal)
-  if (inline) return content;
+  const days = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const allCells = [...Array(firstDay).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      {content}
-    </Modal>
+    <View style={{ backgroundColor: '#f8f9fa', borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: '#e0e0e0' }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <TouchableOpacity onPress={() => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); } else setCurrentMonth(m => m - 1); }}>
+          <Ionicons name="chevron-back" size={22} color="#1a237e" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: '#1a237e' }}>{MONTHS[currentMonth]} {currentYear}</Text>
+        <TouchableOpacity onPress={() => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); } else setCurrentMonth(m => m + 1); }}>
+          <Ionicons name="chevron-forward" size={22} color="#1a237e" />
+        </TouchableOpacity>
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 4 }}>
+        {WEEKDAYS.map(d => <Text key={d} style={{ width: 36, textAlign: 'center', fontSize: 11, fontWeight: '600', color: '#666' }}>{d}</Text>)}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {allCells.map((cell, idx) => (
+          <TouchableOpacity
+            key={idx}
+            style={{ width: '14.28%' as any, height: 36, justifyContent: 'center', alignItems: 'center' }}
+            onPress={() => cell && onSelect(`${String(cell).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`)}
+            disabled={!cell}
+          >
+            <Text style={{ fontSize: 15, color: cell ? '#212121' : 'transparent' }}>{cell || ''}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
   );
 }
 
-function TimePickerModal({ visible, onClose, onSelect, title, inline }: { visible: boolean; onClose: () => void; onSelect: (time: string) => void; title: string; inline?: boolean }) {
-  if (!visible) return null;
-
-  const content = (
-    <View style={tpStyles.overlay}>
-      <View style={tpStyles.container}>
-        <Text style={tpStyles.title}>{title}</Text>
-        <FlatList
-          data={TIME_SLOTS}
-          keyExtractor={item => item}
-          style={tpStyles.list}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={tpStyles.item} onPress={() => { onSelect(item); onClose(); }}>
-              <Text style={tpStyles.itemText}>{item}</Text>
-            </TouchableOpacity>
-          )}
-        />
-        <TouchableOpacity style={tpStyles.closeBtn} onPress={onClose}>
-          <Text style={tpStyles.closeBtnText}>Cancelar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  if (inline) return content;
-
+// Inline time picker - renders directly in form without overlay/modal
+function InlineTimePicker({ onSelect }: { onSelect: (time: string) => void }) {
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      {content}
-    </Modal>
+    <View style={{ maxHeight: 200, backgroundColor: '#f8f9fa', borderRadius: 12, marginTop: 8, borderWidth: 1, borderColor: '#e0e0e0', overflow: 'hidden' }}>
+      <FlatList
+        data={TIME_SLOTS}
+        keyExtractor={item => item}
+        nestedScrollEnabled
+        style={{ maxHeight: 200 }}
+        renderItem={({ item }) => (
+          <TouchableOpacity style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', alignItems: 'center' }} onPress={() => onSelect(item)}>
+            <Text style={{ fontSize: 16, color: '#212121' }}>{item}</Text>
+          </TouchableOpacity>
+        )}
+      />
+    </View>
   );
 }
 
@@ -169,8 +121,6 @@ export default function CreateTimesheetScreen() {
   // Picker visibility
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [timePickerField, setTimePickerField] = useState<string | null>(null);
-
-  // iOS: pickers render inline inside the entry form modal (no nested modals)
 
   useEffect(() => { loadData(); }, []);
 
@@ -223,6 +173,9 @@ export default function CreateTimesheetScreen() {
     setTravelStart('');
     setTravelEnd('');
     setHasTravel(false);
+    setCalendarVisible(false);
+    setEmployeePickerVisible(false);
+    setTimePickerField(null);
   };
 
   const handleAddEntry = () => {
@@ -288,6 +241,9 @@ export default function CreateTimesheetScreen() {
     setTravelStart(entry.travel_start || '');
     setTravelEnd(entry.travel_end || '');
     setHasTravel(!!(entry.travel_start && entry.travel_start !== '' && entry.travel_start !== '-'));
+    setCalendarVisible(false);
+    setEmployeePickerVisible(false);
+    setTimePickerField(null);
     setEmployeeModalVisible(true);
   };
 
@@ -325,25 +281,11 @@ export default function CreateTimesheetScreen() {
     }
   };
 
-  const openTimePicker = (field: string) => setTimePickerField(field);
-
-  const handleTimeSelect = (time: string) => {
-    switch (timePickerField) {
-      case 'serviceStart': setServiceStart(time); break;
-      case 'serviceEnd': setServiceEnd(time); break;
-      case 'travelStart': setTravelStart(time); break;
-      case 'travelEnd': setTravelEnd(time); break;
-    }
-  };
-
-  const getTimePickerTitle = () => {
-    switch (timePickerField) {
-      case 'serviceStart': return 'Início do Serviço';
-      case 'serviceEnd': return 'Fim do Serviço';
-      case 'travelStart': return 'Início da Viagem';
-      case 'travelEnd': return 'Fim da Viagem';
-      default: return 'Selecionar Horário';
-    }
+  // Close all inline pickers except the one being opened
+  const openInlinePicker = (picker: 'calendar' | 'employee' | string | null) => {
+    setCalendarVisible(picker === 'calendar' ? !calendarVisible : false);
+    setEmployeePickerVisible(picker === 'employee' ? !employeePickerVisible : false);
+    setTimePickerField(picker && picker !== 'calendar' && picker !== 'employee' ? (timePickerField === picker ? null : picker) : null);
   };
 
   if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#1a237e" /></View>;
@@ -468,45 +410,76 @@ export default function CreateTimesheetScreen() {
         </View>
       </Modal>
 
-      {/* Entry Form Modal */}
-      <Modal visible={employeeModalVisible} animationType="slide" transparent onRequestClose={() => setEmployeeModalVisible(false)}>
+      {/* Entry Form Modal - ALL pickers render INLINE inside this modal */}
+      <Modal visible={employeeModalVisible} animationType="slide" transparent onRequestClose={() => { setEmployeeModalVisible(false); resetEntryForm(); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <ScrollView>
+            <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>{editingEntryIndex !== null ? 'Editar Entrada' : 'Adicionar Entrada'}</Text>
 
+              {/* Date */}
               <Text style={styles.inputLabel}>Data *</Text>
-              <TouchableOpacity style={styles.selectButton} onPress={() => setCalendarVisible(true)}>
+              <TouchableOpacity style={styles.selectButton} onPress={() => openInlinePicker('calendar')} data-testid="entry-date-btn">
                 <Text style={entryDate ? styles.selectTextSelected : styles.selectText}>
                   {entryDate || 'Selecionar data'}
                 </Text>
-                <Ionicons name="calendar" size={20} color="#1a237e" />
+                <Ionicons name={calendarVisible ? 'chevron-up' : 'calendar'} size={20} color="#1a237e" />
               </TouchableOpacity>
+              {calendarVisible && <InlineCalendar onSelect={(date: string) => { setEntryDate(date); setCalendarVisible(false); }} />}
 
+              {/* Employee */}
               <Text style={styles.inputLabel}>Funcionário *</Text>
-              <TouchableOpacity style={styles.selectButton} onPress={() => setEmployeePickerVisible(true)}>
+              <TouchableOpacity style={styles.selectButton} onPress={() => openInlinePicker('employee')} data-testid="entry-employee-btn">
                 <Text style={selectedEmployee ? styles.selectTextSelected : styles.selectText}>
                   {selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.function})` : 'Selecionar'}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color="#666" />
+                <Ionicons name={employeePickerVisible ? 'chevron-up' : 'chevron-down'} size={20} color="#666" />
               </TouchableOpacity>
+              {employeePickerVisible && (
+                <View style={{ maxHeight: 200, borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, marginTop: 4, overflow: 'hidden', backgroundColor: '#fff' }}>
+                  <FlatList
+                    data={filteredEmployees}
+                    keyExtractor={(emp) => emp.id}
+                    nestedScrollEnabled
+                    style={{ maxHeight: 200 }}
+                    ListEmptyComponent={<Text style={{ padding: 16, textAlign: 'center', color: '#999' }}>Nenhum funcionário vinculado a esta O.S.</Text>}
+                    renderItem={({ item: emp }) => (
+                      <TouchableOpacity style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', flexDirection: 'row', alignItems: 'center' }} onPress={() => {
+                        const soEmp = selectedSO?.employees?.find(e => e.employee_id === emp.id);
+                        setSelectedEmployee({ id: emp.id, name: emp.name, function: soEmp?.function || 'T' });
+                        setEmployeePickerVisible(false);
+                      }}>
+                        <View style={styles.entryBadge}><Text style={styles.entryBadgeText}>
+                          {selectedSO?.employees?.find(e => e.employee_id === emp.id)?.function || '-'}
+                        </Text></View>
+                        <Text style={{ fontSize: 15, color: '#212121', marginLeft: 8 }}>{emp.name}</Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+              )}
 
+              {/* Service Start */}
               <Text style={styles.inputLabel}>Serviço - Início *</Text>
-              <TouchableOpacity style={styles.selectButton} onPress={() => setTimePickerField('serviceStart')}>
+              <TouchableOpacity style={styles.selectButton} onPress={() => openInlinePicker('serviceStart')} data-testid="entry-service-start-btn">
                 <Text style={serviceStart ? styles.selectTextSelected : styles.selectText}>
                   {serviceStart || 'Selecionar horário'}
                 </Text>
                 <Ionicons name="time" size={20} color="#1a237e" />
               </TouchableOpacity>
+              {timePickerField === 'serviceStart' && <InlineTimePicker onSelect={(t: string) => { setServiceStart(t); setTimePickerField(null); }} />}
 
+              {/* Service End */}
               <Text style={styles.inputLabel}>Serviço - Fim *</Text>
-              <TouchableOpacity style={styles.selectButton} onPress={() => setTimePickerField('serviceEnd')}>
+              <TouchableOpacity style={styles.selectButton} onPress={() => openInlinePicker('serviceEnd')} data-testid="entry-service-end-btn">
                 <Text style={serviceEnd ? styles.selectTextSelected : styles.selectText}>
                   {serviceEnd || 'Selecionar horário'}
                 </Text>
                 <Ionicons name="time" size={20} color="#1a237e" />
               </TouchableOpacity>
+              {timePickerField === 'serviceEnd' && <InlineTimePicker onSelect={(t: string) => { setServiceEnd(t); setTimePickerField(null); }} />}
 
+              {/* Travel */}
               <TouchableOpacity style={styles.travelCheckRow} onPress={() => { setHasTravel(!hasTravel); if (hasTravel) { setTravelStart(''); setTravelEnd(''); } }} data-testid="has-travel-checkbox">
                 <Ionicons name={hasTravel ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
                 <Text style={styles.travelCheckText}>Tem viagem?</Text>
@@ -515,20 +488,22 @@ export default function CreateTimesheetScreen() {
               {hasTravel && (
                 <>
                   <Text style={styles.inputLabel}>Viagem - Início</Text>
-                  <TouchableOpacity style={styles.selectButton} onPress={() => setTimePickerField('travelStart')}>
+                  <TouchableOpacity style={styles.selectButton} onPress={() => openInlinePicker('travelStart')}>
                     <Text style={travelStart ? styles.selectTextSelected : styles.selectText}>
                       {travelStart || 'Selecionar horário'}
                     </Text>
                     <Ionicons name="time" size={20} color="#666" />
                   </TouchableOpacity>
+                  {timePickerField === 'travelStart' && <InlineTimePicker onSelect={(t: string) => { setTravelStart(t); setTimePickerField(null); }} />}
 
                   <Text style={styles.inputLabel}>Viagem - Fim</Text>
-                  <TouchableOpacity style={styles.selectButton} onPress={() => setTimePickerField('travelEnd')}>
+                  <TouchableOpacity style={styles.selectButton} onPress={() => openInlinePicker('travelEnd')}>
                     <Text style={travelEnd ? styles.selectTextSelected : styles.selectText}>
                       {travelEnd || 'Selecionar horário'}
                     </Text>
                     <Ionicons name="time" size={20} color="#666" />
                   </TouchableOpacity>
+                  {timePickerField === 'travelEnd' && <InlineTimePicker onSelect={(t: string) => { setTravelEnd(t); setTimePickerField(null); }} />}
                 </>
               )}
 
@@ -545,42 +520,6 @@ export default function CreateTimesheetScreen() {
         </View>
       </Modal>
 
-      {/* Employee Picker */}
-      <Modal visible={employeePickerVisible} animationType="slide" transparent onRequestClose={() => setEmployeePickerVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Selecionar Funcionário</Text>
-            <ScrollView style={styles.modalList}>
-              {filteredEmployees.length === 0 ? (
-                <View style={styles.emptyEntries}>
-                  <Ionicons name="people-outline" size={48} color="#ccc" />
-                  <Text style={styles.emptyText}>Nenhum funcionário vinculado a esta O.S.</Text>
-                </View>
-              ) : (
-                filteredEmployees.map(emp => (
-                  <TouchableOpacity key={emp.id} style={styles.modalItem} onPress={() => {
-                    const soEmp = selectedSO?.employees?.find(e => e.employee_id === emp.id);
-                    setSelectedEmployee({ id: emp.id, name: emp.name, function: soEmp?.function || 'T' });
-                    setEmployeePickerVisible(false);
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={styles.entryBadge}><Text style={styles.entryBadgeText}>
-                        {selectedSO?.employees?.find(e => e.employee_id === emp.id)?.function || '-'}
-                      </Text></View>
-                      <Text style={styles.modalItemTitle}>{emp.name}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
-            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setEmployeePickerVisible(false)}>
-              <Text style={styles.modalCloseButtonText}>Fechar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Calendar Picker */}
       {/* Function Picker Modal */}
       <Modal visible={functionPickerVisible} animationType="slide" transparent onRequestClose={() => setFunctionPickerVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -599,41 +538,9 @@ export default function CreateTimesheetScreen() {
           </View>
         </View>
       </Modal>
-
-      <CalendarPicker visible={calendarVisible} onClose={() => setCalendarVisible(false)} onSelect={setEntryDate} inline={employeeModalVisible} />
-
-      {/* Time Picker */}
-      <TimePickerModal visible={!!timePickerField} onClose={() => setTimePickerField(null)} onSelect={handleTimeSelect} title={getTimePickerTitle()} inline={employeeModalVisible} />
     </SafeAreaView>
   );
 }
-
-const calStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
-  container: { backgroundColor: '#fff', borderRadius: 16, padding: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  monthText: { fontSize: 18, fontWeight: '600', color: '#1a237e' },
-  weekRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 8 },
-  weekDay: { width: 40, textAlign: 'center', fontSize: 12, fontWeight: '600', color: '#666' },
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayCell: { width: '14.28%', height: 40, justifyContent: 'center', alignItems: 'center' },
-  dayCellActive: { cursor: 'pointer' as any },
-  dayText: { fontSize: 16, color: '#212121' },
-  dayTextEmpty: { fontSize: 16, color: 'transparent' },
-  closeBtn: { backgroundColor: '#f5f5f5', height: 44, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 12 },
-  closeBtnText: { fontSize: 16, fontWeight: '600', color: '#666' },
-});
-
-const tpStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
-  container: { backgroundColor: '#fff', borderRadius: 16, padding: 20, maxHeight: '70%' },
-  title: { fontSize: 18, fontWeight: '600', color: '#1a237e', marginBottom: 12, textAlign: 'center' },
-  list: { maxHeight: 350 },
-  item: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', alignItems: 'center' },
-  itemText: { fontSize: 18, color: '#212121' },
-  closeBtn: { backgroundColor: '#f5f5f5', height: 44, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 12 },
-  closeBtnText: { fontSize: 16, fontWeight: '600', color: '#666' },
-});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },

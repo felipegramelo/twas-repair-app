@@ -287,9 +287,8 @@ export default function PropostasScreen() {
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       } else {
         // iOS/Android native: download via expo-file-system and share
-        const token = await AsyncStorage.getItem('token');
         const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-        const pdfUrl = `${backendUrl}/api/proposals/${proposal.id}/pdf?tipo=${tipo}&token=${encodeURIComponent(token || '')}&t=${Date.now()}`;
+        const pdfUrl = `${backendUrl}/api/proposals/${proposal.id}/pdf?tipo=${tipo}&t=${Date.now()}`;
         const fileName = `Proposta_${tipo}_${proposal.numero_proposta.replace(/ /g, '_')}.pdf`;
         await downloadAndSharePDF(
           () => proposalAPI.downloadPDF(proposal.id, tipo),

@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -26,21 +26,32 @@ export async function downloadAndSharePDF(
   } else {
     const token = await AsyncStorage.getItem('token');
     // Ensure URL has /api prefix
-    const apiUrl = nativeUrl.includes('/api/') ? nativeUrl : nativeUrl.replace(/\/([^/]+\/[^/]+\/pdf)/, '/api/$1');
-    const separator = apiUrl.includes('?') ? '&' : '?';
-    const authUrl = token ? `${apiUrl}${separator}token=${encodeURIComponent(token)}` : apiUrl;
+    let apiUrl = nativeUrl.includes('/api/') ? nativeUrl : nativeUrl.replace(/\/([^/]+\/[^/]+\/pdf)/, '/api/$1');
+    // Only add token if not already present in URL
+    if (token && !apiUrl.includes('token=')) {
+      const separator = apiUrl.includes('?') ? '&' : '?';
+      apiUrl = `${apiUrl}${separator}token=${encodeURIComponent(token)}`;
+    }
     const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-    const downloadResult = await FileSystem.downloadAsync(authUrl, fileUri);
-    if (downloadResult.status === 200) {
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(downloadResult.uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: fileName,
-        });
+    try {
+      const downloadResult = await FileSystem.downloadAsync(apiUrl, fileUri);
+      if (downloadResult.status === 200) {
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: fileName,
+          });
+        } else {
+          Alert.alert('Aviso', 'Compartilhamento não disponível neste dispositivo.');
+        }
+      } else {
+        Alert.alert('Erro', `Falha ao baixar PDF (status: ${downloadResult.status}). Verifique sua conexão e tente novamente.`);
       }
-    } else {
-      throw new Error('Erro ao baixar PDF');
+    } catch (error: any) {
+      const msg = error?.message || 'Erro desconhecido ao baixar PDF';
+      Alert.alert('Erro ao baixar PDF', msg);
+      throw error;
     }
   }
 }

@@ -3,32 +3,30 @@
 ## Core Features
 
 ### Reports
-- Relatorio de Servico - PDF Capa: Linhas separadas para CLIENTE, EMBARCACAO e LOCAL
-- Relatorio Diario: Entradas Diarias como subsecoes
+- Relatorio de Servico e Diario com upload de fotos/arquivos
+- PDF gerado via ReportLab/PyMuPDF
 
 ### Timesheet
-- Validacao de conflito viagem vs servico
-- Maximo 12 funcionarios por timesheet
-- iOS: Modais nao-aninhados (pendingPicker pattern)
-
-### BM (Boletim de Medicao)
-- Campos "COD." e "Linha" por item/funcao
+- Validacao conflito viagem vs servico
+- Maximo 12 funcionarios
+- iOS: Pickers inline (CalendarPicker/TimePicker renderizam DENTRO do modal pai, sem modais aninhados)
 
 ### Proposta Comercial
 - Campo "Servico" obrigatorio
 - Texto introdutorio automatico (Prezados...)
 - Secoes com subsecoes, upload fotos/arquivos, Termos Gerais
 - Dois PDFs: Comercial e Tecnica
-- iOS: PDF via expo-file-system + expo-sharing
 
 ### Dashboard Financeiro
 - Pagina admin com controle de permissao
 
 ### iOS Native Compatibility
-- GestureHandlerRootView + SafeAreaProvider no root layout
-- Modais nao-aninhados em create-timesheet e edit-timesheet (pendingPicker state machine)
-- PDF download nativo via expo-file-system + expo-sharing em TODAS as telas
-- Utility compartilhado: /frontend/utils/pdfHelper.ts
+- GestureHandlerRootView + SafeAreaProvider no root layout (_layout.tsx)
+- CalendarPicker/TimePickerModal com prop "inline" - renderizam sem wrapper Modal quando parent modal esta aberto
+- Upload nativo via expo-image-picker + expo-document-picker (edit-report.tsx)
+- PDF download nativo via expo-file-system + expo-sharing (pdfHelper.ts)
+- Todas as URLs nativas com prefixo /api/ e token no query param
+- Alert.alert no nativo para confirmacoes e mensagens (showMsg, handleDeletePhoto, deleteCustomSection)
 
 ## Credentials
 - Admin: admin@twasrepair.com / admin123
@@ -39,10 +37,12 @@
 - [x] Arquivo por O.S., BM com todos os recursos
 - [x] Proposta Comercial: CRUD, secoes/subsecoes, termos gerais, upload fotos
 - [x] Dashboard Financeiro
-- [x] Validacao conflito viagem vs servico
 - [x] Campo "Servico" + texto introdutorio nas propostas
-- [x] iOS Native: GestureHandlerRootView, modais nao-aninhados, PDF nativo (07/04/2026)
-- [x] Fix timesheet PDF KeyError para campos faltantes (07/04/2026)
+- [x] iOS: GestureHandlerRootView + SafeAreaProvider
+- [x] iOS: Pickers inline (sem modais aninhados) em create/edit-timesheet
+- [x] iOS: Upload nativo em edit-report (image-picker + document-picker)
+- [x] iOS: PDF nativo em TODAS as telas (pdfHelper.ts com /api/ prefix + token)
+- [x] iOS: Alert.alert cross-platform em edit-report (08/04/2026)
 
 ## Backlog
 ### P1

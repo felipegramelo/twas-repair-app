@@ -1,53 +1,71 @@
-# TWAS REPAIR - PRD
+# TWAS REPAIR - PRD (Product Requirements Document)
 
-## Core Features
+## Problema Original
+Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um único app "TWAS REPAIR" com autenticação role-based (Admin/Supervisor), CRUD completo, geração avançada de PDF A4, e funcionalidade cross-platform (React Native Web + iOS).
 
-### Reports
-- Relatorio de Servico e Diario com upload de fotos/arquivos
-- PDF gerado via ReportLab/PyMuPDF
+## Requisitos do Produto
+- Autenticação role-based (Admin, Supervisor)
+- CRUD completo para Timesheet, Ordens de Serviço e Relatórios
+- Geração avançada de PDF (ReportLab/PyMuPDF)
+- "Boletim de Medição" para cálculo de faturamento
+- Dashboard Financeiro com gráficos
+- "Proposta Comercial" com seções/subseções, uploads de foto/PDF, e "Termos Gerais"
+- Validação de timesheet para conflitos de viagem/serviço
+- Cross-platform (React Native Web + iOS App Store)
 
-### Timesheet
-- Validacao conflito viagem vs servico
-- Maximo 12 funcionarios
-- iOS: Pickers inline (CalendarPicker/TimePicker renderizam DENTRO do modal pai, sem modais aninhados)
+## Stack Técnica
+- Frontend: React Native (Expo Router), TypeScript
+- Backend: FastAPI, MongoDB (motor)
+- PDF: ReportLab + PyMuPDF (fitz)
+- Módulos Nativos: expo-sharing, expo-file-system, expo-image-picker, expo-document-picker
+- Storage: Emergent Object Storage
 
-### Proposta Comercial
-- Campo "Servico" obrigatorio
-- Texto introdutorio automatico (Prezados...)
-- Secoes com subsecoes, upload fotos/arquivos, Termos Gerais
-- Dois PDFs: Comercial e Tecnica
+## Funcionalidades Implementadas
+- [x] Autenticação (Admin/Supervisor) com JWT
+- [x] CRUD Timesheets (criar/editar/excluir, PDF)
+- [x] CRUD Relatórios (serviço e diário, PDF)
+- [x] Ordens de Serviço (CRUD + Arquivo por O.S.)
+- [x] Boletim de Medição
+- [x] Dashboard Financeiro
+- [x] Propostas Comerciais (seções/subseções, fotos, termos gerais, campo serviço)
+- [x] Propostas Técnicas (PDF)
+- [x] iOS Native: Touch interactions (GestureHandlerRootView)
+- [x] iOS Native: File pickers (expo-image-picker, expo-document-picker)
+- [x] iOS Native: PDF download/sharing (expo-file-system + expo-sharing)
+- [x] iOS Native: Alert.alert em vez de window.alert
+- [x] iOS Native: Inline pickers no Timesheet (sem modais aninhados)
+- [x] iOS Native: Modal OS picker no Create Report
+- [x] iOS Native: Fix token duplicado em PDF de propostas
 
-### Dashboard Financeiro
-- Pagina admin com controle de permissao
+## Tarefas Pendentes
 
-### iOS Native Compatibility
-- GestureHandlerRootView + SafeAreaProvider no root layout (_layout.tsx)
-- CalendarPicker/TimePickerModal com prop "inline" - renderizam sem wrapper Modal quando parent modal esta aberto
-- Upload nativo via expo-image-picker + expo-document-picker (edit-report.tsx)
-- PDF download nativo via expo-file-system + expo-sharing (pdfHelper.ts)
-- Todas as URLs nativas com prefixo /api/ e token no query param
-- Alert.alert no nativo para confirmacoes e mensagens (showMsg, handleDeletePhoto, deleteCustomSection)
+### P1 (Alta Prioridade)
+- [ ] Otimizar query N+1 em `get_service_orders` (usar $lookup)
+- [ ] Adicionar campo `schedule_type` (06-18 / 07-19) nas Ordens de Serviço
+- [ ] Refatorar `backend/server.py` (>4100 linhas → estrutura modular)
 
-## Credentials
+### P2 (Média Prioridade)
+- [ ] Refatorar `frontend/app/supervisor/edit-report.tsx` em componentes menores
+- [ ] Modo Offline (AsyncStorage + fila de sincronização)
+
+## Credenciais de Teste
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
-## Completed
-- [x] Role-based auth, Timesheet/Report CRUD, PDF generation
-- [x] Arquivo por O.S., BM com todos os recursos
-- [x] Proposta Comercial: CRUD, secoes/subsecoes, termos gerais, upload fotos
-- [x] Dashboard Financeiro
-- [x] Campo "Servico" + texto introdutorio nas propostas
-- [x] iOS: GestureHandlerRootView + SafeAreaProvider
-- [x] iOS: Pickers inline (sem modais aninhados) em create/edit-timesheet
-- [x] iOS: Upload nativo em edit-report (image-picker + document-picker)
-- [x] iOS: PDF nativo em TODAS as telas (pdfHelper.ts com /api/ prefix + token)
-- [x] iOS: Alert.alert cross-platform em edit-report (08/04/2026)
-
-## Backlog
-### P1
-- Refactor backend/server.py em estrutura modular (~4100 linhas)
-- Adicionar schedule_type (06-18 / 07-19) nas Ordens de Servico
-### P2
-- Refactor edit-report.tsx em componentes menores
-- Modo Offline / EAS Build
+## Arquitetura
+```
+/app
+├── backend/
+│   ├── .env
+│   ├── server.py         # Monolito (>4100 linhas)
+│   └── requirements.txt
+├── frontend/
+│   ├── app/
+│   │   ├── _layout.tsx
+│   │   ├── admin/ (propostas, timesheets, reports, etc.)
+│   │   └── supervisor/ (create/edit timesheet, create/edit report)
+│   ├── utils/pdfHelper.ts
+│   ├── services/api.ts
+│   └── types/index.ts
+└── memory/PRD.md
+```

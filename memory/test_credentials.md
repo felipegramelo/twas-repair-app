@@ -8,3 +8,7 @@
 ## Supervisor
 - Email: supervisor@twasrepair.com
 - Password: super123
+
+## Test Supervisor (created by testing agent)
+- Email: TEST_pwdreset@twasrepair.com
+- Password: testpass123

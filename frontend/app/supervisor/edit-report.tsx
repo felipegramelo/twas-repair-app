@@ -58,7 +58,25 @@ const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value
     return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} onKeyDown={handleKeyDown} onFocus={handleFocus} placeholder={placeholder}
       style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 13, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333', fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', ...(cs || {}) }} />;
   }
-  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 13, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={(t) => onChangeText(ensureBullet(t))} placeholder={placeholder} multiline textAlignVertical="top" />;
+  // Native: auto-add bullets on new lines (Enter key)
+  const handleNativeChange = (newText: string) => {
+    const currentValue = value || '';
+    const isAddition = newText.length >= currentValue.length;
+
+    // Ensure first bullet
+    if (!newText.startsWith('• ')) {
+      newText = '• ' + newText;
+    }
+
+    // On addition, add bullets after newlines that don't have them
+    if (isAddition) {
+      newText = newText.replace(/\n(?!• )/g, '\n• ');
+    }
+
+    onChangeText(newText);
+  };
+
+  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 13, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={handleNativeChange} onFocus={() => { if (!value || !value.startsWith('• ')) onChangeText(ensureBullet(value || '')); }} placeholder={placeholder} multiline textAlignVertical="top" />;
 };
 
 const SectionTextArea = ({ sectionKey, value, onChangeText, placeholder, style }: { sectionKey: string; value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
@@ -128,6 +146,7 @@ export default function EditReportScreen() {
 
   const getPdfUrl = () => {
     const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
+    // Token included for web (window.open needs it in URL). On native, pdfHelper adds it if missing.
     return `${baseUrl}/api/reports/${id}/pdf?token=${encodeURIComponent(token)}&t=${Date.now()}`;
   };
 
@@ -183,10 +202,12 @@ export default function EditReportScreen() {
     if (Platform.OS === 'web') {
       if (fileInputRef.current) fileInputRef.current.click();
     } else {
-      // iOS/Android native: use ImagePicker or DocumentPicker
+      // iOS/Android native: show action sheet with camera/library/file options
       const isPDF = PDF_UPLOAD_SECTIONS.has(sectionKey);
-      try {
-        if (isPDF) {
+
+      if (isPDF) {
+        // For PDF sections, show document picker directly (accepts images + PDFs)
+        try {
           const result = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], multiple: true });
           if (!result.canceled && result.assets) {
             setUploading(sectionKey);
@@ -196,22 +217,87 @@ export default function EditReportScreen() {
             }
             setPhotos(await reportAPI.getPhotos(id!));
           }
-        } else {
-          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.8 });
-          if (!result.canceled && result.assets) {
-            setUploading(sectionKey);
-            for (const asset of result.assets) {
-              const name = asset.fileName || `photo_${Date.now()}.jpg`;
-              const file = { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' };
-              await reportAPI.uploadPhoto(id!, file as any, sectionKey, name);
-            }
-            setPhotos(await reportAPI.getPhotos(id!));
-          }
+        } catch (e: any) {
+          showMsg('Erro ao enviar arquivo: ' + (e.message || ''));
+        } finally {
+          setUploading(null);
         }
-      } catch (e: any) {
-        showMsg('Erro ao enviar arquivo: ' + (e.message || ''));
-      } finally {
-        setUploading(null);
+      } else {
+        // For image sections: show action sheet with Camera / Photo Library / File options
+        Alert.alert(
+          'Adicionar Imagem',
+          'Escolha a origem da imagem:',
+          [
+            {
+              text: 'Tirar Foto',
+              onPress: async () => {
+                try {
+                  const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                  if (status !== 'granted') {
+                    Alert.alert('Permissão necessária', 'Permita o acesso à câmera nas configurações do app.');
+                    return;
+                  }
+                  const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
+                  if (!result.canceled && result.assets) {
+                    setUploading(sectionKey);
+                    for (const asset of result.assets) {
+                      const name = asset.fileName || `photo_${Date.now()}.jpg`;
+                      const file = { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' };
+                      await reportAPI.uploadPhoto(id!, file as any, sectionKey, name);
+                    }
+                    setPhotos(await reportAPI.getPhotos(id!));
+                  }
+                } catch (e: any) {
+                  showMsg('Erro ao tirar foto: ' + (e.message || ''));
+                } finally {
+                  setUploading(null);
+                }
+              },
+            },
+            {
+              text: 'Fototeca',
+              onPress: async () => {
+                try {
+                  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.8 });
+                  if (!result.canceled && result.assets) {
+                    setUploading(sectionKey);
+                    for (const asset of result.assets) {
+                      const name = asset.fileName || `photo_${Date.now()}.jpg`;
+                      const file = { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' };
+                      await reportAPI.uploadPhoto(id!, file as any, sectionKey, name);
+                    }
+                    setPhotos(await reportAPI.getPhotos(id!));
+                  }
+                } catch (e: any) {
+                  showMsg('Erro ao selecionar foto: ' + (e.message || ''));
+                } finally {
+                  setUploading(null);
+                }
+              },
+            },
+            {
+              text: 'Arquivo',
+              onPress: async () => {
+                try {
+                  const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], multiple: true });
+                  if (!result.canceled && result.assets) {
+                    setUploading(sectionKey);
+                    for (const asset of result.assets) {
+                      const file = { uri: asset.uri, name: asset.name, type: asset.mimeType || 'image/jpeg' };
+                      await reportAPI.uploadPhoto(id!, file as any, sectionKey, asset.name);
+                    }
+                    setPhotos(await reportAPI.getPhotos(id!));
+                  }
+                } catch (e: any) {
+                  showMsg('Erro ao selecionar arquivo: ' + (e.message || ''));
+                } finally {
+                  setUploading(null);
+                }
+              },
+            },
+            { text: 'Cancelar', style: 'cancel' },
+          ],
+        );
       }
     }
   };

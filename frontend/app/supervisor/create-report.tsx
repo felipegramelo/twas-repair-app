@@ -7,6 +7,56 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { serviceOrderAPI, reportAPI } from '../../services/api';
 import { ServiceOrder } from '../../types';
 
+const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function InlineCalendar({ onSelect, selectedDate }: { onSelect: (date: string) => void; selectedDate?: string }) {
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const days = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const allCells = [...Array(firstDay).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+
+  const isSelected = (day: number) => {
+    if (!selectedDate) return false;
+    const formatted = `${String(day).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`;
+    return formatted === selectedDate;
+  };
+
+  return (
+    <View style={{ backgroundColor: '#f8f9fa', borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: '#e0e0e0' }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <TouchableOpacity onPress={() => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); } else setCurrentMonth(m => m - 1); }}>
+          <Ionicons name="chevron-back" size={22} color="#1a237e" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: '#1a237e' }}>{MONTHS[currentMonth]} {currentYear}</Text>
+        <TouchableOpacity onPress={() => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); } else setCurrentMonth(m => m + 1); }}>
+          <Ionicons name="chevron-forward" size={22} color="#1a237e" />
+        </TouchableOpacity>
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 4 }}>
+        {WEEKDAYS.map(d => <Text key={d} style={{ width: 36, textAlign: 'center', fontSize: 11, fontWeight: '600', color: '#666' }}>{d}</Text>)}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {allCells.map((cell, idx) => (
+          <TouchableOpacity
+            key={idx}
+            style={{
+              width: '14.28%' as any, height: 36, justifyContent: 'center', alignItems: 'center',
+              borderRadius: 18,
+              backgroundColor: cell && isSelected(cell) ? '#1a237e' : 'transparent',
+            }}
+            onPress={() => cell && onSelect(`${String(cell).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`)}
+            disabled={!cell}
+          >
+            <Text style={{ fontSize: 15, color: cell ? (isSelected(cell) ? '#fff' : '#212121') : 'transparent', fontWeight: cell && isSelected(cell) ? '700' : '400' }}>{cell || ''}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function CreateReportScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -20,6 +70,8 @@ export default function CreateReportScreen() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [osModalVisible, setOsModalVisible] = useState(false);
+  const [showStartCalendar, setShowStartCalendar] = useState(false);
+  const [showEndCalendar, setShowEndCalendar] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -45,7 +97,7 @@ export default function CreateReportScreen() {
 
     setCreating(true);
     try {
-      const result = await reportAPI.create({
+      await reportAPI.create({
         report_type: reportType,
         os_id: selectedOS,
         periodo_inicio: periodoInicio,
@@ -63,14 +115,12 @@ export default function CreateReportScreen() {
     }
   };
 
-  // Convert HTML date (YYYY-MM-DD) to DD/MM/YYYY
   const htmlDateToBR = (htmlDate: string): string => {
     if (!htmlDate) return '';
     const [y, m, d] = htmlDate.split('-');
     return `${d}/${m}/${y}`;
   };
 
-  // Convert DD/MM/YYYY to YYYY-MM-DD for HTML input
   const brDateToHtml = (brDate: string): string => {
     if (!brDate || brDate.length < 10) return '';
     const [d, m, y] = brDate.split('/');
@@ -86,7 +136,7 @@ export default function CreateReportScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.innerContainer}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color="#1a237e" />
@@ -132,7 +182,7 @@ export default function CreateReportScreen() {
               </View>
             )}
 
-            {/* Period with Calendar */}
+            {/* Period */}
             <Text style={[styles.label, { marginTop: 20 }]}>Período *</Text>
             <View style={styles.dateRow}>
               <View style={styles.dateField}>
@@ -149,14 +199,21 @@ export default function CreateReportScreen() {
                     }}
                   />
                 ) : (
-                  <TextInput style={styles.dateInput} value={periodoInicio} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10}
-                    onChangeText={(t) => {
-                      const c = t.replace(/\D/g, '');
-                      let f = c;
-                      if (c.length >= 3 && c.length <= 4) f = c.slice(0,2)+'/'+c.slice(2);
-                      else if (c.length >= 5) f = c.slice(0,2)+'/'+c.slice(2,4)+'/'+c.slice(4,8);
-                      setPeriodoInicio(f);
-                    }}
+                  <TouchableOpacity
+                    style={styles.dateInput}
+                    onPress={() => { setShowStartCalendar(!showStartCalendar); setShowEndCalendar(false); }}
+                    data-testid="date-start-btn"
+                  >
+                    <Text style={{ fontSize: 15, color: periodoInicio ? '#333' : '#999', textAlign: 'center' }}>
+                      {periodoInicio || 'DD/MM/AAAA'}
+                    </Text>
+                    <Ionicons name={showStartCalendar ? 'chevron-up' : 'calendar'} size={18} color="#1a237e" style={{ position: 'absolute', right: 12 }} />
+                  </TouchableOpacity>
+                )}
+                {showStartCalendar && Platform.OS !== 'web' && (
+                  <InlineCalendar
+                    selectedDate={periodoInicio}
+                    onSelect={(date) => { setPeriodoInicio(date); setShowStartCalendar(false); }}
                   />
                 )}
               </View>
@@ -175,14 +232,21 @@ export default function CreateReportScreen() {
                     }}
                   />
                 ) : (
-                  <TextInput style={styles.dateInput} value={periodoFim} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10}
-                    onChangeText={(t) => {
-                      const c = t.replace(/\D/g, '');
-                      let f = c;
-                      if (c.length >= 3 && c.length <= 4) f = c.slice(0,2)+'/'+c.slice(2);
-                      else if (c.length >= 5) f = c.slice(0,2)+'/'+c.slice(2,4)+'/'+c.slice(4,8);
-                      setPeriodoFim(f);
-                    }}
+                  <TouchableOpacity
+                    style={styles.dateInput}
+                    onPress={() => { setShowEndCalendar(!showEndCalendar); setShowStartCalendar(false); }}
+                    data-testid="date-end-btn"
+                  >
+                    <Text style={{ fontSize: 15, color: periodoFim ? '#333' : '#999', textAlign: 'center' }}>
+                      {periodoFim || 'DD/MM/AAAA'}
+                    </Text>
+                    <Ionicons name={showEndCalendar ? 'chevron-up' : 'calendar'} size={18} color="#1a237e" style={{ position: 'absolute', right: 12 }} />
+                  </TouchableOpacity>
+                )}
+                {showEndCalendar && Platform.OS !== 'web' && (
+                  <InlineCalendar
+                    selectedDate={periodoFim}
+                    onSelect={(date) => { setPeriodoFim(date); setShowEndCalendar(false); }}
                   />
                 )}
               </View>
@@ -263,7 +327,7 @@ const styles = StyleSheet.create({
   dateRow: { flexDirection: 'row', gap: 12 },
   dateField: { flex: 1 },
   dateLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
-  dateInput: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, textAlign: 'center' },
+  dateInput: { backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, textAlign: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' } as any,
   supervisorInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   supervisorName: { fontSize: 15, fontWeight: '500', color: '#333' },
   typeIndicator: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },

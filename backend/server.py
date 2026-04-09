@@ -300,6 +300,18 @@ class ReportUpdate(BaseModel):
     daily_entries: Optional[List[dict]] = None
 
 
+class ShareDocumentRequest(BaseModel):
+    document_id: str
+    document_type: str  # "report" or "timesheet"
+    supervisor_ids: List[str]
+
+
+class UnshareDocumentRequest(BaseModel):
+    document_id: str
+    document_type: str
+    supervisor_ids: List[str]
+
+
 class ReportResponse(BaseModel):
     id: str
     report_type: str
@@ -1538,7 +1550,11 @@ async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any
 async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user)):
     query = {}
     if current_user.get("role") != UserRole.ADMIN:
-        query["supervisor_id"] = current_user["_id"]
+        user_id = current_user["_id"]
+        query = {"$or": [
+            {"supervisor_id": user_id},
+            {"shared_with": user_id}
+        ]}
     
     timesheets = await db.timesheets.find(query).sort("created_at", -1).to_list(500)
     result = []
@@ -1554,8 +1570,8 @@ async def get_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends(get_c
     if not ts:
         raise HTTPException(status_code=404, detail="Timesheet not found")
     
-    # Check permissions
-    if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
+    # Check permissions: owner, admin, or shared
+    if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"] and current_user["_id"] not in ts.get("shared_with", []):
         raise HTTPException(status_code=403, detail="Access denied")
     
     ts["id"] = str(ts.pop("_id"))  # Rename _id to id
@@ -2139,8 +2155,16 @@ async def create_report(report: ReportCreate, user: dict = Depends(get_current_u
 
 @api_router.get("/reports")
 async def get_reports(user: dict = Depends(get_current_user)):
+    query = {}
+    if user.get("role") != UserRole.ADMIN:
+        # Supervisor sees own reports + reports shared with them
+        user_id = user["_id"]
+        query = {"$or": [
+            {"supervisor_id": user_id},
+            {"shared_with": user_id}
+        ]}
     reports = []
-    cursor = db.reports.find().sort("created_at", -1)
+    cursor = db.reports.find(query).sort("created_at", -1)
     async for doc in cursor:
         reports.append({
             "id": str(doc["_id"]),
@@ -2160,6 +2184,7 @@ async def get_reports(user: dict = Depends(get_current_user)):
             "daily_entries": doc.get("daily_entries", []),
             "cover_photo": doc.get("cover_photo", ""),
             "status": doc.get("status", "draft"),
+            "shared_with": doc.get("shared_with", []),
             "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
             "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
         })
@@ -2170,6 +2195,10 @@ async def get_report_by_id(report_id: str, user: dict = Depends(get_current_user
     doc = await db.reports.find_one({"_id": ObjectId(report_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    # Permission check: admin or owner or shared
+    if user.get("role") != UserRole.ADMIN:
+        if doc.get("supervisor_id") != user["_id"] and user["_id"] not in doc.get("shared_with", []):
+            raise HTTPException(status_code=403, detail="Acesso negado a este relatório")
     return {
         "id": str(doc["_id"]),
         "report_type": doc.get("report_type", "service"),
@@ -2187,6 +2216,7 @@ async def get_report_by_id(report_id: str, user: dict = Depends(get_current_user
         "daily_entries": doc.get("daily_entries", []),
         "cover_photo": doc.get("cover_photo", ""),
         "status": doc.get("status", "draft"),
+        "shared_with": doc.get("shared_with", []),
         "created_at": doc.get("created_at", "").isoformat() if doc.get("created_at") else "",
         "updated_at": doc.get("updated_at", "").isoformat() if doc.get("updated_at") else "",
     }
@@ -2198,6 +2228,9 @@ async def update_report(report_id: str, update: ReportUpdate, user: dict = Depen
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     if doc.get("status") == "finalized" and user.get("role") != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Relatório finalizado. Não é possível editar.")
+    # Only owner or admin can edit
+    if user.get("role") != UserRole.ADMIN and doc.get("supervisor_id") != user["_id"]:
+        raise HTTPException(status_code=403, detail="Apenas o autor pode editar este relatório")
     
     update_data = {}
     for field in ["periodo_inicio", "periodo_fim", "executado_por", "oc_wo", "sections", "status", "daily_entries"]:
@@ -2211,9 +2244,13 @@ async def update_report(report_id: str, update: ReportUpdate, user: dict = Depen
 
 @api_router.delete("/reports/{report_id}")
 async def delete_report(report_id: str, user: dict = Depends(get_current_user)):
-    result = await db.reports.delete_one({"_id": ObjectId(report_id)})
-    if result.deleted_count == 0:
+    doc = await db.reports.find_one({"_id": ObjectId(report_id)})
+    if not doc:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    # Only owner or admin can delete
+    if user.get("role") != UserRole.ADMIN and doc.get("supervisor_id") != user["_id"]:
+        raise HTTPException(status_code=403, detail="Apenas o autor pode excluir este relatório")
+    await db.reports.delete_one({"_id": ObjectId(report_id)})
     return {"success": True}
 
 
@@ -2230,6 +2267,10 @@ async def duplicate_report(report_id: str, dup: DuplicateReportRequest, user: di
     original = await db.reports.find_one({"_id": ObjectId(report_id)})
     if not original:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    # Permission check: owner, admin, or shared
+    if user.get("role") != UserRole.ADMIN:
+        if original.get("supervisor_id") != user["_id"] and user["_id"] not in original.get("shared_with", []):
+            raise HTTPException(status_code=403, detail="Acesso negado")
 
     # If a new OS is provided, fetch its data
     if dup.os_id and dup.os_id != original.get("os_id"):
@@ -2267,6 +2308,7 @@ async def duplicate_report(report_id: str, dup: DuplicateReportRequest, user: di
         "executado_por": dup.executado_por or original.get("executado_por", ""),
         "cover_photo": "",
         "sections": sections,
+        "shared_with": [],
         "status": "draft",
         "created_at": now,
         "updated_at": now,
@@ -2279,6 +2321,46 @@ async def duplicate_report(report_id: str, dup: DuplicateReportRequest, user: di
         "client": new_report["client"],
         "status": "draft",
     }
+
+
+# ==================== DOCUMENT SHARING (ADMIN ONLY) ====================
+
+@api_router.post("/admin/share-document")
+async def share_document(data: ShareDocumentRequest, user: dict = Depends(get_current_user)):
+    if user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Apenas administradores podem compartilhar documentos")
+    collection = db.reports if data.document_type == "report" else db.timesheets
+    doc = await collection.find_one({"_id": ObjectId(data.document_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
+    await collection.update_one(
+        {"_id": ObjectId(data.document_id)},
+        {"$addToSet": {"shared_with": {"$each": data.supervisor_ids}}}
+    )
+    return {"success": True, "message": "Documento compartilhado com sucesso"}
+
+
+@api_router.post("/admin/unshare-document")
+async def unshare_document(data: UnshareDocumentRequest, user: dict = Depends(get_current_user)):
+    if user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Apenas administradores podem remover compartilhamento")
+    collection = db.reports if data.document_type == "report" else db.timesheets
+    await collection.update_one(
+        {"_id": ObjectId(data.document_id)},
+        {"$pull": {"shared_with": {"$in": data.supervisor_ids}}}
+    )
+    return {"success": True, "message": "Compartilhamento removido"}
+
+
+@api_router.get("/admin/document-shares/{document_type}/{document_id}")
+async def get_document_shares(document_type: str, document_id: str, user: dict = Depends(get_current_user)):
+    if user.get("role") != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    collection = db.reports if document_type == "report" else db.timesheets
+    doc = await collection.find_one({"_id": ObjectId(document_id)}, {"shared_with": 1})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
+    return {"shared_with": doc.get("shared_with", [])}
 
 
 # ==================== PHOTO UPLOAD ====================

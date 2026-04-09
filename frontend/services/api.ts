@@ -380,3 +380,27 @@ export const reportAPI = {
     return `${baseUrl}/photos/${storagePath}?auth=${token}`;
   },
 };
+
+// Document Sharing API (Admin)
+export const sharingAPI = {
+  share: async (documentId: string, documentType: string, supervisorIds: string[]) => {
+    const response = await api.post('/admin/share-document', {
+      document_id: documentId,
+      document_type: documentType,
+      supervisor_ids: supervisorIds,
+    });
+    return response.data;
+  },
+  unshare: async (documentId: string, documentType: string, supervisorIds: string[]) => {
+    const response = await api.post('/admin/unshare-document', {
+      document_id: documentId,
+      document_type: documentType,
+      supervisor_ids: supervisorIds,
+    });
+    return response.data;
+  },
+  getShares: async (documentType: string, documentId: string) => {
+    const response = await api.get(`/admin/document-shares/${documentType}/${documentId}`);
+    return response.data;
+  },
+};

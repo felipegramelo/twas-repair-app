@@ -6,7 +6,7 @@ import requests
 import os
 import io
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://twas-repair-preview.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://twas-repair-app.preview.emergentagent.com')
 
 class TestNewFeatures:
     """Tests for new duplicate report and photo features"""

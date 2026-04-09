@@ -1,135 +1,151 @@
-<analysis>**original_problem_statement**: 
-The user wants to unify two separate applications (a Timesheet Tracker and a Service/Daily Report app) into a single TWAS REPAIR app. The application requires role-based authentication (Admin/Supervisor), full CRUD functionalities for Timesheets and Reports, and an advanced A4 PDF generation system with custom headers, footers, watermarks, dynamic tables of contents, and photo/PDF attachments. 
+<analysis>### Handoff Summary
+
+**original_problem_statement**: 
+The user wants to unify two separate applications (a Timesheet Tracker and a Service/Daily Report app) into a single TWAS REPAIR app. The application requires role-based authentication (Admin/Supervisor), full CRUD functionalities for Timesheets and Reports, and an advanced A4 PDF generation system with custom headers, footers, watermarks, dynamic tables of contents, and photo/PDF attachments.
 PRODUCT REQUIREMENTS:
 - Role-based authentication (Admin, Supervisor).
 - Full CRUD for Timesheet, Service Orders, and Service/Daily Report entities.
 - Advanced PDF generation engine (ReportLab/PyMuPDF).
 - Boletim de Medição (Measurement Bulletin) feature for billing calculation.
 - Dashboard Financeiro with charts and summary metrics.
-- Restructured Proposta Comercial feature with nested sections/subsections, photo/PDF uploads, and Termos Gerais at the bottom.
-- Timesheet validation for travel and service time conflicts.
+- Cross-platform functionality (React Native Web + iOS Native App Store).
+- **New Access Control**: Supervisors should only view/access documents they created, unless explicitly shared with them by an Admin. Supervisors can duplicate shared documents. 
 
-**User's preferred language**: Portuguese (pt-BR). INSTRUCT next agent to respond in the user's preferred language only.
+**User's preferred language**: Portuguese (pt-BR)
+(INSTRUCT NEXT AGENT: You MUST respond to the user exclusively in Portuguese (pt-BR))
 
 **what currently exists?** 
-A robust full-stack React Native (Expo Web) + FastAPI + MongoDB application. Features including Reports, Timesheets, OS Archive, Boletim de Medição, and Dashboard Financeiro are functional. Timesheets now have overlap validation blocking travel time from occurring during service time. The Propostas Comerciais (Commercial Proposals) backend was just refactored to support a nested section/subsection structure (similar to Service Reports) with  for photo uploads and Termos Gerais, but the frontend is currently out of sync with these backend changes.
+A full-stack React Native (Expo) + FastAPI + MongoDB app. In this session, a large sweep of iOS native bugs was resolved:  was implemented to fix a deprecated  crash in Expo SDK 54, touch/modal bugs for dates were resolved using , the photo layout was fixed for iOS devices, and Descrição dos Serviços subsections were made editable via . The backend was successfully updated to support the new Document Sharing / Access Control requirements by implementing  fields and permission validation, but the frontend UI for this feature is only partially complete.
 
 **Last working item**:
-    - Last item agent was working: Refactoring the Commercial Proposals () frontend to use a nested Section/Subsection index structure, allowing descriptions, photo/PDF uploads per subsection, and ensuring Termos Gerais correctly saves and renders at the end of the PDF. The backend models, PDF generator, and  have already been updated for this.
+    - Last item agent was working: Implementing Document Sharing / Access Control UI in the Admin screens. The agent successfully added the backend logic ( arrays, filtered queries, permission validation, and share/unshare endpoints) and updated . The agent ran out of context while actively building the Share Modal UI inside  and .
     - Status: IN PROGRESS
     - Agent Testing Done: N
-    - Which testing method agent to use? both (Testing agent v3 fork is heavily recommended once the frontend UI is built to ensure the complex state management works).
+    - Which testing method agent to use? frontend testing agent (to verify Share Modals and Supervisor visibility logic)
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  Issue 1: Rewrite  UI for Sections/Subsections and Termos Gerais (P0)
-     - Attempted fixes: The agent updated the backend models to accept  as a list of sections containing , updated the  endpoint to use , modified the PDF generator, and updated .
+  Issue 1: Complete Document Sharing UI for Admins and Supervisors (P0)
+     - Attempted fixes: Backend logic and  updates are done. Agent was editing  and  to add the Share button/modal when context ran out.
      - Next debug checklist: 
-       - : Rewrite the proposal creation/edit form to manage nested sections and subsections (borrow UI logic from ). 
-       - Implement the photo upload UI per .
-       - Ensure the Termos Gerais text area is visible, editable, defaults to the standard text requested by the user, and sends data correctly to the backend.
-       - Restart the Expo server via bash to clear cache ( && ) and verify the UI updates.
-     - Why fix this issue and what will be achieved with the fix? The user explicitly requested the proposal form to look like the report form (with an index, photos, files) and complained that Termos Gerais wasn't rendering. The backend expects a new data structure now, so the frontend is broken until updated.
+       1. Finish implementing the Share Modal in Admin screens (, , ) allowing admins to select supervisors to share the document with. 
+       2. Ensure the Supervisor screens display these shared documents and expose the Duplicate functionality (via the existing  backend endpoint).
+     - Why fix this issue and what will be achieved with the fix? Completes the user's latest critical requirement for document privacy and access control.
      - Status: IN PROGRESS
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: None
 
+  Issue 2: Optimize N+1 Query in  (P1)
+     - Attempted fixes: Identified by the previous Deployment Agent, but no fixes applied yet.
+     - Next debug checklist: Refactor  in  to use MongoDB aggregation () instead of querying  and  individually inside a loop.
+     - Why fix this issue and what will be achieved with the fix? Crucial for production backend performance as service orders grow.
+     - Status: NOT STARTED
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? backend
+     - Blocked on other issue: None
+
 **In progress Task List**:
-  None (All other tasks completed).
+  Task 1: Complete Document Sharing & Access Control UI (P0)
+     - Where to resume:  and .
+     - What will be achieved with this? Admins will be able to share documents, and supervisors will see only their own and shared documents.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on something: Nothing
 
 **Upcoming and Future Tasks**:
-  Upcoming Tasks:
-  - Add  (06-18 / 07-19) in the Service Orders (OS) UI (P1).
-  - Refactor  (P1): The file is now over 4100 lines. It urgently needs to be split into a modular structure (e.g., , , ).
-  
-  Future Tasks:
-  - Refactor  into smaller, reusable components (P2).
-  - Offline Mode (P2): Implement  and a synchronization queue for offline functionality.
-  - EAS Build (P2): Prepare  and  for App Store and Play Store deployment.
+    Upcoming Tasks:
+    - Add  (06-18 / 07-19) in the Service Orders (OS) UI (P1).
+    - Refactor  (P1): Split the 4200+ line monolith into a modular structure (, ).
+
+    Future Tasks:
+    - Refactor  into smaller, reusable components (P2).
+    - Offline Mode (P2): Implement  and a synchronization queue for offline functionality.
 
 **Completed work in this session**:
-- **Boletim de Medição (BM)**: Successfully verified per-item  and  fields in UI and PDF.
-- **Dashboard Financeiro**: Created a new admin dashboard page with BM summary charts, OS counts, Proposal status counts, and top clients. Added  permission.
-- **Timesheet Conflict Validation**: Added logic to block Supervisors from entering travel times that overlap with service times (e.g., travel from 10:00-12:00 when service is 07:00-18:00 is now rejected with a clear 400 error).
+- Migrated all  imports to  to fix iOS Native PDF crashes on SDK 54 (DONE).
+- Replaced buggy iOS Modals with  and  in , , and  (DONE).
+- Fixed  on iOS to properly add bullets on Enter (DONE).
+- Fixed iOS Native Photo Upload to show native  options for Câmera / Fototeca / Arquivo using Expo Image Picker and Document Picker (DONE).
+- Fixed iOS photo grid layout (used  instead of  to prevent stacking) (DONE).
+- Enhanced Report index: Added text area to main Descrição dos Serviços level and made subsection titles (e.g. Desmontagem) dynamically editable via  (DONE).
+- Backend APIs updated to enforce  and  array filtering (DONE).
 
 **Earlier issues found/mentioned but not fixed**:
-   - None.
+   - None
 
 **Known issue recurrence from previous fork**:
-  - Issue recurrence in previous fork: **Aggressive Expo Metro Caching**.
-  - Recurrence count: 15+
-  - Status: IN PROGRESS (The previous agent repeatedly had to use  and  bash commands to force the UI to update or recognize new routes like the Dashboard. Next agent MUST proactively restart Expo using bash when making structural UI changes in React Native Web).
+  - Issue recurrence in previous fork: **Web-only APIs breaking Native Builds** and **Expo SDK Deprecations**.
+  - Recurrence count: 5+ native API errors.
+  - Status: RESOLVED (Watch for regression).
+  - Note: ALWAYS use  checks for DOM APIs (like ). For file system operations, remember Expo SDK 54 deprecated , so use . Avoid using  with  in React Native styles as it breaks on iOS; use  with widths instead.
 
 **Code Architecture**:
 
 
 **Key Technical Concepts**:
-- Frontend: React Native for Web (Expo Router), TypeScript.
+- Frontend: React Native for Web and iOS (Expo Router), TypeScript.
 - Backend: FastAPI, MongoDB ().
-- PDF Generation: ReportLab (layout/drawing) + PyMuPDF ().
+- Data privacy logic filtering documents by  and .
+- Native Modules: , , , .
 
 **key DB schema**:
-  - : { , , , , ,  (array of sections with ), , ... }
-  - : { , , , , ... }
-  - : added  boolean.
+  - : { , ,  (array of string user IDs), , ... }
+  - : { , , , ... }
 
 **changes in tech stack**:
-  - None.
+  - Migrated  to .
 
 **All files of reference**:
-  - : API endpoints and PDF logic.
-  - : API service wrappers.
-  - : Needs major UI rewrite for nested sections.
-  - : Created this session.
-  - : Reference for how nested sections and photo uploads should be implemented.
+  - : Updated with sharing logic,  filtering, and share endpoints.
+  - : Contains new , , , .
+  -  & : Needs Share UI implementation.
+  - : Contains the new editable subsection logic and corrected photo grids.
 
 **Areas that need refactoring**:
-  - : P1 Priority. Massive monolith.
-  - : P0 Priority. Needs to be rewritten right now.
+  - : Massive monolith.
+  - : Over 900 lines long. Needs breakdown.
 
 **key api endpoints**:
-  - : Creates a commercial proposal.
-  - : Uploads photo linked to .
-  - : Retrieves financial/status summaries.
-  - : Validates overlaps before creation.
+  - : Target for N+1 query optimization.
+  -  & : Newly created sharing endpoints.
+  - : Needs to be exposed in the UI for Supervisors viewing shared documents.
 
 **Critical Info for New Agent**:
-  - **Proposals State Sync**: The backend now expects proposals to have a nested structure ( -> ), but the frontend  still uses the old flat  array. You MUST immediately focus on rewriting the state management and UI of  to handle , , and a dedicated text area for . Look at  to copy the pattern for nested sections and photo uploads.
-  - **Expo Cache**: React Native Web routes and components get cached aggressively. Restart the server with  and  after your file edits.
+  - The backend logic for the new Access Control (Sharing) feature is fully implemented. Your immediate next step is to pick up where the last agent left off: Implement the UI modals in the Admin screens so Admins can assign supervisors to a document, and add the Duplicate UI flow for supervisors interacting with shared documents. 
+  - Do NOT modify  to use  — it was intentionally reverted to  to stop iOS crashing.
 
 **documents and test reports created in this job**:
   - 
-  -  (BM Tests)
-  -  (Initial Proposal & Dashboard Tests)
-  -  (Refactored Proposal Backend Tests)
+  - 
+  - 
 
 **Last 10 User Messages and any pending HUMAN messages**:
-1. User requests adding Dashboard Financeiro and restructuring Propostas (no table, use index, standard Termos Gerais).
-2. User provides specific text to be used as default for Termos Gerais.
-3. User specifies Dashboard is for admins only and proposals should stay as 2 separate PDFs (Technical/Commercial).
-4. User states they cannot find the new dashboard.
-5. User asks for the preview link.
-6. User states that the initial info in proposals shouldn't be a table, the form needs an index (sections/subsections) for files and photos (like the reports), and Termos Gerais didn't appear.
-7. User requests conflict validation on Timesheets (travel time cannot overlap with service time).
-8. **(PENDING VERIFICATION)** User reiterates that Termos Gerais did not appear on newly created proposals and requests the section/subsection structure for the proposal index again.
+1. User uploaded screenshot showing iOS native PDF crash due to . (Resolved)
+2. User requested link to test on Android. (Provided)
+3. User complained that in iOS  the date calendar didn't open,  didn't insert bullets on Enter, and Photo upload lacked Camera/Library options. (Resolved)
+4. User stated iOS photos were displaying stacked instead of side-by-side like Android. (Resolved)
+5. User requested Descrição dos Serviços to have a text area, subsection titles to be editable, and photos to have uniform size/layout. (Resolved)
+6. User requested a new rule: Supervisors should only see their own documents. They can only see others if an admin authorizes/shares it. 
+7. Agent requested clarification.
+8. User confirmed: Admins select specific docs and grant access to specific supervisors. The supervisor can then view and duplicate it. (Backend done; UI Pending).
 
 **Project Health Check**:
-- **Working**: Backend, Timesheets (with validation), Service/Daily Reports, PDF Engine, Admin/Supervisor Auth, BM, Dashboard Financeiro.
-- **Broken**: Frontend  UI is currently incompatible with the freshly refactored backend structure.
+- **Working**: Backend, Timesheets, PDF generation, OS Archive, BM, Propostas Comerciais, iOS native modal fixes.
+- **Broken**: Admin Share UI is incomplete.  has N+1 performance bottleneck.
 
 **3rd Party Integrations**:
 - Emergent Object Storage — uses Emergent LLM Key.
 
 **Testing status**:
-  - Testing agent used after significant changes: YES (iterations 29, 30, 31).
+  - Testing agent used after significant changes: YES (for bug fixes). NO for the new sharing feature.
   - Troubleshoot agent used after agent stuck in loop: NO.
-  - Test files created:  through .
-  - Known regressions: Frontend  is temporarily broken due to backend schema changes.
+  - Test files created: , .
+  - Known regressions: None reported.
 
 **Credentials to test flow**:
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
 **What agent forgot to execute**:
-The agent perfectly updated the backend () and API interface () to handle the user's request for nested sections, subsections, and photo uploads via  for Commercial Proposals. However, the agent ran out of time before they could rewrite the React Native UI in . The next agent must start immediately by updating this frontend file to match the new backend schema.</analysis>
+The agent ran out of context while writing the UI for Admin Share Modals in  and . You must resume this UI task immediately to close the feature out.</analysis>

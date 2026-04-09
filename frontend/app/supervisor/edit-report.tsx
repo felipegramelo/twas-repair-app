@@ -18,7 +18,7 @@ interface Photo {
 
 const NO_PHOTO_SECTIONS = ['introduction', 'equipment', 'objective', 'service_description', 'daily_activities', 'observations', 'disassembly', 'assembly', 'ndt'];
 const NO_BULLET_SECTIONS = ['introduction', 'equipment', 'objective'];
-const NO_TEXT_SECTIONS = ['service_description', 'ndt'];
+const NO_TEXT_SECTIONS = ['ndt'];
 const IMAGE_ONLY_SECTIONS = ['pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'];
 const PDF_UPLOAD_SECTIONS = new Set(['ndt', 'pressure_test', 'certificate']);
 const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(key);
@@ -358,6 +358,16 @@ export default function EditReportScreen() {
     }));
   };
 
+  const updateSectionTitle = (sectionKey: string, title: string) => {
+    setSections(prev => prev.map(s => {
+      if (s.key === sectionKey) return { ...s, title };
+      return { ...s, subsections: s.subsections.map(sub => {
+        if (sub.key === sectionKey) return { ...sub, title };
+        return { ...sub, subsections: (sub.subsections || []).map(ss => ss.key === sectionKey ? { ...ss, title } : ss) };
+      })};
+    }));
+  };
+
   const addCustomSection = () => {
     if (!addingSectionTitle.trim()) return;
     const key = `custom_${Date.now()}`;
@@ -576,7 +586,13 @@ export default function EditReportScreen() {
                       const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(sec.key) || isPhotos || sub.key.startsWith('sub_') || sub.key.startsWith('custom_');
                       return (
                         <View key={sub.key} style={styles.subsectionBlock}>
-                          <Text style={styles.subsectionTitle}>{subNum}. {sub.title}</Text>
+                          <TextInput
+                            style={styles.subsectionTitleInput}
+                            value={sub.title}
+                            onChangeText={(t) => updateSectionTitle(sub.key, t)}
+                            placeholder="Nome da subseção..."
+                            data-testid={`subsection-title-${sub.key}`}
+                          />
                           {!isPhotos && !showPhotoUpload && <SectionTextArea sectionKey={sub.key} value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />}
                           {showPhotoUpload ? renderPhotoGrid(sub.key, true) : (canHavePhotos(sub.key) && renderPhotoGrid(sub.key))}
                           {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => {
@@ -584,7 +600,12 @@ export default function EditReportScreen() {
                             const isSP = isPhotoOnlySection(ss.key);
                             return (
                               <View key={ss.key} style={styles.subsubBlock}>
-                                <Text style={styles.subsubTitle}>{ssNum}. {ss.title}</Text>
+                                <TextInput
+                                  style={styles.subsubTitleInput}
+                                  value={ss.title}
+                                  onChangeText={(t) => updateSectionTitle(ss.key, t)}
+                                  placeholder="Nome da subseção..."
+                                />
                                 {!isSP && <SectionTextArea sectionKey={ss.key} value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} />}
                                 {isSP ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
                               </View>);
@@ -852,8 +873,10 @@ const styles = StyleSheet.create({
   sectionTitleText: { fontSize: 13, fontWeight: '700', color: '#1a237e', flex: 1 },
   subsectionBlock: { marginTop: 14, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: '#e3f2fd' },
   subsectionTitle: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 6 },
+  subsectionTitleInput: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', paddingVertical: 4, paddingHorizontal: 0, backgroundColor: 'transparent' },
   subsubBlock: { marginTop: 10, paddingLeft: 14 },
   subsubTitle: { fontSize: 11, fontWeight: '600', color: '#555', marginBottom: 4 },
+  subsubTitleInput: { fontSize: 12, fontWeight: '600', color: '#555', marginBottom: 4, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', paddingVertical: 2, paddingHorizontal: 0, backgroundColor: 'transparent' },
   // Add subsection
   addSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f0f4ff', borderRadius: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#d0d9f0', borderStyle: 'dashed' } as any,
   addSubBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },

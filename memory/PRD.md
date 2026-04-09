@@ -10,10 +10,12 @@ Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um único app "
 - Módulos Nativos: expo-sharing, expo-file-system/legacy, expo-image-picker, expo-document-picker
 - Storage: Emergent Object Storage
 
-## IMPORTANTE - Expo SDK 54
-- `expo-file-system`: Usar import de `expo-file-system/legacy` (a API padrão depreciou downloadAsync)
-- NÃO usar APIs web-only (window.alert, document.createElement) sem Platform.OS check
-- Modais aninhados não funcionam no iOS nativo - usar renderização inline
+## REGRAS IMPORTANTES - Expo SDK 54 / iOS
+- `expo-file-system`: SEMPRE usar import de `expo-file-system/legacy`
+- NÃO usar APIs web-only sem `Platform.OS` check (`window.alert`, `document.createElement`)
+- Modais aninhados NÃO funcionam no iOS nativo - usar renderização inline
+- Pickers/calendários devem ser inline dentro do modal pai no iOS
+- Upload de imagens no iOS deve oferecer 3 opções: Câmera, Fototeca, Arquivo
 
 ## Funcionalidades Implementadas
 - [x] Autenticação (Admin/Supervisor) com JWT
@@ -24,13 +26,16 @@ Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um único app "
 - [x] Dashboard Financeiro
 - [x] Propostas Comerciais (seções/subseções, fotos, termos gerais, campo serviço)
 - [x] Propostas Técnicas (PDF)
-- [x] iOS Native: Touch interactions (GestureHandlerRootView)
-- [x] iOS Native: File pickers (expo-image-picker, expo-document-picker)
-- [x] iOS Native: PDF download/sharing (expo-file-system/legacy + expo-sharing)
-- [x] iOS Native: Alert.alert em vez de window.alert
-- [x] iOS Native: Inline pickers no Timesheet (sem modais aninhados)
-- [x] iOS Native: Modal OS picker no Create Report
-- [x] iOS Native: Fix expo-file-system deprecated API (usar /legacy)
+- [x] iOS: GestureHandlerRootView + SafeAreaProvider
+- [x] iOS: File pickers nativos (expo-image-picker, expo-document-picker)
+- [x] iOS: PDF download/sharing (expo-file-system/legacy + expo-sharing)
+- [x] iOS: Alert.alert em vez de window.alert
+- [x] iOS: Inline pickers no Timesheet (sem modais aninhados)
+- [x] iOS: Modal OS picker no Create Report
+- [x] iOS: InlineCalendar para datas de período no Create Report
+- [x] iOS: BulletTextArea com auto-bullets no Enter (edit-report)
+- [x] iOS: Upload de imagens com 3 opções (Câmera/Fototeca/Arquivo)
+- [x] iOS: Fix expo-file-system/legacy (downloadAsync deprecated)
 
 ## Tarefas Pendentes
 
@@ -46,22 +51,3 @@ Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um único app "
 ## Credenciais de Teste
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
-
-## Arquitetura
-```
-/app
-├── backend/
-│   ├── .env
-│   ├── server.py
-│   └── requirements.txt
-├── frontend/
-│   ├── app/
-│   │   ├── _layout.tsx
-│   │   ├── admin/ (propostas, timesheets, reports, etc.)
-│   │   └── supervisor/ (create/edit timesheet, create/edit report)
-│   ├── utils/pdfHelper.ts (expo-file-system/legacy)
-│   ├── services/api.ts
-│   ├── contexts/AuthContext.tsx (token key: 'token')
-│   └── types/index.ts
-└── memory/PRD.md
-```

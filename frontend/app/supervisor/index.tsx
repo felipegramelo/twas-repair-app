@@ -275,9 +275,14 @@ export default function SupervisorDashboard() {
               <Text style={styles.title}>TWAS REPAIR</Text>
               <Text style={styles.subtitle}>Bem-vindo, {user?.name}</Text>
             </View>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} data-testid="logout-btn">
-              <Ionicons name="log-out-outline" size={24} color="#d32f2f" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity onPress={() => router.push('/supervisor/change-password')} style={styles.logoutButton} data-testid="change-password-btn">
+                <Ionicons name="key-outline" size={24} color="#1a237e" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} data-testid="logout-btn">
+                <Ionicons name="log-out-outline" size={24} color="#d32f2f" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity style={styles.createButton} onPress={() => setShowCreateModal(true)} data-testid="create-new-btn">
@@ -292,8 +297,9 @@ export default function SupervisorDashboard() {
               if (item.kind === 'timesheet') {
                 const ts = item.data;
                 const isFinalized = (ts as any).status === 'finalized';
+                const isShared = ts.supervisor_id !== user?.id;
                 return (
-                  <TouchableOpacity key={`ts-${ts.id}`} style={[styles.card, isFinalized && { opacity: 0.85 }]} onPress={() => !isFinalized && router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} activeOpacity={isFinalized ? 1 : 0.7} data-testid={`timesheet-card-${ts.id}`}>
+                  <TouchableOpacity key={`ts-${ts.id}`} style={[styles.card, isFinalized && { opacity: 0.85 }]} onPress={() => !isFinalized && !isShared && router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} activeOpacity={isFinalized || isShared ? 1 : 0.7} data-testid={`timesheet-card-${ts.id}`}>
                     <View style={styles.topRow}>
                       <View style={styles.badgeRow}>
                         <View style={styles.badge}><Text style={styles.badgeText}>{ts.os_number}</Text></View>
@@ -301,6 +307,12 @@ export default function SupervisorDashboard() {
                           <Ionicons name="time-outline" size={12} color="#1a237e" />
                           <Text style={[styles.typeBadgeText, { color: '#1a237e' }]}>Timesheet</Text>
                         </View>
+                        {isShared && (
+                          <View style={[styles.typeBadge, { backgroundColor: '#e0f2f1' }]}>
+                            <Ionicons name="share-social-outline" size={12} color="#00796b" />
+                            <Text style={[styles.typeBadgeText, { color: '#00796b' }]}>Compartilhado</Text>
+                          </View>
+                        )}
                         {isFinalized && (
                           <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
                             <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
@@ -310,7 +322,10 @@ export default function SupervisorDashboard() {
                       </View>
                       <View style={styles.actions}>
                         <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenPDF(ts); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                        {!isFinalized && (
+                        {isShared && (
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicateTimesheet(ts); }} style={styles.actionBtn} data-testid={`duplicate-shared-ts-${ts.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                        )}
+                        {!isFinalized && !isShared && (
                           <>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-timesheet?id=${ts.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteTimesheet(ts); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
@@ -325,6 +340,7 @@ export default function SupervisorDashboard() {
                       <Text style={styles.cardTitle}>{ts.client}</Text>
                       <Text style={styles.cardSubtitle}>{ts.location}</Text>
                       <Text style={styles.cardService} numberOfLines={1}>{ts.service}</Text>
+                      {isShared && <Text style={{ fontSize: 12, color: '#00796b', marginTop: 2 }}>Por: {ts.supervisor_name}</Text>}
                       <Text style={styles.cardMeta}>{ts.entries.length} entrada(s)</Text>
                       {ts.entries.length > 0 && <Text style={styles.dateRange}>{getDateRangeText(ts.entries)}</Text>}
                     </View>
@@ -333,8 +349,9 @@ export default function SupervisorDashboard() {
               }
               const rpt = item.data;
               const isRptFinalized = rpt.status === 'finalized';
+              const isRptShared = rpt.supervisor_id !== user?.id;
               return (
-                <TouchableOpacity key={`rpt-${rpt.id}`} style={[styles.card, isRptFinalized && { opacity: 0.85 }]} onPress={() => !isRptFinalized && router.push(`/supervisor/edit-report?id=${rpt.id}`)} activeOpacity={isRptFinalized ? 1 : 0.7} data-testid={`report-card-${rpt.id}`}>
+                <TouchableOpacity key={`rpt-${rpt.id}`} style={[styles.card, isRptFinalized && { opacity: 0.85 }]} onPress={() => !isRptFinalized && !isRptShared && router.push(`/supervisor/edit-report?id=${rpt.id}`)} activeOpacity={isRptFinalized || isRptShared ? 1 : 0.7} data-testid={`report-card-${rpt.id}`}>
                   <View style={styles.topRow}>
                     <View style={styles.badgeRow}>
                       <View style={styles.badge}><Text style={styles.badgeText}>{rpt.os_number}</Text></View>
@@ -342,6 +359,12 @@ export default function SupervisorDashboard() {
                         <Ionicons name={rpt.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(rpt.report_type)} />
                         <Text style={[styles.typeBadgeText, { color: getReportTypeColor(rpt.report_type) }]}>{getReportTypeLabel(rpt.report_type)}</Text>
                       </View>
+                      {isRptShared && (
+                        <View style={[styles.typeBadge, { backgroundColor: '#e0f2f1' }]}>
+                          <Ionicons name="share-social-outline" size={12} color="#00796b" />
+                          <Text style={[styles.typeBadgeText, { color: '#00796b' }]}>Compartilhado</Text>
+                        </View>
+                      )}
                       {isRptFinalized && (
                         <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
                           <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
@@ -351,7 +374,10 @@ export default function SupervisorDashboard() {
                     </View>
                     <View style={styles.actions}>
                       <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
-                      {!isRptFinalized && (
+                      {isRptShared && (
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-shared-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      )}
+                      {!isRptFinalized && !isRptShared && (
                         <>
                           <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-report?id=${rpt.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
                           <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
@@ -365,7 +391,8 @@ export default function SupervisorDashboard() {
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardTitle}>{rpt.client}</Text>
                     <Text style={styles.cardSubtitle}>{rpt.location} - {rpt.service}</Text>
-                    <Text style={styles.cardService} numberOfLines={1}>{rpt.supervisor_name}</Text>
+                    {isRptShared && <Text style={{ fontSize: 12, color: '#00796b', marginTop: 2 }}>Por: {rpt.supervisor_name}</Text>}
+                    {!isRptShared && <Text style={styles.cardService} numberOfLines={1}>{rpt.supervisor_name}</Text>}
                     <View style={styles.statusRow}>
                       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(rpt.status) + '20' }]}>
                         <Text style={[styles.statusText, { color: getStatusColor(rpt.status) }]}>{getStatusLabel(rpt.status)}</Text>

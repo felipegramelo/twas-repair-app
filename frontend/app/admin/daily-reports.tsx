@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { reportAPI } from '../../services/api';
+import { reportAPI, supervisorAPI, sharingAPI } from '../../services/api';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
 
 interface ReportItem {
@@ -14,6 +14,8 @@ interface ReportItem {
   location: string;
   service: string;
   supervisor_name: string;
+  supervisor_id: string;
+  shared_with: string[];
   status: string;
   created_at: string;
 }
@@ -22,8 +24,13 @@ export default function DailyReportsScreen() {
   const router = useRouter();
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [supervisors, setSupervisors] = useState<any[]>([]);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<ReportItem | null>(null);
+  const [selectedSupervisors, setSelectedSupervisors] = useState<string[]>([]);
+  const [sharing, setSharing] = useState(false);
 
-  useEffect(() => { loadReports(); }, []);
+  useEffect(() => { loadReports(); loadSupervisors(); }, []);
 
   const loadReports = async () => {
     try {
@@ -36,15 +43,15 @@ export default function DailyReportsScreen() {
     }
   };
 
+  const loadSupervisors = async () => {
+    try { const data = await supervisorAPI.getAll(); setSupervisors(data); } catch {}
+  };
+
   const handleOpenPDF = async (report: ReportItem) => {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
-      await downloadAndSharePDF(
-        () => reportAPI.downloadPDF(report.id),
-        nativeUrl,
-        `relatorio_diario_${report.os_number}.pdf`,
-      );
+      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, `relatorio_diario_${report.os_number}.pdf`);
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
       else Alert.alert('Erro', 'Erro ao abrir PDF');
@@ -55,11 +62,7 @@ export default function DailyReportsScreen() {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
-      await downloadAndSharePDF(
-        () => reportAPI.downloadPDF(report.id),
-        nativeUrl,
-        `relatorio_diario_${report.os_number}.pdf`,
-      );
+      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, `relatorio_diario_${report.os_number}.pdf`);
       if (Platform.OS === 'web') window.alert('PDF baixado com sucesso!');
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');
@@ -67,22 +70,59 @@ export default function DailyReportsScreen() {
     }
   };
 
+  const openShareModal = (report: ReportItem) => {
+    setSelectedDoc(report);
+    setSelectedSupervisors(report.shared_with || []);
+    setShareModalVisible(true);
+  };
+
+  const toggleSupervisor = (supId: string) => {
+    setSelectedSupervisors(prev =>
+      prev.includes(supId) ? prev.filter(id => id !== supId) : [...prev, supId]
+    );
+  };
+
+  const handleSaveSharing = async () => {
+    if (!selectedDoc) return;
+    setSharing(true);
+    try {
+      const currentShared = selectedDoc.shared_with || [];
+      const toAdd = selectedSupervisors.filter(id => !currentShared.includes(id));
+      const toRemove = currentShared.filter(id => !selectedSupervisors.includes(id));
+
+      if (toAdd.length > 0) {
+        await sharingAPI.share(selectedDoc.id, 'report', toAdd);
+      }
+      if (toRemove.length > 0) {
+        await sharingAPI.unshare(selectedDoc.id, 'report', toRemove);
+      }
+
+      setReports(prev => prev.map(r => r.id === selectedDoc.id ? { ...r, shared_with: selectedSupervisors } : r));
+      setShareModalVisible(false);
+      if (Platform.OS === 'web') window.alert('Compartilhamento atualizado!');
+      else Alert.alert('Sucesso', 'Compartilhamento atualizado!');
+    } catch (error) {
+      if (Platform.OS === 'web') window.alert('Erro ao compartilhar');
+      else Alert.alert('Erro', 'Erro ao compartilhar');
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     try { return new Date(dateStr).toLocaleDateString('pt-BR'); } catch { return dateStr; }
   };
-
-  const getStatusLabel = (s: string) => {
-    switch (s) { case 'draft': return 'Rascunho'; case 'completed': return 'Concluído'; default: return s; }
-  };
-  const getStatusColor = (s: string) => {
-    switch (s) { case 'draft': return '#ff9800'; case 'completed': return '#4caf50'; default: return '#999'; }
-  };
+  const getStatusLabel = (s: string) => { switch (s) { case 'draft': return 'Rascunho'; case 'completed': return 'Concluido'; case 'finalized': return 'Finalizado'; default: return s; } };
+  const getStatusColor = (s: string) => { switch (s) { case 'draft': return '#ff9800'; case 'completed': return '#4caf50'; case 'finalized': return '#1a237e'; default: return '#999'; } };
 
   const renderReport = ({ item }: { item: ReportItem }) => (
-    <View style={styles.card}>
+    <View style={styles.card} data-testid={`daily-report-card-${item.id}`}>
       <View style={styles.topRow}>
         <View style={styles.badge}><Text style={styles.badgeText}>{item.os_number}</Text></View>
         <View style={styles.actions}>
+          <TouchableOpacity onPress={() => openShareModal(item)} style={styles.actionBtn} data-testid={`share-daily-btn-${item.id}`}>
+            <Ionicons name="share-social-outline" size={20} color={item.shared_with?.length ? '#4caf50' : '#666'} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionBtn}>
             <Ionicons name="document-text-outline" size={20} color="#1a237e" />
           </TouchableOpacity>
@@ -95,6 +135,12 @@ export default function DailyReportsScreen() {
         <Text style={styles.cardTitle}>{item.client}</Text>
         <Text style={styles.cardSubtitle}>{item.location} - {item.service}</Text>
         <Text style={styles.cardMeta}>{item.supervisor_name}</Text>
+        {item.shared_with?.length > 0 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <Ionicons name="people-outline" size={14} color="#4caf50" />
+            <Text style={{ fontSize: 11, color: '#4caf50', marginLeft: 4 }}>Compartilhado com {item.shared_with.length} supervisor(es)</Text>
+          </View>
+        )}
         <View style={styles.statusRow}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
             <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{getStatusLabel(item.status)}</Text>
@@ -112,7 +158,7 @@ export default function DailyReportsScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#1a237e" />
           </TouchableOpacity>
-          <Text style={styles.title}>Relatórios Diários</Text>
+          <Text style={styles.title}>Relatorios Diarios</Text>
         </View>
         {loading ? (
           <ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 48 }} />
@@ -121,10 +167,42 @@ export default function DailyReportsScreen() {
         ) : (
           <View style={styles.empty}>
             <Ionicons name="calendar-outline" size={48} color="#ccc" />
-            <Text style={styles.emptyText}>Nenhum relatório diário encontrado</Text>
+            <Text style={styles.emptyText}>Nenhum relatorio diario encontrado</Text>
           </View>
         )}
       </ScrollView>
+
+      {/* Share Modal */}
+      <Modal visible={shareModalVisible} animationType="slide" transparent onRequestClose={() => setShareModalVisible(false)}>
+        <View style={styles.modalOverlay}><View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Compartilhar Documento</Text>
+          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+            Selecione os supervisores que terao acesso:
+          </Text>
+          <ScrollView style={{ maxHeight: 300 }}>
+            {supervisors.filter(s => s.id !== selectedDoc?.supervisor_id).map(sup => (
+              <TouchableOpacity key={sup.id} style={styles.supItem} onPress={() => toggleSupervisor(sup.id)} data-testid={`share-sup-${sup.id}`}>
+                <Ionicons name={selectedSupervisors.includes(sup.id) ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '500', color: '#212121' }}>{sup.name}</Text>
+                  <Text style={{ fontSize: 13, color: '#666' }}>{sup.email}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            {supervisors.filter(s => s.id !== selectedDoc?.supervisor_id).length === 0 && (
+              <Text style={{ padding: 16, textAlign: 'center', color: '#999' }}>Nenhum outro supervisor encontrado</Text>
+            )}
+          </ScrollView>
+          <View style={styles.modalBtns}>
+            <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShareModalVisible(false)} data-testid="share-cancel-btn">
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSaveSharing} disabled={sharing} data-testid="share-save-btn">
+              {sharing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.confirmText}>Salvar</Text>}
+            </TouchableOpacity>
+          </View>
+        </View></View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -151,4 +229,14 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 12, color: '#999' },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { fontSize: 14, color: '#999', marginTop: 12 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 8 },
+  supItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  cancelBtn: { backgroundColor: '#f5f5f5' },
+  cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
+  confirmBtn: { backgroundColor: '#1a237e' },
+  confirmText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

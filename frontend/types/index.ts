@@ -86,6 +86,8 @@ export interface Timesheet {
   observations?: string;
   supervisor_id: string;
   supervisor_name: string;
+  shared_with?: string[];
+  status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -110,6 +112,7 @@ export interface Report {
   service: string;
   supervisor_id: string;
   supervisor_name: string;
+  shared_with?: string[];
   periodo_inicio: string;
   periodo_fim: string;
   executado_por: string;

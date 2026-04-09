@@ -16,7 +16,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supervisorAPI } from '../../services/api';
+import { supervisorAPI, adminAPI } from '../../services/api';
 import { User } from '../../types';
 
 export default function SupervisorsScreen() {
@@ -29,6 +29,11 @@ export default function SupervisorsScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetTarget, setResetTarget] = useState<User | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     loadSupervisors();
@@ -124,6 +129,35 @@ export default function SupervisorsScreen() {
     setModalVisible(true);
   };
 
+  const openResetPasswordModal = (supervisor: User) => {
+    setResetTarget(supervisor);
+    setResetPassword('');
+    setShowResetPassword(false);
+    setResetModalVisible(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    if (!resetPassword.trim() || resetPassword.length < 6) {
+      if (Platform.OS === 'web') window.alert('A senha deve ter no minimo 6 caracteres');
+      else Alert.alert('Erro', 'A senha deve ter no minimo 6 caracteres');
+      return;
+    }
+    setResetting(true);
+    try {
+      await adminAPI.resetUserPassword(resetTarget.id, resetPassword);
+      setResetModalVisible(false);
+      if (Platform.OS === 'web') window.alert(`Senha de ${resetTarget.name} redefinida com sucesso!`);
+      else Alert.alert('Sucesso', `Senha de ${resetTarget.name} redefinida com sucesso!`);
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Erro ao redefinir senha';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Erro', msg);
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const renderSupervisor = ({ item }: { item: User }) => (
     <View style={styles.card}>
       <View style={styles.cardContent}>
@@ -136,6 +170,9 @@ export default function SupervisorsScreen() {
         </View>
       </View>
       <View style={styles.cardActions}>
+        <TouchableOpacity onPress={() => openResetPasswordModal(item)} style={styles.actionButton} data-testid={`reset-pwd-btn-${item.id}`}>
+          <Ionicons name="key" size={20} color="#ff9800" />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
           <Ionicons name="pencil" size={20} color="#1a237e" />
         </TouchableOpacity>
@@ -264,6 +301,72 @@ export default function SupervisorsScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Reset Password Modal */}
+      <Modal
+        visible={resetModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setResetModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Redefinir Senha</Text>
+            {resetTarget && (
+              <Text style={{ fontSize: 14, color: '#666', marginBottom: 16, textAlign: 'center' }}>
+                Supervisor: {resetTarget.name}
+              </Text>
+            )}
+
+            <Text style={styles.inputLabel}>Nova Senha *</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Minimo 6 caracteres"
+                value={resetPassword}
+                onChangeText={setResetPassword}
+                secureTextEntry={!showResetPassword}
+                autoCapitalize="none"
+                data-testid="reset-password-input"
+              />
+              <TouchableOpacity
+                onPress={() => setShowResetPassword(!showResetPassword)}
+                style={styles.eyeButton}
+              >
+                <Ionicons
+                  name={showResetPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#666"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setResetModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton, resetting && { opacity: 0.6 }]}
+                onPress={handleResetPassword}
+                disabled={resetting}
+                data-testid="confirm-reset-password-btn"
+              >
+                {resetting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Redefinir</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>

@@ -86,6 +86,10 @@ export const adminAPI = {
     const response = await api.put('/auth/change-password', { current_password: currentPassword, new_password: newPassword });
     return response.data;
   },
+  resetUserPassword: async (userId: string, newPassword: string) => {
+    const response = await api.put(`/admin/reset-password/${userId}`, { new_password: newPassword });
+    return response.data;
+  },
 };
 
 // Employee API

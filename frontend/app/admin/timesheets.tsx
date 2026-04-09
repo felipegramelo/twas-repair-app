@@ -1,18 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  Alert,
-  Platform,
+  View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, Platform, Modal, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { timesheetAPI } from '../../services/api';
+import { timesheetAPI, supervisorAPI, sharingAPI } from '../../services/api';
 import { Timesheet } from '../../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -33,17 +26,20 @@ function getDateRangeText(entries: Timesheet['entries']): string {
   const first = uniqueDates[0];
   const last = uniqueDates[uniqueDates.length - 1];
   if (first === last) return `Timesheet do dia ${first}`;
-  return `Timesheet do dia ${first} até ${last}`;
+  return `Timesheet do dia ${first} ate ${last}`;
 }
 
 export default function AdminTimesheetsScreen() {
   const router = useRouter();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [supervisors, setSupervisors] = useState<any[]>([]);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<Timesheet | null>(null);
+  const [selectedSupervisors, setSelectedSupervisors] = useState<string[]>([]);
+  const [sharing, setSharing] = useState(false);
 
-  useEffect(() => {
-    loadTimesheets();
-  }, []);
+  useEffect(() => { loadTimesheets(); loadSupervisors(); }, []);
 
   const loadTimesheets = async () => {
     try {
@@ -55,6 +51,10 @@ export default function AdminTimesheetsScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadSupervisors = async () => {
+    try { const data = await supervisorAPI.getAll(); setSupervisors(data); } catch {}
   };
 
   const handleOpenPDF = async (timesheet: Timesheet) => {
@@ -136,7 +136,7 @@ export default function AdminTimesheetsScreen() {
       }
     } else {
       Alert.alert(
-        'Confirmar Exclusão',
+        'Confirmar Exclusao',
         `Excluir timesheet ${timesheet.os_number} - ${timesheet.client}?`,
         [
           { text: 'Cancelar', style: 'cancel' },
@@ -150,11 +150,50 @@ export default function AdminTimesheetsScreen() {
     try {
       await timesheetAPI.delete(id);
       setTimesheets(prev => prev.filter(t => t.id !== id));
-      if (Platform.OS === 'web') window.alert('Timesheet excluído!');
-      else Alert.alert('Sucesso', 'Timesheet excluído com sucesso!');
+      if (Platform.OS === 'web') window.alert('Timesheet excluido!');
+      else Alert.alert('Sucesso', 'Timesheet excluido com sucesso!');
     } catch (error: any) {
       if (Platform.OS === 'web') window.alert('Erro ao excluir');
       else Alert.alert('Erro', 'Erro ao excluir timesheet');
+    }
+  };
+
+  const openShareModal = (ts: Timesheet) => {
+    setSelectedDoc(ts);
+    setSelectedSupervisors(ts.shared_with || []);
+    setShareModalVisible(true);
+  };
+
+  const toggleSupervisor = (supId: string) => {
+    setSelectedSupervisors(prev =>
+      prev.includes(supId) ? prev.filter(id => id !== supId) : [...prev, supId]
+    );
+  };
+
+  const handleSaveSharing = async () => {
+    if (!selectedDoc) return;
+    setSharing(true);
+    try {
+      const currentShared = selectedDoc.shared_with || [];
+      const toAdd = selectedSupervisors.filter(id => !currentShared.includes(id));
+      const toRemove = currentShared.filter(id => !selectedSupervisors.includes(id));
+
+      if (toAdd.length > 0) {
+        await sharingAPI.share(selectedDoc.id, 'timesheet', toAdd);
+      }
+      if (toRemove.length > 0) {
+        await sharingAPI.unshare(selectedDoc.id, 'timesheet', toRemove);
+      }
+
+      setTimesheets(prev => prev.map(t => t.id === selectedDoc.id ? { ...t, shared_with: [...selectedSupervisors] } : t));
+      setShareModalVisible(false);
+      if (Platform.OS === 'web') window.alert('Compartilhamento atualizado!');
+      else Alert.alert('Sucesso', 'Compartilhamento atualizado!');
+    } catch (error) {
+      if (Platform.OS === 'web') window.alert('Erro ao compartilhar');
+      else Alert.alert('Erro', 'Erro ao compartilhar');
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -165,6 +204,9 @@ export default function AdminTimesheetsScreen() {
           <Text style={styles.badgeText}>{item.os_number}</Text>
         </View>
         <View style={styles.actions}>
+          <TouchableOpacity onPress={() => openShareModal(item)} style={styles.actionButton} data-testid={`share-ts-btn-${item.id}`}>
+            <Ionicons name="share-social-outline" size={22} color={(item.shared_with?.length || 0) > 0 ? '#4caf50' : '#666'} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionButton} data-testid={`open-pdf-btn-${item.id}`}>
             <Ionicons name="document-text-outline" size={22} color="#1a237e" />
           </TouchableOpacity>
@@ -184,6 +226,12 @@ export default function AdminTimesheetsScreen() {
         <Text style={styles.cardMeta}>{item.entries.length} entrada(s)</Text>
         {item.entries.length > 0 && (
           <Text style={styles.dateRange} data-testid={`timesheet-date-range-${item.id}`}>{getDateRangeText(item.entries)}</Text>
+        )}
+        {(item.shared_with?.length || 0) > 0 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <Ionicons name="people-outline" size={14} color="#4caf50" />
+            <Text style={{ fontSize: 11, color: '#4caf50', marginLeft: 4 }}>Compartilhado com {item.shared_with!.length} supervisor(es)</Text>
+          </View>
         )}
       </View>
     </View>
@@ -219,6 +267,38 @@ export default function AdminTimesheetsScreen() {
           </View>
         }
       />
+
+      {/* Share Modal */}
+      <Modal visible={shareModalVisible} animationType="slide" transparent onRequestClose={() => setShareModalVisible(false)}>
+        <View style={styles.modalOverlay}><View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Compartilhar Timesheet</Text>
+          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+            Selecione os supervisores que terao acesso:
+          </Text>
+          <ScrollView style={{ maxHeight: 300 }}>
+            {supervisors.filter(s => s.id !== selectedDoc?.supervisor_id).map(sup => (
+              <TouchableOpacity key={sup.id} style={styles.supItem} onPress={() => toggleSupervisor(sup.id)} data-testid={`share-ts-sup-${sup.id}`}>
+                <Ionicons name={selectedSupervisors.includes(sup.id) ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '500', color: '#212121' }}>{sup.name}</Text>
+                  <Text style={{ fontSize: 13, color: '#666' }}>{sup.email}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            {supervisors.filter(s => s.id !== selectedDoc?.supervisor_id).length === 0 && (
+              <Text style={{ padding: 16, textAlign: 'center', color: '#999' }}>Nenhum outro supervisor encontrado</Text>
+            )}
+          </ScrollView>
+          <View style={styles.modalBtns}>
+            <TouchableOpacity style={[styles.modalBtn, styles.cancelMBtn]} onPress={() => setShareModalVisible(false)} data-testid="share-ts-cancel-btn">
+              <Text style={styles.cancelMText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalBtn, styles.confirmMBtn]} onPress={handleSaveSharing} disabled={sharing} data-testid="share-ts-save-btn">
+              {sharing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.confirmMText}>Salvar</Text>}
+            </TouchableOpacity>
+          </View>
+        </View></View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -244,4 +324,15 @@ const styles = StyleSheet.create({
   actionButton: { padding: 8 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 64 },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
+  // Share Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 8 },
+  supItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  cancelMBtn: { backgroundColor: '#f5f5f5' },
+  cancelMText: { color: '#666', fontSize: 16, fontWeight: '600' },
+  confirmMBtn: { backgroundColor: '#1a237e' },
+  confirmMText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

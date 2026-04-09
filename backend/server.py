@@ -573,6 +573,25 @@ async def change_password(data: ChangePasswordRequest, current_user: Dict[str, A
     return {"message": "Senha alterada com sucesso"}
 
 
+class AdminResetPasswordRequest(BaseModel):
+    new_password: str
+
+
+@api_router.put("/admin/reset-password/{user_id}")
+async def admin_reset_password(user_id: str, data: AdminResetPasswordRequest, current_user: Dict[str, Any] = Depends(get_admin_user)):
+    """Admin resets any user's password without knowing the current one."""
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="A nova senha deve ter no mínimo 6 caracteres")
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"password_hash": get_password_hash(data.new_password)}}
+    )
+    return {"message": "Senha redefinida com sucesso"}
+
+
 # ==================== ADMIN MANAGEMENT ENDPOINTS ====================
 
 @api_router.get("/users/admins", response_model=List[UserResponse])

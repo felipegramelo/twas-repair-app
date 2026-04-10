@@ -14,10 +14,8 @@
       "distribution": "internal"
     },
     "production": {
-      "autoSubmit": true,
       "ios": {
-        "buildConfiguration": "Release",
-        "autoSubmit": true
+        "buildConfiguration": "Release"
       }
     }
   },

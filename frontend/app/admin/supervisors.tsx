@@ -162,7 +162,7 @@ export default function SupervisorsScreen() {
     <View style={styles.card}>
       <View style={styles.cardContent}>
         <View style={styles.iconContainer}>
-          <Ionicons name="person-circle" size={40} color="#1a237e" />
+          <Ionicons name="person-circle" size={40} color="#000000" />
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle}>{item.name}</Text>
@@ -174,7 +174,7 @@ export default function SupervisorsScreen() {
           <Ionicons name="key" size={20} color="#ff9800" />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
-          <Ionicons name="pencil" size={20} color="#1a237e" />
+          <Ionicons name="pencil" size={20} color="#000000" />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
           <Ionicons name="trash" size={20} color="#d32f2f" />
@@ -186,7 +186,7 @@ export default function SupervisorsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a237e" />
+        <ActivityIndicator size="large" color="#000000" />
       </View>
     );
   }
@@ -195,7 +195,7 @@ export default function SupervisorsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1a237e" />
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={styles.title}>Supervisores</Text>
         <TouchableOpacity onPress={openAddModal} style={styles.addButton}>
@@ -400,10 +400,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1a237e',
+    color: '#000000',
   },
   addButton: {
-    backgroundColor: '#1a237e',
+    backgroundColor: '#000000',
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1a237e',
+    color: '#000000',
     marginBottom: 24,
   },
   inputLabel: {
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   saveButton: {
-    backgroundColor: '#1a237e',
+    backgroundColor: '#000000',
   },
   saveButtonText: {
     color: '#fff',

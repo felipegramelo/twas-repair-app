@@ -257,13 +257,13 @@ export default function BMScreen() {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
+  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#000000" /></View>;
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace('/admin')} style={s.backBtn} data-testid="bm-back-btn">
-          <Ionicons name="arrow-back" size={24} color="#1a237e" />
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={s.title}>Boletim de Medição</Text>
         <View style={{ width: 40 }} />
@@ -300,10 +300,10 @@ export default function BMScreen() {
                 </View>
                 <View style={s.cardActions}>
                   <TouchableOpacity style={s.actionBtn} onPress={() => handleOpenPDF(bm.id)} data-testid={`bm-pdf-${bm.id}`}>
-                    <Ionicons name="eye-outline" size={18} color="#1a237e" /><Text style={s.actionText}>Ver PDF</Text>
+                    <Ionicons name="eye-outline" size={18} color="#000000" /><Text style={s.actionText}>Ver PDF</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={s.actionBtn} onPress={() => handleEditBM(bm)} data-testid={`bm-edit-${bm.id}`}>
-                    <Ionicons name="create-outline" size={18} color="#1a237e" /><Text style={s.actionText}>Editar</Text>
+                    <Ionicons name="create-outline" size={18} color="#000000" /><Text style={s.actionText}>Editar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[s.actionBtn, { borderColor: '#d32f2f' }]} onPress={() => handleDeleteBM(bm.id)} data-testid={`bm-delete-${bm.id}`}>
                     <Ionicons name="trash-outline" size={18} color="#d32f2f" /><Text style={[s.actionText, { color: '#d32f2f' }]}>Excluir</Text>
@@ -337,7 +337,7 @@ export default function BMScreen() {
                 ))}
                 <View style={s.cardActions}>
                   <TouchableOpacity style={s.actionBtn} onPress={() => openPriceForm(pt)}>
-                    <Ionicons name="create-outline" size={18} color="#1a237e" /><Text style={s.actionText}>Editar</Text>
+                    <Ionicons name="create-outline" size={18} color="#000000" /><Text style={s.actionText}>Editar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[s.actionBtn, { borderColor: '#d32f2f' }]} onPress={() => handleDeletePrice(pt.id)}>
                     <Ionicons name="trash-outline" size={18} color="#d32f2f" /><Text style={[s.actionText, { color: '#d32f2f' }]}>Excluir</Text>
@@ -367,7 +367,7 @@ export default function BMScreen() {
 
               {/* Timesheet selection */}
               {selectedOS && loadingTimesheets && (
-                <ActivityIndicator style={{ marginTop: 12 }} color="#1a237e" />
+                <ActivityIndicator style={{ marginTop: 12 }} color="#000000" />
               )}
               {selectedOS && !loadingTimesheets && availableTimesheets.length > 0 && (
                 <>
@@ -389,7 +389,7 @@ export default function BMScreen() {
                       <Ionicons
                         name={selectedTimesheets.includes(ts.id) ? 'checkbox' : 'square-outline'}
                         size={22}
-                        color={selectedTimesheets.includes(ts.id) ? '#1a237e' : '#999'}
+                        color={selectedTimesheets.includes(ts.id) ? '#000000' : '#999'}
                       />
                       <View style={s.tsInfo}>
                         <Text style={s.tsDate}>{ts.date_range || 'Sem datas'}</Text>
@@ -601,48 +601,48 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   backBtn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
   tabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#1a237e' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#000000' },
   tabText: { fontSize: 14, color: '#999' },
-  tabTextActive: { color: '#1a237e', fontWeight: '600' },
+  tabTextActive: { color: '#000000', fontWeight: '600' },
   scrollContent: { padding: 16 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a237e', paddingVertical: 12, borderRadius: 10, marginBottom: 16, gap: 8 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', paddingVertical: 12, borderRadius: 10, marginBottom: 16, gap: 8 },
   addBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 64 },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, padding: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  osBadge: { backgroundColor: '#1a237e', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginRight: 10 },
+  osBadge: { backgroundColor: '#000000', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginRight: 10 },
   osBadgeText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   cardInfo: { flex: 1 },
   cardClient: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardMeta: { fontSize: 12, color: '#666', marginTop: 2 },
-  cardTotal: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
+  cardTotal: { fontSize: 16, fontWeight: '700', color: '#000000' },
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#1a237e' },
-  actionText: { fontSize: 13, color: '#1a237e' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: '#000000' },
+  actionText: { fontSize: 13, color: '#000000' },
   priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4, paddingHorizontal: 8 },
   priceFunc: { fontSize: 13, fontWeight: '500', color: '#333', flex: 1 },
   priceVal: { fontSize: 12, color: '#666', marginLeft: 8 },
   // Modal styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '90%', maxWidth: 600, maxHeight: '90%' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16, textAlign: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 16, textAlign: 'center' },
   label: { fontSize: 13, fontWeight: '600', color: '#333', marginTop: 12, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#333' },
   pickerWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   soOption: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f5f5f5' },
-  soOptionActive: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  soOptionActive: { backgroundColor: '#000000', borderColor: '#000000' },
   soOptionText: { fontSize: 13, color: '#333' },
   calcBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ff6f00', paddingVertical: 10, borderRadius: 8, marginTop: 12, gap: 8 },
   calcBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   // Timesheet selection styles
   tsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 8 },
-  selectAllText: { fontSize: 13, color: '#1a237e', fontWeight: '600' },
+  selectAllText: { fontSize: 13, color: '#000000', fontWeight: '600' },
   tsItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', padding: 12, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: '#eee', gap: 10 },
-  tsItemActive: { backgroundColor: '#e8eaf6', borderColor: '#1a237e' },
+  tsItemActive: { backgroundColor: '#f0f0f0', borderColor: '#000000' },
   tsInfo: { flex: 1 },
   tsDate: { fontSize: 13, fontWeight: '600', color: '#333' },
   tsMeta: { fontSize: 11, color: '#666', marginTop: 2 },
@@ -650,18 +650,18 @@ const s = StyleSheet.create({
   // Date picker styles
   dateRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
   dateField: { flex: 1 },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#1a237e', marginTop: 16, marginBottom: 8 },
+  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#000000', marginTop: 16, marginBottom: 8 },
   calcItem: { backgroundColor: '#f5f5f5', padding: 10, borderRadius: 8, marginBottom: 6 },
   calcFunc: { fontSize: 13, fontWeight: '600', color: '#333' },
   calcDetail: { fontSize: 12, color: '#666', marginTop: 2 },
-  calcSubtotal: { fontSize: 15, fontWeight: '700', color: '#1a237e', marginTop: 8, textAlign: 'right' },
+  calcSubtotal: { fontSize: 15, fontWeight: '700', color: '#000000', marginTop: 8, textAlign: 'right' },
   // Imposto toggle styles
   impostoToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   impostoToggle: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f5f5f5' },
-  impostoToggleActive: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  impostoToggleActive: { backgroundColor: '#000000', borderColor: '#000000' },
   impostoToggleText: { fontSize: 13, fontWeight: '600', color: '#666' },
   impostoCalcText: { fontSize: 13, color: '#666', marginTop: 6, textAlign: 'right' },
-  saveBtn: { backgroundColor: '#1a237e', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 16 },
+  saveBtn: { backgroundColor: '#000000', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 16 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   cancelBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 8 },
   cancelBtnText: { color: '#999', fontSize: 14 },

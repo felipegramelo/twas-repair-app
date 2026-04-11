@@ -74,6 +74,7 @@ export default function PropostasScreen() {
   const [contato, setContato] = useState('');
   const [email, setEmail] = useState('');
   const [embarcacao, setEmbarcacao] = useState('');
+  const [local, setLocal] = useState('');
   const [equipamento, setEquipamento] = useState('');
   const [servico, setServico] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -122,6 +123,7 @@ export default function PropostasScreen() {
     setContato(proposal.contato);
     setEmail(proposal.email);
     setEmbarcacao(proposal.embarcacao);
+    setLocal(proposal.local || '');
     setEquipamento(proposal.equipamento);
     setServico(proposal.servico || '');
     setObservacoes(proposal.observacoes || '');
@@ -233,7 +235,7 @@ export default function PropostasScreen() {
     }
     try {
       const payload = {
-        empresa, contato, email, embarcacao, equipamento, servico, observacoes,
+        empresa, contato, email, embarcacao, local, equipamento, servico, observacoes,
         itens: itens.map(item => ({
           ...item,
           subsections: (item.subsections || []).map(sub => ({
@@ -345,8 +347,8 @@ export default function PropostasScreen() {
           disabled={uploadingSectionKey === sectionKey}
           data-testid={`upload-photo-${sectionKey}`}
         >
-          {uploadingSectionKey === sectionKey ? <ActivityIndicator size="small" color="#1a237e" /> : (
-            <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={s.uploadBtnText}>Adicionar Foto/Arquivo</Text></>
+          {uploadingSectionKey === sectionKey ? <ActivityIndicator size="small" color="#000000" /> : (
+            <><Ionicons name="cloud-upload-outline" size={18} color="#000000" /><Text style={s.uploadBtnText}>Adicionar Foto/Arquivo</Text></>
           )}
         </TouchableOpacity>
       </View>
@@ -372,11 +374,12 @@ export default function PropostasScreen() {
         <Text style={s.cardTitle}>{item.empresa}</Text>
         <Text style={s.cardSub}>A/C: {item.contato}</Text>
         {item.embarcacao ? <Text style={s.cardSub}>Embarcacao: {item.embarcacao}</Text> : null}
+        {item.local ? <Text style={s.cardSub}>Local: {item.local}</Text> : null}
         <Text style={s.cardTotal}>{formatCurrency(calcTotal(item.itens))} ({sectionLabel})</Text>
 
         {isAprovada && (
           <View style={s.approvedInfo}>
-            <View style={s.infoRow}><Ionicons name="receipt" size={14} color="#1a237e" /><Text style={s.infoText}>P.O.: {item.po_number}</Text></View>
+            <View style={s.infoRow}><Ionicons name="receipt" size={14} color="#000000" /><Text style={s.infoText}>P.O.: {item.po_number}</Text></View>
             <View style={s.infoRow}><Ionicons name="document-text" size={14} color="#2e7d32" /><Text style={s.infoText}>O.S.: {item.os_number}</Text></View>
           </View>
         )}
@@ -389,7 +392,7 @@ export default function PropostasScreen() {
         )}
 
         <View style={s.pdfRow}>
-          <TouchableOpacity style={[s.pdfBtn, { backgroundColor: '#1a237e' }]} onPress={() => handleDownloadPDF(item, 'comercial')} disabled={downloading === `${item.id}-comercial`} data-testid={`pdf-comercial-${item.id}`}>
+          <TouchableOpacity style={[s.pdfBtn, { backgroundColor: '#000000' }]} onPress={() => handleDownloadPDF(item, 'comercial')} disabled={downloading === `${item.id}-comercial`} data-testid={`pdf-comercial-${item.id}`}>
             {downloading === `${item.id}-comercial` ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="document-text" size={16} color="#fff" /><Text style={s.pdfBtnText}>PDF Comercial</Text></>}
           </TouchableOpacity>
           <TouchableOpacity style={[s.pdfBtn, { backgroundColor: '#2e7d32' }]} onPress={() => handleDownloadPDF(item, 'tecnica')} disabled={downloading === `${item.id}-tecnica`} data-testid={`pdf-tecnica-${item.id}`}>
@@ -400,7 +403,7 @@ export default function PropostasScreen() {
         <View style={s.cardActions}>
           {!isAprovada && (
             <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionBtn} data-testid={`edit-proposal-${item.id}`}>
-              <Ionicons name="pencil" size={20} color="#1a237e" />
+              <Ionicons name="pencil" size={20} color="#000000" />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn} data-testid={`delete-proposal-${item.id}`}>
@@ -425,16 +428,16 @@ export default function PropostasScreen() {
       )}
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}><Ionicons name="arrow-back" size={24} color="#1a237e" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}><Ionicons name="arrow-back" size={24} color="#000000" /></TouchableOpacity>
         <Text style={s.title}>Propostas</Text>
         <TouchableOpacity onPress={openAddModal} style={s.addBtn} data-testid="add-proposal-btn"><Ionicons name="add" size={24} color="#fff" /></TouchableOpacity>
       </View>
 
       <View style={s.filterBar}>
         <TouchableOpacity style={s.filterBtn} onPress={() => setFilterPickerVisible(true)} data-testid="filter-btn">
-          <Ionicons name="calendar" size={18} color="#1a237e" />
+          <Ionicons name="calendar" size={18} color="#000000" />
           <Text style={s.filterLabel}>{getFilterLabel()}</Text>
-          <Ionicons name="chevron-down" size={16} color="#1a237e" />
+          <Ionicons name="chevron-down" size={16} color="#000000" />
         </TouchableOpacity>
         <View style={s.statsRow}>
           <View style={[s.statBadge, { backgroundColor: '#FFF3E0' }]}><Text style={[s.statText, { color: '#e65100' }]}>{pendentesCount} Pend.</Text></View>
@@ -443,7 +446,7 @@ export default function PropostasScreen() {
       </View>
 
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>
+        <View style={s.center}><ActivityIndicator size="large" color="#000000" /></View>
       ) : (
         <FlatList data={proposals} renderItem={renderProposal} keyExtractor={(item) => item.id} contentContainerStyle={{ padding: 16 }}
           ListEmptyComponent={<View style={s.empty}><Ionicons name="briefcase-outline" size={64} color="#ccc" /><Text style={s.emptyText}>Nenhuma proposta encontrada</Text></View>} />
@@ -476,7 +479,7 @@ export default function PropostasScreen() {
         <View style={s.modalOverlay}>
           <View style={[s.modalContent, { maxWidth: 400, alignSelf: 'center' }]}>
             <Text style={s.modalTitle}>Informar P.O.</Text>
-            {poProposal && <View style={{ marginBottom: 16 }}><Text style={s.cardSub}>Proposta: <Text style={{ fontWeight: '700', color: '#1a237e' }}>{poProposal.numero_proposta}</Text></Text><Text style={s.cardSub}>{poProposal.empresa}</Text></View>}
+            {poProposal && <View style={{ marginBottom: 16 }}><Text style={s.cardSub}>Proposta: <Text style={{ fontWeight: '700', color: '#000000' }}>{poProposal.numero_proposta}</Text></Text><Text style={s.cardSub}>{poProposal.empresa}</Text></View>}
             <Text style={s.label}>Numero da P.O. *</Text>
             <TextInput style={s.input} placeholder="Ex: PO-2026-001" value={poNumber} onChangeText={setPONumber} autoFocus data-testid="po-number-input" />
             <Text style={s.hintText}>Ao informar a P.O., a proposta sera aprovada e uma O.S. sera criada.</Text>
@@ -508,6 +511,9 @@ export default function PropostasScreen() {
 
               <Text style={s.label}>Embarcacao / Plataforma</Text>
               <TextInput style={s.input} placeholder="Ex: Plataforma P-71" value={embarcacao} onChangeText={setEmbarcacao} />
+
+              <Text style={s.label}>Local</Text>
+              <TextInput style={s.input} placeholder="Ex: Bacia de Santos" value={local} onChangeText={setLocal} data-testid="proposal-local-input" />
 
               <Text style={s.label}>Equipamento</Text>
               <TextInput style={s.input} placeholder="Ex: Turbina Principal" value={equipamento} onChangeText={setEquipamento} />
@@ -557,7 +563,7 @@ export default function PropostasScreen() {
               <View style={s.itemsHeader}>
                 <Text style={s.sectionTitle}>Escopo dos Servicos</Text>
                 <TouchableOpacity onPress={addItem} style={s.addItemBtn} data-testid="add-item-btn">
-                  <Ionicons name="add-circle" size={28} color="#1a237e" />
+                  <Ionicons name="add-circle" size={28} color="#000000" />
                 </TouchableOpacity>
               </View>
 
@@ -570,10 +576,10 @@ export default function PropostasScreen() {
                       <View style={s.sectionNumBadge}><Text style={s.sectionNumText}>{idx + 1}</Text></View>
                       <Text style={s.sectionLabel} numberOfLines={1}>{item.titulo || `Secao ${idx + 1}`}</Text>
                       <View style={{ flex: 1 }} />
-                      <TouchableOpacity onPress={() => moveItem(idx, 'up')} disabled={idx === 0} style={{ opacity: idx === 0 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-up" size={18} color="#1a237e" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => moveItem(idx, 'down')} disabled={idx === itens.length - 1} style={{ opacity: idx === itens.length - 1 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-down" size={18} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => moveItem(idx, 'up')} disabled={idx === 0} style={{ opacity: idx === 0 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-up" size={18} color="#000000" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => moveItem(idx, 'down')} disabled={idx === itens.length - 1} style={{ opacity: idx === itens.length - 1 ? 0.3 : 1, padding: 4 }}><Ionicons name="arrow-down" size={18} color="#000000" /></TouchableOpacity>
                       <TouchableOpacity onPress={() => removeItem(idx)} style={{ padding: 4 }} data-testid={`remove-item-${idx}`}><Ionicons name="close-circle" size={22} color="#d32f2f" /></TouchableOpacity>
-                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" style={{ marginLeft: 4 }} />
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={20} color="#000000" style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
 
                     {isExpanded && (
@@ -655,8 +661,8 @@ export default function PropostasScreen() {
                     data-testid="termos-gerais-input"
                   />
                   <TouchableOpacity onPress={() => setTermosGerais(DEFAULT_TERMOS)} style={s.resetTermosBtn}>
-                    <Ionicons name="refresh" size={16} color="#1a237e" />
-                    <Text style={{ color: '#1a237e', fontSize: 12, fontWeight: '600' }}>Restaurar texto padrao</Text>
+                    <Ionicons name="refresh" size={16} color="#000000" />
+                    <Text style={{ color: '#000000', fontSize: 12, fontWeight: '600' }}>Restaurar texto padrao</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -681,18 +687,18 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   backBtn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
   addBtn: { backgroundColor: '#2e7d32', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   filterBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e8e8e8' },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8EAF6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  filterLabel: { fontSize: 14, fontWeight: '600', color: '#1a237e' },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F0F0F0', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  filterLabel: { fontSize: 14, fontWeight: '600', color: '#000000' },
   statsRow: { flexDirection: 'row', gap: 8 },
   statBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   statText: { fontSize: 12, fontWeight: '600' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   headerRight: { alignItems: 'flex-end', gap: 4 },
-  numberBadge: { backgroundColor: '#1a237e', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  numberBadge: { backgroundColor: '#000000', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   numberText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   statusText: { fontSize: 11, fontWeight: '700' },
@@ -715,30 +721,30 @@ const s = StyleSheet.create({
   hintText: { fontSize: 12, color: '#888', marginTop: 4, fontStyle: 'italic' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '95%' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 6, marginTop: 10 },
   input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 4 },
   // Intro
   introContainer: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 14, marginTop: 12, borderWidth: 1, borderColor: '#FFE082' },
   introText: { fontSize: 13, color: '#555', lineHeight: 20 },
-  introBold: { fontWeight: '700', color: '#1a237e' },
+  introBold: { fontWeight: '700', color: '#000000' },
   // Index
-  indexSection: { backgroundColor: '#E8EAF6', borderRadius: 10, padding: 14, marginTop: 16, borderWidth: 1, borderColor: '#C5CAE9' },
-  indexTitle: { fontSize: 15, fontWeight: '700', color: '#1a237e', marginBottom: 10 },
+  indexSection: { backgroundColor: '#F0F0F0', borderRadius: 10, padding: 14, marginTop: 16, borderWidth: 1, borderColor: '#d0d0d0' },
+  indexTitle: { fontSize: 15, fontWeight: '700', color: '#000000', marginBottom: 10 },
   indexList: { gap: 6 },
   indexItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  indexNumBadge: { backgroundColor: '#1a237e', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  indexNumBadge: { backgroundColor: '#000000', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   indexNumText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   indexItemText: { fontSize: 14, color: '#333', flex: 1, fontWeight: '500' },
   // Section
   itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#000000' },
   addItemBtn: { padding: 4 },
-  sectionCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#C5CAE9' },
+  sectionCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#d0d0d0' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionNumBadge: { backgroundColor: '#1a237e', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
+  sectionNumBadge: { backgroundColor: '#000000', width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
   sectionNumText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#1a237e', maxWidth: '40%' },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#000000', maxWidth: '40%' },
   // Subsection
   subsectionCard: { backgroundColor: '#f8f9ff', borderRadius: 8, padding: 10, marginTop: 8, marginLeft: 8, borderWidth: 1, borderColor: '#D1D5F0', borderLeftWidth: 3, borderLeftColor: '#5C6BC0' },
   subsectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
@@ -751,11 +757,11 @@ const s = StyleSheet.create({
   photoThumb: { width: 48, height: 48, borderRadius: 6, backgroundColor: '#ddd' },
   photoName: { flex: 1, fontSize: 12, color: '#333' },
   photoDeleteBtn: { padding: 6 },
-  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#e3f2fd', borderRadius: 8, alignSelf: 'flex-start', marginTop: 6 },
-  uploadBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f0f0f0', borderRadius: 8, alignSelf: 'flex-start', marginTop: 6 },
+  uploadBtnText: { fontSize: 13, fontWeight: '500', color: '#000000' },
   // Total
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#E8EAF6', borderRadius: 8, marginTop: 8 },
-  totalLabel: { fontSize: 15, fontWeight: '700', color: '#1a237e' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#F0F0F0', borderRadius: 8, marginTop: 8 },
+  totalLabel: { fontSize: 15, fontWeight: '700', color: '#000000' },
   totalValue: { fontSize: 15, fontWeight: '700', color: '#2e7d32' },
   // Termos
   termosToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#ECEFF1', borderRadius: 10, padding: 12, marginTop: 16, borderWidth: 1, borderColor: '#B0BEC5' },
@@ -767,16 +773,16 @@ const s = StyleSheet.create({
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f5f5f5' },
   cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  saveBtn: { backgroundColor: '#1a237e' },
+  saveBtn: { backgroundColor: '#000000' },
   saveText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   yearRow: { flexDirection: 'row', gap: 8 },
   yearBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#f5f5f5', alignItems: 'center' },
-  yearBtnActive: { backgroundColor: '#1a237e' },
+  yearBtnActive: { backgroundColor: '#000000' },
   yearBtnText: { fontSize: 15, fontWeight: '600', color: '#666' },
   yearBtnTextActive: { color: '#fff' },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   monthBtn: { width: '22%', paddingVertical: 8, borderRadius: 6, backgroundColor: '#f5f5f5', alignItems: 'center' },
-  monthBtnActive: { backgroundColor: '#1a237e' },
+  monthBtnActive: { backgroundColor: '#000000' },
   monthBtnText: { fontSize: 13, fontWeight: '600', color: '#666' },
   monthBtnTextActive: { color: '#fff' },
 });

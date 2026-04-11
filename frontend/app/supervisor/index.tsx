@@ -277,7 +277,7 @@ export default function SupervisorDashboard() {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <TouchableOpacity onPress={() => router.push('/supervisor/change-password')} style={styles.logoutButton} data-testid="change-password-btn">
-                <Ionicons name="key-outline" size={24} color="#1a237e" />
+                <Ionicons name="key-outline" size={24} color="#000000" />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleLogout} style={styles.logoutButton} data-testid="logout-btn">
                 <Ionicons name="log-out-outline" size={24} color="#d32f2f" />
@@ -291,7 +291,7 @@ export default function SupervisorDashboard() {
           </TouchableOpacity>
 
           {loading ? (
-            <ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 24 }} />
+            <ActivityIndicator size="large" color="#000000" style={{ marginTop: 24 }} />
           ) : unifiedItems.length > 0 ? (
             unifiedItems.map((item) => {
               if (item.kind === 'timesheet') {
@@ -303,37 +303,39 @@ export default function SupervisorDashboard() {
                     <View style={styles.topRow}>
                       <View style={styles.badgeRow}>
                         <View style={styles.badge}><Text style={styles.badgeText}>{ts.os_number}</Text></View>
-                        <View style={[styles.typeBadge, { backgroundColor: '#e8eaf6' }]}>
-                          <Ionicons name="time-outline" size={12} color="#1a237e" />
-                          <Text style={[styles.typeBadgeText, { color: '#1a237e' }]}>Timesheet</Text>
+                        <View style={styles.badgeTypeLine}>
+                          <View style={[styles.typeBadge, { backgroundColor: '#f0f0f0' }]}>
+                            <Ionicons name="time-outline" size={12} color="#000" />
+                            <Text style={[styles.typeBadgeText, { color: '#000' }]}>Timesheet</Text>
+                          </View>
+                          {isShared && (
+                            <View style={[styles.typeBadge, { backgroundColor: '#e0f2f1' }]}>
+                              <Ionicons name="share-social-outline" size={12} color="#00796b" />
+                              <Text style={[styles.typeBadgeText, { color: '#00796b' }]}>Compartilhado</Text>
+                            </View>
+                          )}
+                          {isFinalized && (
+                            <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
+                              <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
+                              <Text style={[styles.typeBadgeText, { color: '#2e7d32' }]}>Finalizado</Text>
+                            </View>
+                          )}
                         </View>
-                        {isShared && (
-                          <View style={[styles.typeBadge, { backgroundColor: '#e0f2f1' }]}>
-                            <Ionicons name="share-social-outline" size={12} color="#00796b" />
-                            <Text style={[styles.typeBadgeText, { color: '#00796b' }]}>Compartilhado</Text>
-                          </View>
-                        )}
-                        {isFinalized && (
-                          <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
-                            <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
-                            <Text style={[styles.typeBadgeText, { color: '#2e7d32' }]}>Finalizado</Text>
-                          </View>
-                        )}
                       </View>
                       <View style={styles.actions}>
-                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenPDF(ts); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenPDF(ts); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#000000" /></TouchableOpacity>
                         {isShared && (
-                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicateTimesheet(ts); }} style={styles.actionBtn} data-testid={`duplicate-shared-ts-${ts.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicateTimesheet(ts); }} style={styles.actionBtn} data-testid={`duplicate-shared-ts-${ts.id}`}><Ionicons name="copy-outline" size={20} color="#000000" /></TouchableOpacity>
                         )}
                         {!isFinalized && !isShared && (
                           <>
-                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-timesheet?id=${ts.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-timesheet?id=${ts.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteTimesheet(ts); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
-                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicateTimesheet(ts); }} style={styles.actionBtn} data-testid={`duplicate-ts-${ts.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicateTimesheet(ts); }} style={styles.actionBtn} data-testid={`duplicate-ts-${ts.id}`}><Ionicons name="copy-outline" size={20} color="#000000" /></TouchableOpacity>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeTimesheet(ts); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-ts-${ts.id}`}><Ionicons name="checkmark-done" size={20} color="#2e7d32" /></TouchableOpacity>
                           </>
                         )}
-                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadPDF(ts); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadPDF(ts); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#000000" /></TouchableOpacity>
                       </View>
                     </View>
                     <View style={styles.cardInfo}>
@@ -355,37 +357,39 @@ export default function SupervisorDashboard() {
                   <View style={styles.topRow}>
                     <View style={styles.badgeRow}>
                       <View style={styles.badge}><Text style={styles.badgeText}>{rpt.os_number}</Text></View>
-                      <View style={[styles.typeBadge, { backgroundColor: getReportTypeColor(rpt.report_type) + '15' }]}>
-                        <Ionicons name={rpt.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(rpt.report_type)} />
-                        <Text style={[styles.typeBadgeText, { color: getReportTypeColor(rpt.report_type) }]}>{getReportTypeLabel(rpt.report_type)}</Text>
+                      <View style={styles.badgeTypeLine}>
+                        <View style={[styles.typeBadge, { backgroundColor: getReportTypeColor(rpt.report_type) + '15' }]}>
+                          <Ionicons name={rpt.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(rpt.report_type)} />
+                          <Text style={[styles.typeBadgeText, { color: getReportTypeColor(rpt.report_type) }]}>{getReportTypeLabel(rpt.report_type)}</Text>
+                        </View>
+                        {isRptShared && (
+                          <View style={[styles.typeBadge, { backgroundColor: '#e0f2f1' }]}>
+                            <Ionicons name="share-social-outline" size={12} color="#00796b" />
+                            <Text style={[styles.typeBadgeText, { color: '#00796b' }]}>Compartilhado</Text>
+                          </View>
+                        )}
+                        {isRptFinalized && (
+                          <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
+                            <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
+                            <Text style={[styles.typeBadgeText, { color: '#2e7d32' }]}>Finalizado</Text>
+                          </View>
+                        )}
                       </View>
-                      {isRptShared && (
-                        <View style={[styles.typeBadge, { backgroundColor: '#e0f2f1' }]}>
-                          <Ionicons name="share-social-outline" size={12} color="#00796b" />
-                          <Text style={[styles.typeBadgeText, { color: '#00796b' }]}>Compartilhado</Text>
-                        </View>
-                      )}
-                      {isRptFinalized && (
-                        <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
-                          <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
-                          <Text style={[styles.typeBadgeText, { color: '#2e7d32' }]}>Finalizado</Text>
-                        </View>
-                      )}
                     </View>
                     <View style={styles.actions}>
-                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleOpenReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="document-text-outline" size={20} color="#000000" /></TouchableOpacity>
                       {isRptShared && (
-                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-shared-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-shared-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#000000" /></TouchableOpacity>
                       )}
                       {!isRptFinalized && !isRptShared && (
                         <>
-                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-report?id=${rpt.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
-                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-report?id=${rpt.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#000000" /></TouchableOpacity>
                           <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteReport(rpt); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
                           <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeReport(rpt); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-rpt-${rpt.id}`}><Ionicons name="checkmark-done" size={20} color="#2e7d32" /></TouchableOpacity>
                         </>
                       )}
-                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#1a237e" /></TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#000000" /></TouchableOpacity>
                     </View>
                   </View>
                   <View style={styles.cardInfo}>
@@ -418,7 +422,7 @@ export default function SupervisorDashboard() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>O que deseja criar?</Text>
             <TouchableOpacity style={styles.modalOption} onPress={() => handleCreateOption('timesheet')} data-testid="create-timesheet-option">
-              <Ionicons name="time-outline" size={28} color="#1a237e" />
+              <Ionicons name="time-outline" size={28} color="#000000" />
               <View style={styles.modalOptionText}>
                 <Text style={styles.modalOptionTitle}>Timesheet</Text>
                 <Text style={styles.modalOptionDesc}>Registro de horas trabalhadas</Text>
@@ -502,16 +506,17 @@ const styles = StyleSheet.create({
   innerContainer: { flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}) } as any,
   scrollContent: { padding: 16, paddingBottom: 32 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1a237e' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#000000' },
   subtitle: { fontSize: 16, color: '#666', marginTop: 4 },
   logoutButton: { padding: 8 },
-  createButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, marginBottom: 16 },
+  createButton: { backgroundColor: '#000000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, marginBottom: 16 },
   createButtonText: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, ...(Platform.OS === 'web' ? { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } : { elevation: 2 }) } as any,
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  topRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
+  badgeRow: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, flexShrink: 1 },
+  badgeTypeLine: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  badge: { backgroundColor: '#f0f0f0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  badgeText: { color: '#000000', fontWeight: '600', fontSize: 12 },
   typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   typeBadgeText: { fontSize: 11, fontWeight: '600' },
   actions: { flexDirection: 'row', gap: 2 },
@@ -521,7 +526,7 @@ const styles = StyleSheet.create({
   cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
   cardService: { fontSize: 13, color: '#444', marginTop: 2, fontStyle: 'italic' },
   cardMeta: { fontSize: 12, color: '#999', marginTop: 4 },
-  dateRange: { fontSize: 12, color: '#1a237e', marginTop: 4, fontWeight: '500' },
+  dateRange: { fontSize: 12, color: '#000000', marginTop: 4, fontWeight: '500' },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
   statusText: { fontSize: 11, fontWeight: '600' },
@@ -530,7 +535,7 @@ const styles = StyleSheet.create({
   // Create Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#1a237e', marginBottom: 20, textAlign: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: '#000000', marginBottom: 20, textAlign: 'center' },
   modalOption: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 12, backgroundColor: '#f8f9fa', marginBottom: 12 },
   modalOptionText: { flex: 1, marginLeft: 12 },
   modalOptionTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
@@ -550,6 +555,6 @@ const styles = StyleSheet.create({
   dupActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
   dupCancelBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#e0e0e0' },
   dupCancelText: { fontSize: 16, color: '#666', fontWeight: '500' },
-  dupConfirmBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#1a237e', flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  dupConfirmBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#000000', flexDirection: 'row', justifyContent: 'center', gap: 8 },
   dupConfirmText: { fontSize: 16, color: '#fff', fontWeight: '600' },
 });

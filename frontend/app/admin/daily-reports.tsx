@@ -113,7 +113,7 @@ export default function DailyReportsScreen() {
     try { return new Date(dateStr).toLocaleDateString('pt-BR'); } catch { return dateStr; }
   };
   const getStatusLabel = (s: string) => { switch (s) { case 'draft': return 'Rascunho'; case 'completed': return 'Concluido'; case 'finalized': return 'Finalizado'; default: return s; } };
-  const getStatusColor = (s: string) => { switch (s) { case 'draft': return '#ff9800'; case 'completed': return '#4caf50'; case 'finalized': return '#1a237e'; default: return '#999'; } };
+  const getStatusColor = (s: string) => { switch (s) { case 'draft': return '#ff9800'; case 'completed': return '#4caf50'; case 'finalized': return '#000000'; default: return '#999'; } };
 
   const renderReport = ({ item }: { item: ReportItem }) => (
     <View style={styles.card} data-testid={`daily-report-card-${item.id}`}>
@@ -124,10 +124,10 @@ export default function DailyReportsScreen() {
             <Ionicons name="share-social-outline" size={20} color={item.shared_with?.length ? '#4caf50' : '#666'} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionBtn}>
-            <Ionicons name="document-text-outline" size={20} color="#1a237e" />
+            <Ionicons name="document-text-outline" size={20} color="#000000" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.actionBtn}>
-            <Ionicons name="download-outline" size={20} color="#1a237e" />
+            <Ionicons name="download-outline" size={20} color="#000000" />
           </TouchableOpacity>
         </View>
       </View>
@@ -156,12 +156,12 @@ export default function DailyReportsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1a237e" />
+            <Ionicons name="arrow-back" size={24} color="#000000" />
           </TouchableOpacity>
           <Text style={styles.title}>Relatorios Diarios</Text>
         </View>
         {loading ? (
-          <ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 48 }} />
+          <ActivityIndicator size="large" color="#000000" style={{ marginTop: 48 }} />
         ) : reports.length > 0 ? (
           <FlatList data={reports} renderItem={renderReport} keyExtractor={item => item.id} scrollEnabled={false} />
         ) : (
@@ -182,7 +182,7 @@ export default function DailyReportsScreen() {
           <ScrollView style={{ maxHeight: 300 }}>
             {supervisors.filter(s => s.id !== selectedDoc?.supervisor_id).map(sup => (
               <TouchableOpacity key={sup.id} style={styles.supItem} onPress={() => toggleSupervisor(sup.id)} data-testid={`share-sup-${sup.id}`}>
-                <Ionicons name={selectedSupervisors.includes(sup.id) ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
+                <Ionicons name={selectedSupervisors.includes(sup.id) ? 'checkbox' : 'square-outline'} size={24} color="#000000" />
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={{ fontSize: 15, fontWeight: '500', color: '#212121' }}>{sup.name}</Text>
                   <Text style={{ fontSize: 13, color: '#666' }}>{sup.email}</Text>
@@ -212,11 +212,11 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 },
   backBtn: { padding: 8 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#1a237e' },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#000000' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  badge: { backgroundColor: '#f0f0f0', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  badgeText: { color: '#000000', fontWeight: '600', fontSize: 12 },
   actions: { flexDirection: 'row', gap: 4 },
   actionBtn: { padding: 8 },
   cardInfo: { paddingLeft: 2 },
@@ -231,12 +231,12 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: '#999', marginTop: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '80%' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 8 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 8 },
   supItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 16 },
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f5f5f5' },
   cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  confirmBtn: { backgroundColor: '#1a237e' },
+  confirmBtn: { backgroundColor: '#000000' },
   confirmText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

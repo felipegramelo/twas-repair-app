@@ -51,7 +51,7 @@ export default function LoginScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#1a237e" />
+        <ActivityIndicator size="large" color="#000000" />
       </View>
     );
   }
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1a237e',
+    color: '#000000',
     marginTop: 16,
   },
   subtitle: {
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#1a237e',
+    backgroundColor: '#000000',
     height: 56,
     borderRadius: 12,
     justifyContent: 'center',

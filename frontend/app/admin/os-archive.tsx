@@ -168,7 +168,7 @@ export default function OSArchiveScreen() {
     return (
       <View style={s.docSection} data-testid={`doc-section-${type}`}>
         <View style={s.docSectionHeader}>
-          <Ionicons name={icon as any} size={18} color="#1a237e" />
+          <Ionicons name={icon as any} size={18} color="#000000" />
           <Text style={s.docSectionTitle}>{title} ({docs.length})</Text>
         </View>
         {docs.map(doc => (
@@ -200,14 +200,14 @@ export default function OSArchiveScreen() {
                 style={s.docActionBtn}
                 data-testid={`view-pdf-${doc.id}`}
               >
-                <Ionicons name="eye-outline" size={20} color="#1a237e" />
+                <Ionicons name="eye-outline" size={20} color="#000000" />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => type === 'timesheet' ? handleDownloadTimesheetPDF(doc) : handleDownloadReportPDF(doc)}
                 style={s.docActionBtn}
                 data-testid={`download-pdf-${doc.id}`}
               >
-                <Ionicons name="download-outline" size={20} color="#1a237e" />
+                <Ionicons name="download-outline" size={20} color="#000000" />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => type === 'timesheet' ? handleRevertTimesheet(doc) : handleRevertReport(doc)}
@@ -223,13 +223,13 @@ export default function OSArchiveScreen() {
     );
   };
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
+  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#000000" /></View>;
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace('/admin')} style={s.backBtn} data-testid="archive-back-btn">
-          <Ionicons name="arrow-back" size={24} color="#1a237e" />
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={s.title}>Arquivo por O.S.</Text>
         <View style={{ width: 40 }} />
@@ -287,7 +287,7 @@ export default function OSArchiveScreen() {
                     <Ionicons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={22}
-                      color="#1a237e"
+                      color="#000000"
                     />
                   </View>
                 </TouchableOpacity>
@@ -323,7 +323,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#e0e0e0',
   },
   backBtn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
     marginHorizontal: 16, marginTop: 12, marginBottom: 4, borderRadius: 10,
@@ -345,7 +345,7 @@ const s = StyleSheet.create({
   },
   osHeaderLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   osBadge: {
-    backgroundColor: '#1a237e', paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: '#000000', paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: 8, marginRight: 12,
   },
   osBadgeText: { color: '#fff', fontWeight: '700', fontSize: 13 },
@@ -354,10 +354,10 @@ const s = StyleSheet.create({
   osLocation: { fontSize: 13, color: '#666', marginTop: 2 },
   osHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 8 },
   countBadge: {
-    backgroundColor: '#e3f2fd', paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: '#f0f0f0', paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: 12,
   },
-  countText: { fontSize: 12, fontWeight: '600', color: '#1a237e' },
+  countText: { fontSize: 12, fontWeight: '600', color: '#000000' },
   osBody: {
     borderTopWidth: 1, borderTopColor: '#eee', paddingHorizontal: 16,
     paddingVertical: 12,
@@ -369,11 +369,11 @@ const s = StyleSheet.create({
     marginBottom: 8, paddingBottom: 6,
     borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
   },
-  docSectionTitle: { fontSize: 14, fontWeight: '600', color: '#1a237e' },
+  docSectionTitle: { fontSize: 14, fontWeight: '600', color: '#000000' },
   docCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#fafafa', borderRadius: 8, padding: 12, marginBottom: 6,
-    borderLeftWidth: 3, borderLeftColor: '#1a237e',
+    borderLeftWidth: 3, borderLeftColor: '#000000',
   },
   docInfo: { flex: 1 },
   docSupervisor: { fontSize: 14, fontWeight: '500', color: '#333' },

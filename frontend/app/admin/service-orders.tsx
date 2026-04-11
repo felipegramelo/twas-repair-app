@@ -163,22 +163,22 @@ export default function ServiceOrdersScreen() {
     return filterMonth === 0 ? `${filterYear}` : `${monthLabel}/${filterYear}`;
   };
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
+  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#000000" /></View>;
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.btn}><Ionicons name="arrow-back" size={24} color="#1a237e" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={s.btn}><Ionicons name="arrow-back" size={24} color="#000000" /></TouchableOpacity>
         <Text style={s.title}>Ordens de Serviço</Text>
-        <TouchableOpacity onPress={openAdd} style={s.btn}><Ionicons name="add" size={28} color="#1a237e" /></TouchableOpacity>
+        <TouchableOpacity onPress={openAdd} style={s.btn}><Ionicons name="add" size={28} color="#000000" /></TouchableOpacity>
       </View>
 
       {/* Filter Bar */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e8e8e8' }}>
-        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8EAF6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }} onPress={() => setFilterPickerVisible(true)} data-testid="so-filter-btn">
-          <Ionicons name="calendar" size={18} color="#1a237e" />
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1a237e' }}>{getFilterLabel()}</Text>
-          <Ionicons name="chevron-down" size={16} color="#1a237e" />
+        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F0F0F0', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }} onPress={() => setFilterPickerVisible(true)} data-testid="so-filter-btn">
+          <Ionicons name="calendar" size={18} color="#000000" />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#000000' }}>{getFilterLabel()}</Text>
+          <Ionicons name="chevron-down" size={16} color="#000000" />
         </TouchableOpacity>
         <Text style={{ fontSize: 13, color: '#666' }}>{serviceOrders.length} O.S.</Text>
       </View>
@@ -198,7 +198,7 @@ export default function ServiceOrdersScreen() {
               </View>
             </TouchableOpacity>
             <View style={s.actions}>
-              <TouchableOpacity onPress={() => openEdit(item)} style={s.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => openEdit(item)} style={s.actionBtn}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
               <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
             </View>
           </View>
@@ -224,7 +224,7 @@ export default function ServiceOrdersScreen() {
           <View style={s.sectionHeader}>
             <Text style={s.label}>Funcionários ({soEmployees.length})</Text>
             <TouchableOpacity onPress={() => { setSelectedNewEmps([]); setEmployeePickerVisible(true); }} style={s.addEmpBtn}>
-              <Ionicons name="add" size={18} color="#1a237e" /><Text style={s.addEmpText}>Adicionar</Text>
+              <Ionicons name="add" size={18} color="#000000" /><Text style={s.addEmpText}>Adicionar</Text>
             </TouchableOpacity>
           </View>
 
@@ -233,7 +233,7 @@ export default function ServiceOrdersScreen() {
               <Text style={s.empName} numberOfLines={1}>{getEmpName(soEmp.employee_id)}</Text>
               <TouchableOpacity style={s.funcBadge} onPress={() => openFuncPicker(idx)}>
                 <Text style={s.funcBadgeText}>{soEmp.function}</Text>
-                <Ionicons name="chevron-down" size={14} color="#1a237e" />
+                <Ionicons name="chevron-down" size={14} color="#000000" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => removeEmployee(idx)} style={s.removeBtn}>
                 <Ionicons name="close-circle" size={22} color="#d32f2f" />
@@ -270,7 +270,7 @@ export default function ServiceOrdersScreen() {
                   <View style={[s.checkbox, isSelected && s.checkboxChecked]}>
                     {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
                   </View>
-                  <Text style={[s.pickerItemText, isSelected && { color: '#1a237e', fontWeight: '600' }]}>{emp.name}</Text>
+                  <Text style={[s.pickerItemText, isSelected && { color: '#000000', fontWeight: '600' }]}>{emp.name}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -331,7 +331,7 @@ export default function ServiceOrdersScreen() {
           <Text style={s.label}>Ano</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {[2025, 2026, 2027].map(y => (
-              <TouchableOpacity key={y} style={{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: filterYear === y ? '#1a237e' : '#f5f5f5', alignItems: 'center' }} onPress={() => setFilterYear(y)}>
+              <TouchableOpacity key={y} style={{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: filterYear === y ? '#000000' : '#f5f5f5', alignItems: 'center' }} onPress={() => setFilterYear(y)}>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: filterYear === y ? '#fff' : '#666' }}>{y}</Text>
               </TouchableOpacity>
             ))}
@@ -339,7 +339,7 @@ export default function ServiceOrdersScreen() {
           <Text style={[s.label, { marginTop: 12 }]}>Mes</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
             {MONTHS_SO.map(m => (
-              <TouchableOpacity key={m.value} style={{ width: '22%', paddingVertical: 8, borderRadius: 6, backgroundColor: filterMonth === m.value ? '#1a237e' : '#f5f5f5', alignItems: 'center' }} onPress={() => setFilterMonth(m.value)}>
+              <TouchableOpacity key={m.value} style={{ width: '22%', paddingVertical: 8, borderRadius: 6, backgroundColor: filterMonth === m.value ? '#000000' : '#f5f5f5', alignItems: 'center' }} onPress={() => setFilterMonth(m.value)}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: filterMonth === m.value ? '#fff' : '#666' }}>{m.label}</Text>
               </TouchableOpacity>
             ))}
@@ -358,47 +358,47 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   btn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', elevation: 2 },
   cardContent: { flexDirection: 'row', flex: 1 },
-  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 12 },
-  badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  badge: { backgroundColor: '#f0f0f0', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 12 },
+  badgeText: { color: '#000000', fontWeight: '600', fontSize: 12 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardSub: { fontSize: 14, color: '#666', marginTop: 4 },
   cardMeta: { fontSize: 12, color: '#999', marginTop: 4 },
-  cardEmps: { fontSize: 11, color: '#1a237e', marginTop: 6, fontStyle: 'italic' },
+  cardEmps: { fontSize: 11, color: '#000000', marginTop: 6, fontStyle: 'italic' },
   actions: { flexDirection: 'row', gap: 4 },
   actionBtn: { padding: 8 },
   empty: { alignItems: 'center', paddingVertical: 64 },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16, textAlign: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '85%' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8, marginTop: 12 },
   input: { backgroundColor: '#fff', borderRadius: 8, padding: 14, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 8 },
   addEmpBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addEmpText: { fontSize: 14, color: '#1a237e', fontWeight: '600' },
+  addEmpText: { fontSize: 14, color: '#000000', fontWeight: '600' },
   empRow: { flexDirection: 'row', alignItems: 'center', padding: 10, backgroundColor: '#f5f5f5', borderRadius: 8, marginBottom: 8 },
   empName: { flex: 1, fontSize: 14, color: '#212121' },
-  funcBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e3f2fd', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 8, gap: 4 },
-  funcBadgeText: { color: '#1a237e', fontWeight: '600', fontSize: 13 },
+  funcBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 8, gap: 4 },
+  funcBadgeText: { color: '#000000', fontWeight: '600', fontSize: 13 },
   removeBtn: { padding: 4 },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f5f5f5' },
   cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  saveBtn: { backgroundColor: '#1a237e' },
+  saveBtn: { backgroundColor: '#000000' },
   saveText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  selectAllRow: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 2, borderBottomColor: '#1a237e', marginBottom: 4, gap: 12 },
-  selectAllText: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
+  selectAllRow: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 2, borderBottomColor: '#000000', marginBottom: 4, gap: 12 },
+  selectAllText: { fontSize: 16, fontWeight: '700', color: '#000000' },
   checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 2, borderColor: '#bdbdbd', justifyContent: 'center', alignItems: 'center' },
-  checkboxChecked: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  checkboxChecked: { backgroundColor: '#000000', borderColor: '#000000' },
   pickerItem: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', gap: 12 },
   pickerItemText: { fontSize: 16, color: '#212121' },
   closeBtn: { backgroundColor: '#f5f5f5', height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   closeBtnText: { fontSize: 16, fontWeight: '600', color: '#666' },
   funcItem: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', gap: 12 },
-  funcItemText: { fontSize: 18, fontWeight: '700', color: '#1a237e', width: 36 },
+  funcItemText: { fontSize: 18, fontWeight: '700', color: '#000000', width: 36 },
   funcItemDesc: { fontSize: 16, color: '#666' },
 });

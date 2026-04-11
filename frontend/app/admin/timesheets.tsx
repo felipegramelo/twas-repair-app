@@ -208,10 +208,10 @@ export default function AdminTimesheetsScreen() {
             <Ionicons name="share-social-outline" size={22} color={(item.shared_with?.length || 0) > 0 ? '#4caf50' : '#666'} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => handleOpenPDF(item)} style={styles.actionButton} data-testid={`open-pdf-btn-${item.id}`}>
-            <Ionicons name="document-text-outline" size={22} color="#1a237e" />
+            <Ionicons name="document-text-outline" size={22} color="#000000" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => handleDownloadPDF(item)} style={styles.actionButton} data-testid={`download-pdf-btn-${item.id}`}>
-            <Ionicons name="download-outline" size={22} color="#1a237e" />
+            <Ionicons name="download-outline" size={22} color="#000000" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton} data-testid={`delete-btn-${item.id}`}>
             <Ionicons name="trash-outline" size={22} color="#d32f2f" />
@@ -240,7 +240,7 @@ export default function AdminTimesheetsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1a237e" />
+        <ActivityIndicator size="large" color="#000000" />
       </View>
     );
   }
@@ -249,7 +249,7 @@ export default function AdminTimesheetsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1a237e" />
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={styles.title}>Todos os Timesheets</Text>
         <View style={{ width: 40 }} />
@@ -278,7 +278,7 @@ export default function AdminTimesheetsScreen() {
           <ScrollView style={{ maxHeight: 300 }}>
             {supervisors.filter(s => s.id !== selectedDoc?.supervisor_id).map(sup => (
               <TouchableOpacity key={sup.id} style={styles.supItem} onPress={() => toggleSupervisor(sup.id)} data-testid={`share-ts-sup-${sup.id}`}>
-                <Ionicons name={selectedSupervisors.includes(sup.id) ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
+                <Ionicons name={selectedSupervisors.includes(sup.id) ? 'checkbox' : 'square-outline'} size={24} color="#000000" />
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={{ fontSize: 15, fontWeight: '500', color: '#212121' }}>{sup.name}</Text>
                   <Text style={{ fontSize: 13, color: '#666' }}>{sup.email}</Text>
@@ -308,18 +308,18 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   backButton: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
   listContent: { padding: 16 },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  badge: { backgroundColor: '#e3f2fd', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  badgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  badge: { backgroundColor: '#f0f0f0', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  badgeText: { color: '#000000', fontWeight: '600', fontSize: 12 },
   cardInfo: { paddingLeft: 2 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },
   cardService: { fontSize: 13, color: '#444', marginTop: 2, fontStyle: 'italic' },
   cardMeta: { fontSize: 12, color: '#999', marginTop: 4 },
-  dateRange: { fontSize: 12, color: '#1a237e', marginTop: 4, fontWeight: '500' },
+  dateRange: { fontSize: 12, color: '#000000', marginTop: 4, fontWeight: '500' },
   actions: { flexDirection: 'row', gap: 4 },
   actionButton: { padding: 8 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 64 },
@@ -327,12 +327,12 @@ const styles = StyleSheet.create({
   // Share Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '80%' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 8 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 8 },
   supItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 16 },
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelMBtn: { backgroundColor: '#f5f5f5' },
   cancelMText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  confirmMBtn: { backgroundColor: '#1a237e' },
+  confirmMBtn: { backgroundColor: '#000000' },
   confirmMText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

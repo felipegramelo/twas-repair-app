@@ -30,11 +30,11 @@ function InlineCalendar({ onSelect }: { onSelect: (date: string) => void }) {
     <View style={{ backgroundColor: '#f8f9fa', borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: '#e0e0e0' }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <TouchableOpacity onPress={() => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); } else setCurrentMonth(m => m - 1); }}>
-          <Ionicons name="chevron-back" size={22} color="#1a237e" />
+          <Ionicons name="chevron-back" size={22} color="#000000" />
         </TouchableOpacity>
-        <Text style={{ fontSize: 16, fontWeight: '600', color: '#1a237e' }}>{MONTHS[currentMonth]} {currentYear}</Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: '#000000' }}>{MONTHS[currentMonth]} {currentYear}</Text>
         <TouchableOpacity onPress={() => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); } else setCurrentMonth(m => m + 1); }}>
-          <Ionicons name="chevron-forward" size={22} color="#1a237e" />
+          <Ionicons name="chevron-forward" size={22} color="#000000" />
         </TouchableOpacity>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 4 }}>
@@ -189,12 +189,12 @@ export default function EditTimesheetScreen() {
     setTimePickerField(picker && picker !== 'calendar' && picker !== 'employee' ? (timePickerField === picker ? null : picker) : null);
   };
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
+  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#000000" /></View>;
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}><Ionicons name="arrow-back" size={24} color="#1a237e" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}><Ionicons name="arrow-back" size={24} color="#000000" /></TouchableOpacity>
         <Text style={s.title}>Editar Timesheet</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -211,7 +211,7 @@ export default function EditTimesheetScreen() {
             <View style={s.sectionHeader}>
               <Text style={s.label}>Entradas ({entries.length}/12)</Text>
               {entries.length < 12 ? (
-                <TouchableOpacity onPress={() => { setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn}><Ionicons name="add" size={20} color="#1a237e" /><Text style={s.addEntryText}>Adicionar</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => { setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn}><Ionicons name="add" size={20} color="#000000" /><Text style={s.addEntryText}>Adicionar</Text></TouchableOpacity>
               ) : (
                 <View style={s.addEntryBtn}><Ionicons name="lock-closed" size={16} color="#999" /><Text style={{ fontSize: 14, color: '#999' }}>Limite atingido</Text></View>
               )}
@@ -233,7 +233,7 @@ export default function EditTimesheetScreen() {
                   </View>
                 </View>
                 <View style={s.entryActions}>
-                  <TouchableOpacity onPress={() => handleEditEntry(i)}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleEditEntry(i)}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDeleteEntry(i)}><Ionicons name="trash" size={20} color="#d32f2f" /></TouchableOpacity>
                 </View>
               </View>
@@ -286,7 +286,7 @@ export default function EditTimesheetScreen() {
             <Text style={s.inputLabel}>Data *</Text>
             <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('calendar')} data-testid="entry-date-btn">
               <Text style={entryDate ? s.selectTextSelected : s.selectText}>{entryDate || 'Selecionar data'}</Text>
-              <Ionicons name={calendarVisible ? 'chevron-up' : 'calendar'} size={20} color="#1a237e" />
+              <Ionicons name={calendarVisible ? 'chevron-up' : 'calendar'} size={20} color="#000000" />
             </TouchableOpacity>
             {calendarVisible && <InlineCalendar onSelect={(date: string) => { setEntryDate(date); setCalendarVisible(false); }} />}
 
@@ -321,7 +321,7 @@ export default function EditTimesheetScreen() {
             <Text style={s.inputLabel}>Serviço - Início *</Text>
             <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('serviceStart')} data-testid="entry-service-start-btn">
               <Text style={serviceStart ? s.selectTextSelected : s.selectText}>{serviceStart || 'Selecionar horário'}</Text>
-              <Ionicons name="time" size={20} color="#1a237e" />
+              <Ionicons name="time" size={20} color="#000000" />
             </TouchableOpacity>
             {timePickerField === 'serviceStart' && <InlineTimePicker onSelect={(t: string) => { setServiceStart(t); setTimePickerField(null); }} />}
 
@@ -329,13 +329,13 @@ export default function EditTimesheetScreen() {
             <Text style={s.inputLabel}>Serviço - Fim *</Text>
             <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('serviceEnd')} data-testid="entry-service-end-btn">
               <Text style={serviceEnd ? s.selectTextSelected : s.selectText}>{serviceEnd || 'Selecionar horário'}</Text>
-              <Ionicons name="time" size={20} color="#1a237e" />
+              <Ionicons name="time" size={20} color="#000000" />
             </TouchableOpacity>
             {timePickerField === 'serviceEnd' && <InlineTimePicker onSelect={(t: string) => { setServiceEnd(t); setTimePickerField(null); }} />}
 
             {/* Travel */}
             <TouchableOpacity style={s.travelCheckRow} onPress={() => { setHasTravel(!hasTravel); if (hasTravel) { setTravelStart(''); setTravelEnd(''); } }} data-testid="has-travel-checkbox">
-              <Ionicons name={hasTravel ? 'checkbox' : 'square-outline'} size={24} color="#1a237e" />
+              <Ionicons name={hasTravel ? 'checkbox' : 'square-outline'} size={24} color="#000000" />
               <Text style={s.travelCheckText}>Tem viagem?</Text>
             </TouchableOpacity>
             {hasTravel && (<>
@@ -367,8 +367,8 @@ export default function EditTimesheetScreen() {
           <Text style={s.modalTitle}>Função do Supervisor</Text>
           <ScrollView style={s.modalList}>
             {SUPERVISOR_FUNCTIONS.map(fn => (
-              <TouchableOpacity key={fn} style={[s.modalItem, supervisorFunction === fn && { backgroundColor: '#e8eaf6' }]} onPress={() => { setSupervisorFunction(fn); setFunctionPickerVisible(false); }}>
-                <Text style={[s.modalItemTitle, supervisorFunction === fn && { color: '#1a237e', fontWeight: '700' }]}>{fn}</Text>
+              <TouchableOpacity key={fn} style={[s.modalItem, supervisorFunction === fn && { backgroundColor: '#f0f0f0' }]} onPress={() => { setSupervisorFunction(fn); setFunctionPickerVisible(false); }}>
+                <Text style={[s.modalItemTitle, supervisorFunction === fn && { color: '#000000', fontWeight: '700' }]}>{fn}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -384,7 +384,7 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   backBtn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
   scrollContent: { padding: 16 },
   section: { marginBottom: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
@@ -393,11 +393,11 @@ const s = StyleSheet.create({
   selectText: { fontSize: 16, color: '#999' },
   selectTextSelected: { fontSize: 16, color: '#212121' },
   addEntryBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addEntryText: { fontSize: 16, color: '#1a237e', fontWeight: '600' },
+  addEntryText: { fontSize: 16, color: '#000000', fontWeight: '600' },
   entryCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   entryCardContent: { flexDirection: 'row', flex: 1 },
-  entryBadge: { backgroundColor: '#e3f2fd', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginRight: 12 },
-  entryBadgeText: { color: '#1a237e', fontWeight: '600', fontSize: 12 },
+  entryBadge: { backgroundColor: '#f0f0f0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginRight: 12 },
+  entryBadgeText: { color: '#000000', fontWeight: '600', fontSize: 12 },
   entryInfo: { flex: 1 },
   entryName: { fontSize: 16, fontWeight: '600', color: '#212121' },
   entryDetail: { fontSize: 14, color: '#666', marginTop: 4 },
@@ -406,12 +406,12 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 14, color: '#999', marginTop: 12, textAlign: 'center' },
   input: { backgroundColor: '#fff', borderRadius: 8, padding: 16, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0' },
   textArea: { minHeight: 100, textAlignVertical: 'top' },
-  saveButton: { backgroundColor: '#1a237e', height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
+  saveButton: { backgroundColor: '#000000', height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '85%' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 16 },
   modalList: { maxHeight: 400 },
   modalItem: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   modalItemTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
@@ -426,6 +426,6 @@ const s = StyleSheet.create({
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f5f5f5' },
   cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  confirmBtn: { backgroundColor: '#1a237e' },
+  confirmBtn: { backgroundColor: '#000000' },
   confirmText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

@@ -33,7 +33,7 @@ export default function AdminDashboard() {
             onPress={() => router.push('/admin/supervisors')}
             data-testid="admin-supervisors-card"
           >
-            <Ionicons name="person-circle" size={40} color="#1a237e" />
+            <Ionicons name="person-circle" size={40} color="#000000" />
             <Text style={styles.cardTitle}>Supervisores</Text>
             <Text style={styles.cardDescription}>Gerenciar supervisores</Text>
           </TouchableOpacity>
@@ -43,18 +43,18 @@ export default function AdminDashboard() {
             onPress={() => router.push('/admin/employees')}
             data-testid="admin-employees-card"
           >
-            <Ionicons name="people" size={40} color="#1a237e" />
+            <Ionicons name="people" size={40} color="#000000" />
             <Text style={styles.cardTitle}>Funcionários</Text>
             <Text style={styles.cardDescription}>Gerenciar funcionários</Text>
           </TouchableOpacity>
 
           {user?.os_archive_access && (
             <TouchableOpacity
-              style={[styles.card, { borderWidth: 2, borderColor: '#1a237e' }]}
+              style={[styles.card, { borderWidth: 2, borderColor: '#000000' }]}
               onPress={() => router.push('/admin/os-archive')}
               data-testid="admin-os-archive-card"
             >
-              <Ionicons name="folder-open" size={40} color="#1a237e" />
+              <Ionicons name="folder-open" size={40} color="#000000" />
               <Text style={styles.cardTitle}>Arquivo por O.S.</Text>
               <Text style={styles.cardDescription}>Todos os documentos por Ordem de Serviço</Text>
             </TouchableOpacity>
@@ -101,7 +101,7 @@ export default function AdminDashboard() {
             onPress={() => router.push('/admin/service-orders')}
             data-testid="admin-service-orders-card"
           >
-            <Ionicons name="document-text" size={40} color="#1a237e" />
+            <Ionicons name="document-text" size={40} color="#000000" />
             <Text style={styles.cardTitle}>Ordens de Serviço</Text>
             <Text style={styles.cardDescription}>Gerenciar O.S.</Text>
           </TouchableOpacity>
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
             onPress={() => router.push('/admin/admins')}
             data-testid="admin-admins-card"
           >
-            <Ionicons name="shield-checkmark" size={40} color="#1a237e" />
+            <Ionicons name="shield-checkmark" size={40} color="#000000" />
             <Text style={styles.cardTitle}>Administradores</Text>
             <Text style={styles.cardDescription}>Gerenciar administradores</Text>
           </TouchableOpacity>
@@ -122,7 +122,7 @@ export default function AdminDashboard() {
             onPress={() => router.push('/admin/change-password')}
             data-testid="admin-change-password-card"
           >
-            <Ionicons name="key" size={40} color="#1a237e" />
+            <Ionicons name="key" size={40} color="#000000" />
             <Text style={styles.cardTitle}>Alterar Senha</Text>
             <Text style={styles.cardDescription}>Alterar sua senha de acesso</Text>
           </TouchableOpacity>
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   scrollContent: { padding: 16 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1a237e' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#000000' },
   subtitle: { fontSize: 16, color: '#666', marginTop: 4 },
   logoutButton: { padding: 8 },
   cardsContainer: { gap: 16 },
@@ -151,6 +151,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginTop: 12 },
+  cardTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginTop: 12 },
   cardDescription: { fontSize: 14, color: '#666', marginTop: 4 },
 });

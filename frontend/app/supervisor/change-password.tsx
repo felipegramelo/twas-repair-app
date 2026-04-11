@@ -51,7 +51,7 @@ export default function SupervisorChangePasswordScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1a237e" />
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={s.title}>Alterar Senha</Text>
         <View style={{ width: 40 }} />
@@ -122,13 +122,13 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   backBtn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
   form: { padding: 24 },
   label: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8, marginTop: 16 },
   input: { backgroundColor: '#fff', borderRadius: 8, padding: 16, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0' },
   passRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   passInput: { flex: 1, padding: 16, fontSize: 16 },
   eyeBtn: { padding: 16 },
-  saveBtn: { backgroundColor: '#1a237e', height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 32 },
+  saveBtn: { backgroundColor: '#000000', height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 32 },
   saveBtnText: { color: '#fff', fontSize: 18, fontWeight: '600' },
 });

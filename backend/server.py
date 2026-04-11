@@ -3480,6 +3480,7 @@ class ProposalCreate(BaseModel):
     contato: str
     email: str = ""
     embarcacao: str = ""
+    local: str = ""
     equipamento: str = ""
     servico: str = ""
     itens: List[ProposalItemModel] = []
@@ -3491,6 +3492,7 @@ class ProposalUpdate(BaseModel):
     contato: Optional[str] = None
     email: Optional[str] = None
     embarcacao: Optional[str] = None
+    local: Optional[str] = None
     equipamento: Optional[str] = None
     servico: Optional[str] = None
     itens: Optional[List[ProposalItemModel]] = None
@@ -3539,6 +3541,7 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "contato": data.contato,
         "email": data.email,
         "embarcacao": data.embarcacao,
+        "local": data.local,
         "equipamento": data.equipamento,
         "servico": data.servico,
         "itens": itens,
@@ -3560,6 +3563,7 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "contato": data.contato,
         "email": data.email,
         "embarcacao": data.embarcacao,
+        "local": data.local,
         "equipamento": data.equipamento,
         "servico": data.servico,
         "itens": itens,
@@ -3582,6 +3586,7 @@ def serialize_proposal(p):
         "contato": p.get("contato", ""),
         "email": p.get("email", ""),
         "embarcacao": p.get("embarcacao", ""),
+        "local": p.get("local", ""),
         "equipamento": p.get("equipamento", ""),
         "servico": p.get("servico", ""),
         "itens": p.get("itens", []),
@@ -3639,6 +3644,8 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: 
         update_dict["email"] = data.email
     if data.embarcacao is not None:
         update_dict["embarcacao"] = data.embarcacao
+    if data.local is not None:
+        update_dict["local"] = data.local
     if data.equipamento is not None:
         update_dict["equipamento"] = data.equipamento
     if data.servico is not None:
@@ -3828,8 +3835,8 @@ async def informar_po(proposal_id: str, data: InformarPORequest, current_user: D
         "os_number": os_number,
         "client": p.get("empresa", ""),
         "embarcacao": p.get("embarcacao", ""),
-        "location": "",
-        "service": p.get("equipamento", ""),
+        "location": p.get("local", ""),
+        "service": p.get("servico", ""),
         "employees": [],
         "schedule_type": "07-19",
         "proposal_id": str(p["_id"]),

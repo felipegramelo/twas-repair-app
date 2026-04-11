@@ -61,7 +61,7 @@ export default function DashboardScreen() {
     }
   };
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
+  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#000000" /></View>;
   if (!data) return <View style={s.center}><Text>Erro ao carregar dados</Text></View>;
 
   const maxBmValue = Math.max(...data.bm_by_month.map(m => m.total), 1);
@@ -72,19 +72,19 @@ export default function DashboardScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace('/admin')} style={s.backBtn} data-testid="dashboard-back-btn">
-          <Ionicons name="arrow-back" size={24} color="#1a237e" />
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={s.title}>Dashboard Financeiro</Text>
         <TouchableOpacity onPress={loadDashboard} style={s.backBtn} data-testid="dashboard-refresh-btn">
-          <Ionicons name="refresh" size={22} color="#1a237e" />
+          <Ionicons name="refresh" size={22} color="#000000" />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={s.scrollContent}>
         {/* Summary Cards */}
         <View style={s.summaryRow} data-testid="summary-cards">
-          <View style={[s.summaryCard, { borderLeftColor: '#1a237e' }]}>
-            <Ionicons name="cash-outline" size={28} color="#1a237e" />
+          <View style={[s.summaryCard, { borderLeftColor: '#000000' }]}>
+            <Ionicons name="cash-outline" size={28} color="#000000" />
             <Text style={s.summaryValue}>{formatCurrency(data.totals.bm_total_value)}</Text>
             <Text style={s.summaryLabel}>Total BMs</Text>
           </View>
@@ -118,7 +118,7 @@ export default function DashboardScreen() {
                   {isActive && (
                     <Text style={s.barValue}>{formatCurrency(m.total)}</Text>
                   )}
-                  <View style={[s.bar, { height: barHeight, backgroundColor: isActive ? '#1a237e' : '#E0E0E0' }]} />
+                  <View style={[s.bar, { height: barHeight, backgroundColor: isActive ? '#000000' : '#E0E0E0' }]} />
                   <Text style={s.barLabel}>{m.month.substring(0, 5)}</Text>
                   {isActive && <Text style={s.barCount}>{m.count} BM{m.count > 1 ? 's' : ''}</Text>}
                 </View>
@@ -192,22 +192,22 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   backBtn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '700', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '700', color: '#000000' },
   scrollContent: { padding: 16, gap: 16 },
   // Summary cards
   summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   summaryCard: { flex: 1, minWidth: 150, backgroundColor: '#fff', borderRadius: 12, padding: 16, borderLeftWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 },
-  summaryValue: { fontSize: 18, fontWeight: '700', color: '#1a237e', marginTop: 8 },
+  summaryValue: { fontSize: 18, fontWeight: '700', color: '#000000', marginTop: 8 },
   summaryLabel: { fontSize: 12, color: '#666', marginTop: 2 },
   // Chart cards
   chartCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 },
-  chartTitle: { fontSize: 16, fontWeight: '700', color: '#1a237e', marginBottom: 4 },
+  chartTitle: { fontSize: 16, fontWeight: '700', color: '#000000', marginBottom: 4 },
   chartSubtitle: { fontSize: 12, color: '#666', marginBottom: 16 },
   // Bar chart
   barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 200, paddingTop: 40 },
   barGroup: { alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
   bar: { width: 24, borderRadius: 4, marginBottom: 4 },
-  barValue: { fontSize: 8, color: '#1a237e', fontWeight: '600', marginBottom: 2, textAlign: 'center' },
+  barValue: { fontSize: 8, color: '#000000', fontWeight: '600', marginBottom: 2, textAlign: 'center' },
   barLabel: { fontSize: 9, color: '#666', marginTop: 2 },
   barCount: { fontSize: 8, color: '#999' },
   // Proposals status
@@ -221,10 +221,10 @@ const s = StyleSheet.create({
   // Top clients
   clientRow: { marginBottom: 16 },
   clientInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  clientRank: { fontSize: 14, fontWeight: '700', color: '#1a237e', width: 28 },
+  clientRank: { fontSize: 14, fontWeight: '700', color: '#000000', width: 28 },
   clientName: { fontSize: 14, fontWeight: '600', color: '#333' },
   clientMeta: { fontSize: 11, color: '#999' },
-  clientValue: { fontSize: 14, fontWeight: '700', color: '#1a237e' },
-  clientBar: { height: 8, backgroundColor: '#E8EAF6', borderRadius: 4, overflow: 'hidden' },
-  clientBarFill: { height: '100%', backgroundColor: '#1a237e', borderRadius: 4 },
+  clientValue: { fontSize: 14, fontWeight: '700', color: '#000000' },
+  clientBar: { height: 8, backgroundColor: '#F0F0F0', borderRadius: 4, overflow: 'hidden' },
+  clientBarFill: { height: '100%', backgroundColor: '#000000', borderRadius: 4 },
 });

@@ -31,6 +31,7 @@ export interface Proposal {
   contato: string;
   email: string;
   embarcacao: string;
+  local?: string;
   equipamento: string;
   servico: string;
   itens: ProposalItem[];

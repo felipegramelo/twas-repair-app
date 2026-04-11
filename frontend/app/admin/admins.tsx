@@ -138,7 +138,7 @@ export default function AdminsScreen() {
   const renderAdmin = ({ item }: { item: User }) => (
     <View style={s.card} data-testid={`admin-card-${item.id}`}>
       <View style={s.cardContent}>
-        <Ionicons name="shield-checkmark" size={40} color="#1a237e" style={{ marginRight: 12 }} />
+        <Ionicons name="shield-checkmark" size={40} color="#000000" style={{ marginRight: 12 }} />
         <View style={{ flex: 1 }}>
           <Text style={s.cardTitle}>{item.name}</Text>
           <Text style={s.cardSub}>{item.email}</Text>
@@ -165,7 +165,7 @@ export default function AdminsScreen() {
       </View>
       <View style={s.cardActions}>
         <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionBtn} data-testid={`edit-admin-${item.id}`}>
-          <Ionicons name="pencil" size={20} color="#1a237e" />
+          <Ionicons name="pencil" size={20} color="#000000" />
         </TouchableOpacity>
         {item.id !== currentUser?.id && (
           <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn} data-testid={`delete-admin-${item.id}`}>
@@ -176,13 +176,13 @@ export default function AdminsScreen() {
     </View>
   );
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
+  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#000000" /></View>;
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1a237e" />
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={s.title}>Administradores</Text>
         <TouchableOpacity onPress={openAddModal} style={s.addBtn} data-testid="add-admin-btn">
@@ -251,16 +251,16 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   backBtn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
-  addBtn: { backgroundColor: '#1a237e', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
+  addBtn: { backgroundColor: '#000000', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
   cardContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardSub: { fontSize: 14, color: '#666', marginTop: 4 },
-  youBadge: { fontSize: 11, color: '#1a237e', fontWeight: '700', marginTop: 4 },
+  youBadge: { fontSize: 11, color: '#000000', fontWeight: '700', marginTop: 4 },
   permRow: { flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 8 },
   permBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#ddd' },
-  permActive: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  permActive: { backgroundColor: '#000000', borderColor: '#000000' },
   permText: { fontSize: 12, color: '#999', fontWeight: '600' },
   permTextActive: { color: '#fff' },
   cardActions: { flexDirection: 'row', gap: 8 },
@@ -269,7 +269,7 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '90%' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 24 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 24 },
   label: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8, marginTop: 12 },
   input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 16, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0' },
   passRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f5f5', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },
@@ -280,6 +280,6 @@ const s = StyleSheet.create({
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f5f5f5' },
   cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  saveBtn: { backgroundColor: '#1a237e' },
+  saveBtn: { backgroundColor: '#000000' },
   saveText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

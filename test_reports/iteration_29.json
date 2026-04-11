@@ -83,7 +83,7 @@
     "issue": "Frontend BM page shows empty OS picker - API calls return 403",
     "root_cause": "Race condition between page load and auth context initialization. The BM page's loadData() function is called in useEffect on mount, but the AsyncStorage.getItem('token') in the axios interceptor may not have completed yet, resulting in requests without Authorization header.",
     "reproduction_steps": [
-      "1. Navigate directly to https://twas-repair-app.preview.emergentagent.com/admin/boletim-medicao",
+      "1. Navigate directly to https://twas-repair-app-1.preview.emergentagent.com/admin/boletim-medicao",
       "2. Observe console shows 403 errors for /api/bm, /api/service-orders, /api/client-prices",
       "3. Click 'Novo Boletim' - modal opens but no OS options displayed"
     ],

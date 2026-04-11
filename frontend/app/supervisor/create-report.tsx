@@ -27,11 +27,11 @@ function InlineCalendar({ onSelect, selectedDate }: { onSelect: (date: string) =
     <View style={{ backgroundColor: '#f8f9fa', borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: '#e0e0e0' }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <TouchableOpacity onPress={() => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); } else setCurrentMonth(m => m - 1); }}>
-          <Ionicons name="chevron-back" size={22} color="#1a237e" />
+          <Ionicons name="chevron-back" size={22} color="#000000" />
         </TouchableOpacity>
-        <Text style={{ fontSize: 16, fontWeight: '600', color: '#1a237e' }}>{MONTHS[currentMonth]} {currentYear}</Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: '#000000' }}>{MONTHS[currentMonth]} {currentYear}</Text>
         <TouchableOpacity onPress={() => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); } else setCurrentMonth(m => m + 1); }}>
-          <Ionicons name="chevron-forward" size={22} color="#1a237e" />
+          <Ionicons name="chevron-forward" size={22} color="#000000" />
         </TouchableOpacity>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 4 }}>
@@ -44,7 +44,7 @@ function InlineCalendar({ onSelect, selectedDate }: { onSelect: (date: string) =
             style={{
               width: '14.28%' as any, height: 36, justifyContent: 'center', alignItems: 'center',
               borderRadius: 18,
-              backgroundColor: cell && isSelected(cell) ? '#1a237e' : 'transparent',
+              backgroundColor: cell && isSelected(cell) ? '#000000' : 'transparent',
             }}
             onPress={() => cell && onSelect(`${String(cell).padStart(2, '0')}/${String(currentMonth + 1).padStart(2, '0')}/${currentYear}`)}
             disabled={!cell}
@@ -130,7 +130,7 @@ export default function CreateReportScreen() {
   const selectedOSData = serviceOrders.find(o => o.id === selectedOS);
 
   if (loading) {
-    return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 100 }} /></SafeAreaView>;
+    return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color="#000000" style={{ marginTop: 100 }} /></SafeAreaView>;
   }
 
   return (
@@ -139,7 +139,7 @@ export default function CreateReportScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#1a237e" />
+              <Ionicons name="arrow-back" size={24} color="#000000" />
             </TouchableOpacity>
             <Text style={styles.title}>
               {reportType === 'service' ? 'Novo Relatório de Serviço' : 'Novo Relatório Diário'}
@@ -207,7 +207,7 @@ export default function CreateReportScreen() {
                     <Text style={{ fontSize: 15, color: periodoInicio ? '#333' : '#999', textAlign: 'center' }}>
                       {periodoInicio || 'DD/MM/AAAA'}
                     </Text>
-                    <Ionicons name={showStartCalendar ? 'chevron-up' : 'calendar'} size={18} color="#1a237e" style={{ position: 'absolute', right: 12 }} />
+                    <Ionicons name={showStartCalendar ? 'chevron-up' : 'calendar'} size={18} color="#000000" style={{ position: 'absolute', right: 12 }} />
                   </TouchableOpacity>
                 )}
                 {showStartCalendar && Platform.OS !== 'web' && (
@@ -240,7 +240,7 @@ export default function CreateReportScreen() {
                     <Text style={{ fontSize: 15, color: periodoFim ? '#333' : '#999', textAlign: 'center' }}>
                       {periodoFim || 'DD/MM/AAAA'}
                     </Text>
-                    <Ionicons name={showEndCalendar ? 'chevron-up' : 'calendar'} size={18} color="#1a237e" style={{ position: 'absolute', right: 12 }} />
+                    <Ionicons name={showEndCalendar ? 'chevron-up' : 'calendar'} size={18} color="#000000" style={{ position: 'absolute', right: 12 }} />
                   </TouchableOpacity>
                 )}
                 {showEndCalendar && Platform.OS !== 'web' && (
@@ -256,7 +256,7 @@ export default function CreateReportScreen() {
             {/* Supervisor */}
             <Text style={[styles.label, { marginTop: 20 }]}>Supervisor</Text>
             <View style={styles.supervisorInfo}>
-              <Ionicons name="person-circle-outline" size={24} color="#1a237e" />
+              <Ionicons name="person-circle-outline" size={24} color="#000000" />
               <Text style={styles.supervisorName}>{user?.name}</Text>
             </View>
 
@@ -290,7 +290,7 @@ export default function CreateReportScreen() {
       <Modal visible={osModalVisible} animationType="slide" transparent onRequestClose={() => setOsModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 }}>
           <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, maxHeight: '80%' }}>
-            <Text style={{ fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 }}>Selecionar Ordem de Serviço</Text>
+            <Text style={{ fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 16 }}>Selecionar Ordem de Serviço</Text>
             <ScrollView style={{ maxHeight: 400 }}>
               {serviceOrders.map(os => (
                 <TouchableOpacity key={os.id} style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }} onPress={() => { setSelectedOS(os.id); setOsModalVisible(false); }}>
@@ -316,14 +316,14 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16, paddingBottom: 32 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 12 },
   backButton: { padding: 8 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#1a237e', flex: 1 },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#000000', flex: 1 },
   formSection: { backgroundColor: '#fff', borderRadius: 12, padding: 20, marginBottom: 24, ...(Platform.OS === 'web' ? { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } : { elevation: 2 }) } as any,
   label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 },
   dropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8f9fa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', padding: 12 },
   dropdownText: { fontSize: 15, color: '#333', flex: 1 },
-  infoCard: { backgroundColor: '#e3f2fd', borderRadius: 8, padding: 12, marginTop: 12 },
+  infoCard: { backgroundColor: '#f0f0f0', borderRadius: 8, padding: 12, marginTop: 12 },
   infoLabel: { fontSize: 13, color: '#666', marginBottom: 4 },
-  infoValue: { fontWeight: '600', color: '#1a237e' },
+  infoValue: { fontWeight: '600', color: '#000000' },
   dateRow: { flexDirection: 'row', gap: 12 },
   dateField: { flex: 1 },
   dateLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   supervisorName: { fontSize: 15, fontWeight: '500', color: '#333' },
   typeIndicator: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   typeText: { fontSize: 15, fontWeight: '600' },
-  createButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8 },
+  createButton: { backgroundColor: '#000000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8 },
   createButtonDisabled: { opacity: 0.6 },
   createButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
 });

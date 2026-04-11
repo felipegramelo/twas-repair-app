@@ -442,11 +442,11 @@ export default function EditReportScreen() {
         {!isHidden && !NO_BULLET_SECTIONS.includes(sectionKey) && (
           <TouchableOpacity
             onPress={() => togglePlainText(sectionKey)}
-            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: hasBullets ? '#e8eaf6' : '#fff3e0', borderRadius: 6 }}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: hasBullets ? '#f0f0f0' : '#fff3e0', borderRadius: 6 }}
             data-testid={`toggle-bullets-${sectionKey}`}
           >
-            <Ionicons name={hasBullets ? 'list' : 'text'} size={16} color={hasBullets ? '#1a237e' : '#e65100'} />
-            <Text style={{ fontSize: 11, marginLeft: 4, color: hasBullets ? '#1a237e' : '#e65100', fontWeight: '500' }}>
+            <Ionicons name={hasBullets ? 'list' : 'text'} size={16} color={hasBullets ? '#000000' : '#e65100'} />
+            <Text style={{ fontSize: 11, marginLeft: 4, color: hasBullets ? '#000000' : '#e65100', fontWeight: '500' }}>
               {hasBullets ? 'Com Marcadores' : 'Sem Marcadores'}
             </Text>
           </TouchableOpacity>
@@ -501,7 +501,7 @@ export default function EditReportScreen() {
     const sp = getPhotosForSection(sectionKey);
     return (
       <View style={styles.photoArea}>
-        {!isPhotoOnly && <View style={styles.photoHeader}><Ionicons name="camera-outline" size={16} color="#1a237e" /><Text style={styles.photoHeaderText}>Fotos ({sp.length})</Text></View>}
+        {!isPhotoOnly && <View style={styles.photoHeader}><Ionicons name="camera-outline" size={16} color="#000000" /><Text style={styles.photoHeaderText}>Fotos ({sp.length})</Text></View>}
         {sp.length > 0 && (
           <View style={styles.photoGridRow}>
             {sp.map(photo => (
@@ -516,13 +516,13 @@ export default function EditReportScreen() {
           </View>
         )}
         <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload(sectionKey)} disabled={uploading === sectionKey}>
-          {uploading === sectionKey ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={styles.uploadBtnText}>Adicionar Foto</Text></>}
+          {uploading === sectionKey ? <ActivityIndicator size="small" color="#000000" /> : <><Ionicons name="cloud-upload-outline" size={18} color="#000000" /><Text style={styles.uploadBtnText}>Adicionar Foto</Text></>}
         </TouchableOpacity>
       </View>
     );
   };
 
-  if (loading) return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color="#1a237e" style={{ marginTop: 100 }} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color="#000000" style={{ marginTop: 100 }} /></SafeAreaView>;
   if (!report) return <SafeAreaView style={styles.container}><Text style={{ padding: 20, textAlign: 'center' }}>Relatório não encontrado</Text></SafeAreaView>;
 
   const coverPhotos = getPhotosForSection('cover');
@@ -534,7 +534,7 @@ export default function EditReportScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
           {/* Header */}
           <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-            <Ionicons name="arrow-back" size={22} color="#1a237e" />
+            <Ionicons name="arrow-back" size={22} color="#000000" />
             <Text style={styles.backText}>Voltar</Text>
           </TouchableOpacity>
 
@@ -559,13 +559,13 @@ export default function EditReportScreen() {
                 ))}
                 <Text style={styles.vesselLabel}>{report.location || 'Embarcação'}</Text>
                 <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
-                  {uploading === 'cover' ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="cloud-upload-outline" size={18} color="#1a237e" /><Text style={styles.uploadBtnText}>Trocar Foto</Text></>}
+                  {uploading === 'cover' ? <ActivityIndicator size="small" color="#000000" /> : <><Ionicons name="cloud-upload-outline" size={18} color="#000000" /><Text style={styles.uploadBtnText}>Trocar Foto</Text></>}
                 </TouchableOpacity>
               </View>
             ) : (
               <View>
                 <TouchableOpacity style={styles.coverUploadArea} onPress={() => triggerFileUpload('cover')} disabled={uploading === 'cover'}>
-                  {uploading === 'cover' ? <ActivityIndicator size="large" color="#1a237e" /> : <><Ionicons name="image-outline" size={48} color="#c0c0c0" /><Text style={styles.coverUploadText}>Toque para adicionar foto da capa</Text></>}
+                  {uploading === 'cover' ? <ActivityIndicator size="large" color="#000000" /> : <><Ionicons name="image-outline" size={48} color="#c0c0c0" /><Text style={styles.coverUploadText}>Toque para adicionar foto da capa</Text></>}
                 </TouchableOpacity>
                 <Text style={styles.vesselLabel}>{report.location || 'Embarcação'}</Text>
               </View>
@@ -580,7 +580,7 @@ export default function EditReportScreen() {
             </View>
           )}
           <TouchableOpacity style={[styles.pdfOutlinedBtn, pdfLoading && { opacity: 0.6 }]} onPress={handleOpenPDF} disabled={pdfLoading}>
-            {pdfLoading ? <ActivityIndicator size="small" color="#1a237e" /> : <><Ionicons name="eye-outline" size={20} color="#1a237e" /><Text style={styles.pdfOutlinedText}>Visualizar PDF</Text></>}
+            {pdfLoading ? <ActivityIndicator size="small" color="#000000" /> : <><Ionicons name="eye-outline" size={20} color="#000000" /><Text style={styles.pdfOutlinedText}>Visualizar PDF</Text></>}
           </TouchableOpacity>
 
           {/* Campo OC/WO (opcional) */}
@@ -591,7 +591,7 @@ export default function EditReportScreen() {
 
           {/* Índice do Relatório */}
           <View style={styles.indexHeader}>
-            <Ionicons name="list-outline" size={24} color="#1a237e" />
+            <Ionicons name="list-outline" size={24} color="#000000" />
             <View style={{ marginLeft: 10 }}>
               <Text style={styles.indexTitle}>Índice do Relatório</Text>
               <Text style={styles.indexCount}>{enabledCount} seções</Text>
@@ -599,9 +599,9 @@ export default function EditReportScreen() {
           </View>
 
           <TouchableOpacity style={styles.selectSectionsBtn} onPress={() => setShowSectionsModal(true)}>
-            <Ionicons name="checkbox-outline" size={22} color="#1a237e" />
+            <Ionicons name="checkbox-outline" size={22} color="#000000" />
             <Text style={styles.selectSectionsText}>Selecionar Seções do Índice</Text>
-            <Ionicons name="chevron-forward" size={20} color="#1a237e" />
+            <Ionicons name="chevron-forward" size={20} color="#000000" />
           </TouchableOpacity>
 
           {/* Enabled Sections */}
@@ -619,7 +619,7 @@ export default function EditReportScreen() {
                       <Ionicons name="trash-outline" size={20} color="#d32f2f" />
                     </TouchableOpacity>
                   )}
-                  <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#1a237e" />
+                  <Ionicons name={editingSection === sec.key ? 'chevron-up' : 'chevron-down'} size={20} color="#000000" />
                 </TouchableOpacity>
                 {editingSection === sec.key && (
                   <View style={{ marginTop: 12 }}>
@@ -629,14 +629,14 @@ export default function EditReportScreen() {
                           style={[styles.modeBtn, modes.has('text') && styles.modeBtnActive]}
                           onPress={() => toggleCustomMode(sec.key, 'text')}
                         >
-                          <Ionicons name="document-text-outline" size={18} color={modes.has('text') ? '#fff' : '#1a237e'} />
+                          <Ionicons name="document-text-outline" size={18} color={modes.has('text') ? '#fff' : '#000000'} />
                           <Text style={[styles.modeBtnText, modes.has('text') && styles.modeBtnTextActive]}>Descricao</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.modeBtn, modes.has('photos') && styles.modeBtnActive]}
                           onPress={() => toggleCustomMode(sec.key, 'photos')}
                         >
-                          <Ionicons name="camera-outline" size={18} color={modes.has('photos') ? '#fff' : '#1a237e'} />
+                          <Ionicons name="camera-outline" size={18} color={modes.has('photos') ? '#fff' : '#000000'} />
                           <Text style={[styles.modeBtnText, modes.has('photos') && styles.modeBtnTextActive]}>Fotos / Arquivo</Text>
                         </TouchableOpacity>
                       </View>
@@ -701,12 +701,12 @@ export default function EditReportScreen() {
                     {showAddSubsection === sec.key ? (
                       <View style={styles.addSubRow}>
                         <TextInput style={styles.addSubInput} value={addingSubsectionTitle[sec.key] || ''} onChangeText={(t) => setAddingSubsectionTitle(prev => ({ ...prev, [sec.key]: t }))} placeholder="Nome da subseção..." autoFocus />
-                        <TouchableOpacity style={styles.addSubConfirmBtn} onPress={() => addSubsection(sec.key)}><Ionicons name="checkmark-circle" size={26} color="#1a237e" /></TouchableOpacity>
+                        <TouchableOpacity style={styles.addSubConfirmBtn} onPress={() => addSubsection(sec.key)}><Ionicons name="checkmark-circle" size={26} color="#000000" /></TouchableOpacity>
                         <TouchableOpacity onPress={() => setShowAddSubsection(null)}><Ionicons name="close-circle" size={26} color="#999" /></TouchableOpacity>
                       </View>
                     ) : (
                       <TouchableOpacity style={styles.addSubBtn} onPress={() => setShowAddSubsection(sec.key)}>
-                        <Ionicons name="add-circle-outline" size={18} color="#1a237e" />
+                        <Ionicons name="add-circle-outline" size={18} color="#000000" />
                         <Text style={styles.addSubBtnText}>Adicionar Subseção</Text>
                       </TouchableOpacity>
                     )}
@@ -757,7 +757,7 @@ export default function EditReportScreen() {
                       setPdfSelectedDays(new Set(dailyEntries.map(e => e.id)));
                     }
                   }} data-testid="toggle-all-days-pdf">
-                    <Text style={{ fontSize: 12, color: '#1a237e', fontWeight: '600' }}>
+                    <Text style={{ fontSize: 12, color: '#000000', fontWeight: '600' }}>
                       {pdfSelectedDays.size === dailyEntries.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
                     </Text>
                   </TouchableOpacity>
@@ -847,12 +847,12 @@ export default function EditReportScreen() {
           <View style={styles.modalContent}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setShowSectionsModal(false)}><Ionicons name="arrow-back" size={22} color="#1a237e" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowSectionsModal(false)}><Ionicons name="arrow-back" size={22} color="#000000" /></TouchableOpacity>
               <Text style={styles.modalHeaderTitle}>Selecionar Seções</Text>
               <View style={{ width: 22 }} />
             </View>
 
-            <View style={styles.modalIconRow}><Ionicons name="list-outline" size={32} color="#1a237e" /></View>
+            <View style={styles.modalIconRow}><Ionicons name="list-outline" size={32} color="#000000" /></View>
             <Text style={styles.modalMainTitle}>Selecione as Seções do Relatório</Text>
             <Text style={styles.modalSubtitle}>Marque as caixas das seções que deseja incluir</Text>
 
@@ -895,7 +895,7 @@ export default function EditReportScreen() {
 
               <View style={styles.addSectionRow}>
                 <TextInput style={styles.addSectionInput} value={addingSectionTitle} onChangeText={setAddingSectionTitle} placeholder="Nova seção personalizada..." />
-                <TouchableOpacity style={styles.addSectionBtn} onPress={addCustomSection}><Ionicons name="add-circle" size={28} color="#1a237e" /></TouchableOpacity>
+                <TouchableOpacity style={styles.addSectionBtn} onPress={addCustomSection}><Ionicons name="add-circle" size={28} color="#000000" /></TouchableOpacity>
               </View>
             </ScrollView>
 
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
   innerContainer: { flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}) } as any,
   scrollContent: { padding: 16, paddingBottom: 40 },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  backText: { fontSize: 17, fontWeight: '600', color: '#1a237e' },
+  backText: { fontSize: 17, fontWeight: '600', color: '#000000' },
   serviceInfo: { marginBottom: 16 },
   serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   serviceText: { fontSize: 14, color: '#666' },
@@ -935,16 +935,16 @@ const styles = StyleSheet.create({
   coverUploadText: { fontSize: 14, color: '#aaa', marginTop: 10 },
   vesselLabel: { fontSize: 13, fontWeight: '600', color: '#555', textAlign: 'center', marginTop: 8, marginBottom: 4 },
   // PDF buttons
-  pdfOutlinedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#1a237e', borderRadius: 12, padding: 14, marginBottom: 10, gap: 10, backgroundColor: '#fff' },
-  pdfOutlinedText: { fontSize: 16, fontWeight: '700', color: '#1a237e' },
-  pdfSolidBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a237e', borderRadius: 12, padding: 14, marginBottom: 16, gap: 10 },
+  pdfOutlinedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#000000', borderRadius: 12, padding: 14, marginBottom: 10, gap: 10, backgroundColor: '#fff' },
+  pdfOutlinedText: { fontSize: 16, fontWeight: '700', color: '#000000' },
+  pdfSolidBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', borderRadius: 12, padding: 14, marginBottom: 16, gap: 10 },
   pdfSolidText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   // Índice
   indexHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 },
   indexTitle: { fontSize: 18, fontWeight: '700', color: '#222' },
   indexCount: { fontSize: 13, color: '#999', marginTop: 2 },
   selectSectionsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8edf8', borderRadius: 12, padding: 14, marginBottom: 16, gap: 10 },
-  selectSectionsText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a237e' },
+  selectSectionsText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#000000' },
   // Period
   dateRow: { flexDirection: 'row', gap: 12 },
   dateField: { flex: 1 },
@@ -954,9 +954,9 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 15, color: '#333' },
   // Sections
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionNum: { fontSize: 14, fontWeight: '700', color: '#1a237e' },
-  sectionTitleText: { fontSize: 13, fontWeight: '700', color: '#1a237e', flex: 1 },
-  subsectionBlock: { marginTop: 14, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: '#e3f2fd' },
+  sectionNum: { fontSize: 14, fontWeight: '700', color: '#000000' },
+  sectionTitleText: { fontSize: 13, fontWeight: '700', color: '#000000', flex: 1 },
+  subsectionBlock: { marginTop: 14, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: '#f0f0f0' },
   subsectionTitle: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 6 },
   subsectionTitleInput: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', paddingVertical: 4, paddingHorizontal: 0, backgroundColor: 'transparent' },
   subsubBlock: { marginTop: 10, paddingLeft: 14 },
@@ -964,19 +964,19 @@ const styles = StyleSheet.create({
   subsubTitleInput: { fontSize: 12, fontWeight: '600', color: '#555', marginBottom: 4, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', paddingVertical: 2, paddingHorizontal: 0, backgroundColor: 'transparent' },
   // Add subsection
   addSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f0f4ff', borderRadius: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#d0d9f0', borderStyle: 'dashed' } as any,
-  addSubBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },
+  addSubBtnText: { fontSize: 13, fontWeight: '500', color: '#000000' },
   addSubRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
-  addSubInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#1a237e', padding: 10, fontSize: 14, color: '#333' },
+  addSubInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#000000', padding: 10, fontSize: 14, color: '#333' },
   addSubConfirmBtn: { padding: 2 },
   // Mode buttons for custom sections
-  modeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1.5, borderColor: '#1a237e', justifyContent: 'center', backgroundColor: '#fff' },
-  modeBtnActive: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
-  modeBtnText: { fontSize: 13, fontWeight: '600', color: '#1a237e' },
+  modeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1.5, borderColor: '#000000', justifyContent: 'center', backgroundColor: '#fff' },
+  modeBtnActive: { backgroundColor: '#000000', borderColor: '#000000' },
+  modeBtnText: { fontSize: 13, fontWeight: '600', color: '#000000' },
   modeBtnTextActive: { color: '#fff' },
   // Photos
   photoArea: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   photoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  photoHeaderText: { fontSize: 13, fontWeight: '600', color: '#1a237e' },
+  photoHeaderText: { fontSize: 13, fontWeight: '600', color: '#000000' },
   photoGridRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   photoGridItem: { width: '48%', marginBottom: 12 } as any,
   photoImageWrapper: { position: 'relative', width: '100%' },
@@ -984,10 +984,10 @@ const styles = StyleSheet.create({
   photoPlaceholder: { backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center' },
   photoDeleteBtn: { position: 'absolute', top: -6, right: -6 },
   captionInput: { backgroundColor: '#f8f9fa', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0', padding: 8, fontSize: 12, color: '#333', marginTop: 4, textAlign: 'center' },
-  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#e3f2fd', borderRadius: 8, alignSelf: 'flex-start', marginTop: 8 },
-  uploadBtnText: { fontSize: 13, fontWeight: '500', color: '#1a237e' },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f0f0f0', borderRadius: 8, alignSelf: 'flex-start', marginTop: 8 },
+  uploadBtnText: { fontSize: 13, fontWeight: '500', color: '#000000' },
   // Save
-  saveButton: { backgroundColor: '#1a237e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8, marginBottom: 32 },
+  saveButton: { backgroundColor: '#000000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, gap: 8, marginBottom: 32 },
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
@@ -1000,10 +1000,10 @@ const styles = StyleSheet.create({
   modalScroll: { maxHeight: 400 },
   checkRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#f2f2f2', gap: 12 },
   checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 2, borderColor: '#ccc', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  checkboxChecked: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
-  checkNum: { fontSize: 16, fontWeight: '700', color: '#1a237e', width: 30 },
+  checkboxChecked: { backgroundColor: '#000000', borderColor: '#000000' },
+  checkNum: { fontSize: 16, fontWeight: '700', color: '#000000', width: 30 },
   checkTitle: { fontSize: 14, fontWeight: '700', color: '#333', flex: 1 },
-  checkNumSub: { fontSize: 14, fontWeight: '600', color: '#1a237e', width: 40 },
+  checkNumSub: { fontSize: 14, fontWeight: '600', color: '#000000', width: 40 },
   checkTitleSub: { fontSize: 13, fontWeight: '500', color: '#555', flex: 1 },
   addSectionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 8, paddingHorizontal: 8 },
   addSectionInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 10, fontSize: 14 },

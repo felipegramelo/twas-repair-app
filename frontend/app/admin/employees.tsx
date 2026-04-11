@@ -47,14 +47,14 @@ export default function EmployeesScreen() {
 
   const openAdd = () => { setEditingEmployee(null); setName(''); setModalVisible(true); };
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#1a237e" /></View>;
+  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#000000" /></View>;
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.btn}><Ionicons name="arrow-back" size={24} color="#1a237e" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={s.btn}><Ionicons name="arrow-back" size={24} color="#000000" /></TouchableOpacity>
         <Text style={s.title}>Funcionários</Text>
-        <TouchableOpacity onPress={openAdd} style={s.btn}><Ionicons name="add" size={28} color="#1a237e" /></TouchableOpacity>
+        <TouchableOpacity onPress={openAdd} style={s.btn}><Ionicons name="add" size={28} color="#000000" /></TouchableOpacity>
       </View>
       <FlatList
         data={employees} keyExtractor={i => i.id} contentContainerStyle={{ padding: 16 }}
@@ -64,7 +64,7 @@ export default function EmployeesScreen() {
               <Text style={s.cardTitle}>{item.name}</Text>
             </TouchableOpacity>
             <View style={s.actions}>
-              <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionBtn}><Ionicons name="pencil" size={20} color="#1a237e" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionBtn}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
               <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
             </View>
           </View>
@@ -93,7 +93,7 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   btn: { padding: 8 },
-  title: { fontSize: 20, fontWeight: '600', color: '#1a237e' },
+  title: { fontSize: 20, fontWeight: '600', color: '#000000' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 2 },
   cardContent: { flex: 1 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
@@ -103,13 +103,13 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1a237e', marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#000000', marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: '#212121', marginBottom: 8 },
   input: { backgroundColor: '#fff', borderRadius: 8, padding: 14, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0' },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
   modalBtn: { flex: 1, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f5f5f5' },
   cancelText: { color: '#666', fontSize: 16, fontWeight: '600' },
-  saveBtn: { backgroundColor: '#1a237e' },
+  saveBtn: { backgroundColor: '#000000' },
   saveText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

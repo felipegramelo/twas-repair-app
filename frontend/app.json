@@ -2,7 +2,7 @@
   "expo": {
     "name": "frontend",
     "slug": "frontend",
-    "version": "1.0.6",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "frontend",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "2",
+      "buildNumber": "3",
       "bundleIdentifier": "app.emergent.repairproposalsappbd787ce7"
     },
     "android": {

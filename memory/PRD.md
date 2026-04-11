@@ -24,30 +24,22 @@ Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um unico app "T
 - [x] Ordens de Servico (CRUD + Arquivo por O.S.)
 - [x] Boletim de Medicao
 - [x] Dashboard Financeiro
-- [x] Propostas Comerciais (secoes/subsecoes, fotos, termos gerais, campo servico)
+- [x] Propostas Comerciais (secoes/subsecoes, fotos, termos gerais, campo servico, campo local)
 - [x] Propostas Tecnicas (PDF)
-- [x] iOS: GestureHandlerRootView + SafeAreaProvider
-- [x] iOS: File pickers nativos (expo-image-picker, expo-document-picker)
-- [x] iOS: PDF download/sharing (expo-file-system/legacy + expo-sharing)
-- [x] iOS: Alert.alert em vez de window.alert
-- [x] iOS: Inline pickers no Timesheet (sem modais aninhados)
-- [x] iOS: Modal OS picker no Create Report
-- [x] iOS: InlineCalendar para datas de periodo no Create Report
-- [x] iOS: BulletTextArea com auto-bullets no Enter (edit-report)
-- [x] iOS: Upload de imagens com 3 opcoes (Camera/Fototeca/Arquivo)
-- [x] iOS: Fix expo-file-system/legacy (downloadAsync deprecated)
-- [x] Compartilhamento de Documentos (Access Control) - Backend completo
-- [x] Compartilhamento de Documentos - UI Admin (service-reports, daily-reports, timesheets)
-- [x] Compartilhamento de Documentos - Badge "Compartilhado" no painel Supervisor
-- [x] Compartilhamento de Documentos - Duplicar documentos compartilhados (Supervisor)
-- [x] Troca de Senha - Supervisor pode trocar propria senha
-- [x] Redefinir Senha - Admin pode redefinir senha de qualquer supervisor
+- [x] iOS: Todas as funcionalidades nativas (GestureHandler, SafeArea, File pickers, PDF download/sharing, Alerts, Inline pickers, InlineCalendar, BulletTextArea, Upload 3 opcoes)
+- [x] Compartilhamento de Documentos (Access Control) - Backend + UI completo
+- [x] Troca/Redefinicao de Senha (Admin e Supervisor)
+- [x] Tema Preto (#000000) aplicado em toda a interface (substituiu azul #1a237e)
+- [x] Campo "Local" nas Propostas Comerciais
+- [x] Auto-preenchimento da OS ao aprovar Proposta (embarcacao, local, servico)
+- [x] Nome do app: "TWAS"
+- [x] Rich text toggles no editor de relatorios
 
 ## Tarefas Pendentes
 
 ### P1 (Alta Prioridade)
+- [ ] Adicionar campo `schedule_type` (06-18 / 07-19) na UI das Ordens de Servico
 - [ ] Otimizar query N+1 em `get_service_orders` (usar $lookup)
-- [ ] Adicionar campo `schedule_type` (06-18 / 07-19) nas Ordens de Servico
 - [ ] Refatorar `backend/server.py` (>4200 linhas -> estrutura modular)
 
 ### P2 (Media Prioridade)

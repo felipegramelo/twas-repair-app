@@ -26,12 +26,13 @@ Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um unico app "T
 - [x] Dashboard Financeiro
 - [x] Propostas Comerciais (secoes/subsecoes, fotos, termos gerais, campo servico, campo local)
 - [x] Propostas Tecnicas (PDF)
-- [x] iOS: Todas as funcionalidades nativas (GestureHandler, SafeArea, File pickers, PDF download/sharing, Alerts, Inline pickers, InlineCalendar, BulletTextArea, Upload 3 opcoes)
+- [x] iOS: Todas as funcionalidades nativas
 - [x] Compartilhamento de Documentos (Access Control) - Backend + UI completo
 - [x] Troca/Redefinicao de Senha (Admin e Supervisor)
-- [x] Tema Preto (#000000) aplicado em toda a interface (substituiu azul #1a237e)
+- [x] Tema Preto (#000000) aplicado em toda a interface
 - [x] Campo "Local" nas Propostas Comerciais
 - [x] Auto-preenchimento da OS ao aprovar Proposta (embarcacao, local, servico)
+- [x] Numero sequencial por OS nas Timesheets (visivel apenas para Admin: TS 01, TS 02, etc.)
 - [x] Nome do app: "TWAS"
 - [x] Rich text toggles no editor de relatorios
 

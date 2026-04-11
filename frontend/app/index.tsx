@@ -8,6 +8,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -62,7 +63,7 @@ export default function LoginScreen() {
     >
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <Ionicons name="time" size={64} color="#1a237e" />
+          <Image source={require('../assets/images/app-logo.png')} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.title}>TWAS REPAIR</Text>
         </View>
 
@@ -124,6 +125,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 48,
+  },
+  logoImage: {
+    width: 180,
+    height: 105,
   },
   title: {
     fontSize: 32,

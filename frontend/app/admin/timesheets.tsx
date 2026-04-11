@@ -200,8 +200,15 @@ export default function AdminTimesheetsScreen() {
   const renderTimesheet = ({ item }: { item: Timesheet }) => (
     <View style={styles.card} data-testid={`timesheet-card-${item.id}`}>
       <View style={styles.topRow}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{item.os_number}</Text>
+        <View style={{ flexDirection: 'column', gap: 4 }}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{item.os_number}</Text>
+          </View>
+          {(item as any).sequence_number && (
+            <View style={styles.seqBadge} data-testid={`timesheet-seq-${item.id}`}>
+              <Text style={styles.seqBadgeText}>TS {String((item as any).sequence_number).padStart(2, '0')}</Text>
+            </View>
+          )}
         </View>
         <View style={styles.actions}>
           <TouchableOpacity onPress={() => openShareModal(item)} style={styles.actionButton} data-testid={`share-ts-btn-${item.id}`}>
@@ -314,6 +321,8 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   badge: { backgroundColor: '#f0f0f0', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   badgeText: { color: '#000000', fontWeight: '600', fontSize: 12 },
+  seqBadge: { backgroundColor: '#000000', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
+  seqBadgeText: { color: '#fff', fontWeight: '700', fontSize: 11 },
   cardInfo: { paddingLeft: 2 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
   cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 },

@@ -176,6 +176,11 @@ export default function OSArchiveScreen() {
             <View style={s.docInfo}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <Text style={s.docSupervisor}>{doc.supervisor_name}</Text>
+                {type === 'timesheet' && (doc as any).sequence_number && (
+                  <View style={{ backgroundColor: '#000', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#fff', fontWeight: '700' }}>TS {String((doc as any).sequence_number).padStart(2, '0')}</Text>
+                  </View>
+                )}
                 <View style={{ backgroundColor: '#e8f5e9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
                   <Text style={{ fontSize: 10, color: '#2e7d32', fontWeight: '600' }}>Finalizado</Text>
                 </View>

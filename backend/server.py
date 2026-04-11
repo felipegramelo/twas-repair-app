@@ -816,11 +816,13 @@ async def get_os_archive(current_user: Dict[str, Any] = Depends(get_admin_user))
         so_id = str(so["_id"])
         
         # Get timesheets for this OS (only finalized ones for admin archive)
-        timesheets = await db.timesheets.find({"os_id": so_id, "status": "finalized"}).sort("created_at", -1).to_list(100)
+        timesheets = await db.timesheets.find({"os_id": so_id, "status": "finalized"}).sort("created_at", 1).to_list(100)
         ts_list = []
-        for ts in timesheets:
+        for idx, ts in enumerate(timesheets):
             ts["id"] = str(ts.pop("_id"))
             ts.pop("_id", None)
+            if "sequence_number" not in ts or not ts.get("sequence_number"):
+                ts["sequence_number"] = idx + 1
             ts["created_at"] = ts.get("created_at", "").isoformat() if hasattr(ts.get("created_at", ""), "isoformat") else str(ts.get("created_at", ""))
             ts["updated_at"] = ts.get("updated_at", "").isoformat() if hasattr(ts.get("updated_at", ""), "isoformat") else str(ts.get("updated_at", ""))
             ts_list.append(ts)
@@ -1554,6 +1556,10 @@ async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any
     ts_dict["created_at"] = datetime.utcnow()
     ts_dict["updated_at"] = datetime.utcnow()
     
+    # Auto-incrementing sequence number per OS
+    existing_count = await db.timesheets.count_documents({"os_id": ts_data.os_id})
+    ts_dict["sequence_number"] = existing_count + 1
+    
     result = await db.timesheets.insert_one(ts_dict)
     
     # Reload from database and convert _id to id
@@ -1577,6 +1583,25 @@ async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user
     
     timesheets = await db.timesheets.find(query).sort("created_at", -1).to_list(500)
     result = []
+    
+    # For admin: compute sequence_number for timesheets that don't have one
+    if current_user.get("role") == UserRole.ADMIN:
+        # Group by os_id to assign sequence numbers for legacy timesheets
+        os_counters: Dict[str, int] = {}
+        # First pass: collect all timesheets sorted by created_at ASC per OS
+        os_groups: Dict[str, list] = {}
+        for ts in timesheets:
+            os_id = ts.get("os_id", "")
+            if os_id not in os_groups:
+                os_groups[os_id] = []
+            os_groups[os_id].append(ts)
+        # Sort each group by created_at ASC to assign consistent sequence numbers
+        for os_id in os_groups:
+            os_groups[os_id].sort(key=lambda x: x.get("created_at", datetime.min))
+            for idx, ts in enumerate(os_groups[os_id]):
+                if "sequence_number" not in ts or not ts.get("sequence_number"):
+                    ts["sequence_number"] = idx + 1
+    
     for ts in timesheets:
         ts["id"] = str(ts.pop("_id"))  # Rename _id to id
         result.append(ts)
@@ -1694,14 +1719,18 @@ async def duplicate_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends
     original = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not original:
         raise HTTPException(status_code=404, detail="Timesheet não encontrada")
+    # Auto-incrementing sequence number per OS
+    os_id = original["os_id"]
+    existing_count = await db.timesheets.count_documents({"os_id": os_id})
     new_ts = {
-        "os_id": original["os_id"],
+        "os_id": os_id,
         "os_number": original.get("os_number", ""),
         "client": original.get("client", ""),
         "supervisor_id": current_user["_id"],
         "supervisor_name": current_user.get("name", ""),
         "entries": original.get("entries", []),
         "status": "draft",
+        "sequence_number": existing_count + 1,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
     }

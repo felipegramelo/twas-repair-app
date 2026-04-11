@@ -114,6 +114,8 @@ export default function EditReportScreen() {
   const [dailyEntries, setDailyEntries] = useState<Array<{id: string; date: string; description: string}>>([]);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [pdfSelectedDays, setPdfSelectedDays] = useState<Set<string>>(new Set());
+  const [hiddenTextAreas, setHiddenTextAreas] = useState<Set<string>>(new Set());
+  const [plainTextOverride, setPlainTextOverride] = useState<Set<string>>(new Set());
 
   useEffect(() => { loadReport(); AsyncStorage.getItem('token').then(t => t && setToken(t)); }, []);
 
@@ -398,6 +400,69 @@ export default function EditReportScreen() {
     });
   };
 
+  const toggleHideTextArea = (key: string) => {
+    setHiddenTextAreas(prev => {
+      const updated = new Set(prev);
+      if (updated.has(key)) updated.delete(key);
+      else { updated.add(key); updateSectionContent(key, ''); }
+      return updated;
+    });
+  };
+
+  const togglePlainText = (key: string) => {
+    setPlainTextOverride(prev => {
+      const updated = new Set(prev);
+      if (updated.has(key)) updated.delete(key);
+      else {
+        updated.add(key);
+        const current = sections.flatMap(s => [s, ...s.subsections, ...s.subsections.flatMap(sub => sub.subsections || [])]).find(s => s.key === key);
+        if (current?.content) {
+          const cleaned = current.content.replace(/^• /gm, '').replace(/\n• /g, '\n');
+          updateSectionContent(key, cleaned);
+        }
+      }
+      return updated;
+    });
+  };
+
+  const renderTextAreaControls = (sectionKey: string, isHidden: boolean) => {
+    const hasBullets = !NO_BULLET_SECTIONS.includes(sectionKey) && !plainTextOverride.has(sectionKey);
+    return (
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: isHidden ? 0 : 6, marginTop: 4 }}>
+        <TouchableOpacity
+          onPress={() => toggleHideTextArea(sectionKey)}
+          style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: isHidden ? '#ffebee' : '#e8f5e9', borderRadius: 6 }}
+          data-testid={`toggle-text-${sectionKey}`}
+        >
+          <Ionicons name={isHidden ? 'add-circle-outline' : 'remove-circle-outline'} size={16} color={isHidden ? '#d32f2f' : '#2e7d32'} />
+          <Text style={{ fontSize: 11, marginLeft: 4, color: isHidden ? '#d32f2f' : '#2e7d32', fontWeight: '500' }}>
+            {isHidden ? 'Adicionar Texto' : 'Remover Texto'}
+          </Text>
+        </TouchableOpacity>
+        {!isHidden && !NO_BULLET_SECTIONS.includes(sectionKey) && (
+          <TouchableOpacity
+            onPress={() => togglePlainText(sectionKey)}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: hasBullets ? '#e8eaf6' : '#fff3e0', borderRadius: 6 }}
+            data-testid={`toggle-bullets-${sectionKey}`}
+          >
+            <Ionicons name={hasBullets ? 'list' : 'text'} size={16} color={hasBullets ? '#1a237e' : '#e65100'} />
+            <Text style={{ fontSize: 11, marginLeft: 4, color: hasBullets ? '#1a237e' : '#e65100', fontWeight: '500' }}>
+              {hasBullets ? 'Com Marcadores' : 'Sem Marcadores'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  const renderSmartTextArea = (sectionKey: string, content: string, placeholder: string) => {
+    if (hiddenTextAreas.has(sectionKey)) return null;
+    if (plainTextOverride.has(sectionKey) || NO_BULLET_SECTIONS.includes(sectionKey)) {
+      return <PlainTextArea value={content} onChangeText={(t) => updateSectionContent(sectionKey, t)} placeholder={placeholder} />;
+    }
+    return <BulletTextArea value={content} onChangeText={(t) => updateSectionContent(sectionKey, t)} placeholder={placeholder} />;
+  };
+
   const addSubsection = (parentKey: string) => {
     const title = (addingSubsectionTitle[parentKey] || '').trim();
     if (!title) return;
@@ -576,9 +641,19 @@ export default function EditReportScreen() {
                         </TouchableOpacity>
                       </View>
                     )}
-                    {(!isCustom && !isPhotoOnlySection(sec.key) && !NO_TEXT_SECTIONS.includes(sec.key)) && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
+                    {(!isCustom && !isPhotoOnlySection(sec.key) && !NO_TEXT_SECTIONS.includes(sec.key)) && (
+                      <>
+                        {renderTextAreaControls(sec.key, hiddenTextAreas.has(sec.key))}
+                        {renderSmartTextArea(sec.key, sec.content, `Texto para ${sec.title}...`)}
+                      </>
+                    )}
                     {(!isCustom && isPhotoOnlySection(sec.key)) && renderPhotoGrid(sec.key, true)}
-                    {isCustom && modes.has('text') && <SectionTextArea sectionKey={sec.key} value={sec.content} onChangeText={(t) => updateSectionContent(sec.key, t)} placeholder={`Texto para ${sec.title}...`} />}
+                    {isCustom && modes.has('text') && (
+                      <>
+                        {renderTextAreaControls(sec.key, hiddenTextAreas.has(sec.key))}
+                        {renderSmartTextArea(sec.key, sec.content, `Texto para ${sec.title}...`)}
+                      </>
+                    )}
                     {isCustom && modes.has('photos') && renderPhotoGrid(sec.key, true)}
                     {sec.subsections.filter(sub => sub.enabled).map(sub => {
                       const subNum = numberMap.get(sub.key) || '';
@@ -593,7 +668,12 @@ export default function EditReportScreen() {
                             placeholder="Nome da subseção..."
                             data-testid={`subsection-title-${sub.key}`}
                           />
-                          {!isPhotos && !showPhotoUpload && <SectionTextArea sectionKey={sub.key} value={sub.content} onChangeText={(t) => updateSectionContent(sub.key, t)} placeholder={`Texto para ${sub.title}...`} />}
+                          {!isPhotos && !showPhotoUpload && (
+                            <>
+                              {renderTextAreaControls(sub.key, hiddenTextAreas.has(sub.key))}
+                              {renderSmartTextArea(sub.key, sub.content, `Texto para ${sub.title}...`)}
+                            </>
+                          )}
                           {showPhotoUpload ? renderPhotoGrid(sub.key, true) : (canHavePhotos(sub.key) && renderPhotoGrid(sub.key))}
                           {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => {
                             const ssNum = numberMap.get(ss.key) || '';
@@ -606,7 +686,12 @@ export default function EditReportScreen() {
                                   onChangeText={(t) => updateSectionTitle(ss.key, t)}
                                   placeholder="Nome da subseção..."
                                 />
-                                {!isSP && <SectionTextArea sectionKey={ss.key} value={ss.content} onChangeText={(t) => updateSectionContent(ss.key, t)} placeholder={`Texto para ${ss.title}...`} />}
+                                {!isSP && (
+                                  <>
+                                    {renderTextAreaControls(ss.key, hiddenTextAreas.has(ss.key))}
+                                    {renderSmartTextArea(ss.key, ss.content, `Texto para ${ss.title}...`)}
+                                  </>
+                                )}
                                 {isSP ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
                               </View>);
                           })}

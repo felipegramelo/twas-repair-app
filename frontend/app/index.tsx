@@ -64,7 +64,6 @@ export default function LoginScreen() {
       <View style={styles.content}>
         <View style={styles.logoContainer}>
           <Image source={require('../assets/images/app-logo.png')} style={styles.logoImage} resizeMode="contain" />
-          <Text style={styles.title}>TWAS REPAIR</Text>
         </View>
 
         <View style={styles.form}>

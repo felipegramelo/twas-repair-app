@@ -13,12 +13,15 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 import io
 import jwt
+from pathlib import Path
 
 from database import db
 from config import SECRET_KEY, ALGORITHM, get_object
 from dependencies import get_current_user, get_admin_user
 
 router = APIRouter()
+
+ROOT_DIR = Path(__file__).parent.parent
 
 from dependencies import get_bm_admin_user
 

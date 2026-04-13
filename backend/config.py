@@ -1,6 +1,5 @@
 import os
 import logging
-import httpx
 import requests
 from passlib.context import CryptContext
 from fastapi.security import HTTPBearer
@@ -27,40 +26,39 @@ _storage_key = None
 
 def init_storage():
     global _storage_key
+    if _storage_key:
+        return _storage_key
     resp = requests.post(
-        f"{STORAGE_URL}/key",
-        headers={"x-emergent-key": EMERGENT_KEY},
-        json={"app_name": APP_NAME}
+        f"{STORAGE_URL}/init",
+        json={"emergent_key": EMERGENT_KEY},
+        timeout=30
     )
     resp.raise_for_status()
     _storage_key = resp.json().get("storage_key")
+    return _storage_key
 
 
 def put_object(path: str, data: bytes, content_type: str) -> dict:
-    global _storage_key
-    if not _storage_key:
-        init_storage()
-    resp = requests.post(
-        f"{STORAGE_URL}/put",
-        headers={"x-storage-key": _storage_key},
-        files={"file": (path, data, content_type)},
-        data={"path": path},
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data,
+        timeout=120
     )
     resp.raise_for_status()
     return resp.json()
 
 
 def get_object(path: str):
-    global _storage_key
-    if not _storage_key:
-        init_storage()
+    key = init_storage()
     resp = requests.get(
-        f"{STORAGE_URL}/get",
-        headers={"x-storage-key": _storage_key},
-        params={"path": path},
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key},
+        timeout=60
     )
     if resp.status_code == 200:
-        return resp.content, resp.headers.get("content-type", "application/octet-stream")
+        return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
     return None, None
 
 

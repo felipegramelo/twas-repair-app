@@ -1,6 +1,7 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime
@@ -20,6 +21,8 @@ from dependencies import get_current_user, get_admin_user
 from models import TimesheetCreate, UserRole, _validate_timesheet_entries
 
 router = APIRouter()
+
+ROOT_DIR = Path(__file__).parent.parent
 
 @router.post("/timesheets", response_model=dict)
 async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):

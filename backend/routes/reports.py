@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Query, Header, UploadFile, File, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import Response, StreamingResponse
@@ -18,11 +19,13 @@ import jwt
 from pathlib import Path
 
 from database import db
-from config import SECRET_KEY, ALGORITHM, put_object, get_object
+from config import SECRET_KEY, ALGORITHM, put_object, get_object, APP_NAME
 from dependencies import get_current_user, get_admin_user
 from models import ReportCreate, ReportUpdate, UserRole
 
 router = APIRouter()
+
+ROOT_DIR = Path(__file__).parent.parent
 
 def get_default_service_sections(client="", service="", location=""):
     intro_text = (

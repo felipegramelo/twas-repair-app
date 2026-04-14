@@ -138,14 +138,29 @@ export default function SupervisorDashboard() {
     return `${baseURL}/api/reports/${reportId}/pdf?token=${encodeURIComponent(authToken)}&t=${Date.now()}`;
   };
 
-  const handleOpenReportPDF = (report: Report) => {
+  const handleOpenReportPDF = async (report: Report) => {
     try {
       if (Platform.OS === 'web') {
         const url = getReportPdfUrl(report.id);
-        // Synchronous call - no await before window.open to avoid iOS popup blocker
         window.open(url, '_blank');
+      } else {
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const fileUri = `${FileSystem.cacheDirectory}report_${report.id}_${Date.now()}.pdf`;
+        const result = await FileSystem.downloadAsync(
+          `${baseURL}/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`,
+          fileUri
+        );
+        if (result.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
+        } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
       }
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao abrir PDF do relatório'); }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert('Erro ao abrir PDF do relatório');
+      else Alert.alert('Erro', 'Erro ao abrir PDF: ' + (error.message || ''));
+    }
   };
 
   const handleDownloadReportPDF = async (report: Report) => {
@@ -295,11 +310,24 @@ export default function SupervisorDashboard() {
 
   const handleDuplicateTimesheet = async (ts: Timesheet) => {
     if (Platform.OS === 'web') { if (!window.confirm('Deseja duplicar esta timesheet?')) return; }
+    else {
+      const confirmed = await new Promise<boolean>((resolve) =>
+        Alert.alert('Duplicar Timesheet', 'Deseja duplicar esta timesheet?', [
+          { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Duplicar', onPress: () => resolve(true) },
+        ])
+      );
+      if (!confirmed) return;
+    }
     try {
       await timesheetAPI.duplicate(ts.id);
       if (Platform.OS === 'web') window.alert('Timesheet duplicada com sucesso!');
+      else Alert.alert('Sucesso', 'Timesheet duplicada com sucesso!');
       loadData();
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao duplicar timesheet'); }
+    } catch {
+      if (Platform.OS === 'web') window.alert('Erro ao duplicar timesheet');
+      else Alert.alert('Erro', 'Erro ao duplicar timesheet');
+    }
   };
 
   const formatDate = (dateStr: string) => {

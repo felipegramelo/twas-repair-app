@@ -115,7 +115,6 @@ export default function EditReportScreen() {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [pdfSelectedDays, setPdfSelectedDays] = useState<Set<string>>(new Set());
   const [hiddenTextAreas, setHiddenTextAreas] = useState<Set<string>>(new Set());
-  const [plainTextOverride, setPlainTextOverride] = useState<Set<string>>(new Set());
 
   useEffect(() => { loadReport(); AsyncStorage.getItem('token').then(t => t && setToken(t)); }, []);
 
@@ -410,23 +409,36 @@ export default function EditReportScreen() {
   };
 
   const togglePlainText = (key: string) => {
-    setPlainTextOverride(prev => {
-      const updated = new Set(prev);
-      if (updated.has(key)) updated.delete(key);
-      else {
-        updated.add(key);
-        const current = sections.flatMap(s => [s, ...s.subsections, ...s.subsections.flatMap(sub => sub.subsections || [])]).find(s => s.key === key);
-        if (current?.content) {
-          const cleaned = current.content.replace(/^• /gm, '').replace(/\n• /g, '\n');
-          updateSectionContent(key, cleaned);
-        }
-      }
-      return updated;
-    });
+    // Find the section content
+    const allSections = sections.flatMap(s => [s, ...s.subsections, ...s.subsections.flatMap(sub => sub.subsections || [])]);
+    const current = allSections.find(s => s.key === key);
+    const content = current?.content || '';
+    
+    // Check if most lines already have bullets
+    const lines = content.split('\n');
+    const bulletLines = lines.filter(l => l.startsWith('• ')).length;
+    const hasMostBullets = bulletLines > lines.length / 2;
+    
+    if (hasMostBullets) {
+      // Remove ALL bullets
+      const cleaned = content.replace(/^• /gm, '');
+      updateSectionContent(key, cleaned);
+    } else {
+      // Add bullets to lines that don't have them
+      const bulleted = lines.map(l => l.startsWith('• ') ? l : '• ' + l).join('\n');
+      updateSectionContent(key, bulleted);
+    }
   };
 
   const renderTextAreaControls = (sectionKey: string, isHidden: boolean) => {
-    const hasBullets = !NO_BULLET_SECTIONS.includes(sectionKey) && !plainTextOverride.has(sectionKey);
+    // Check actual content for bullet state
+    const allSections = sections.flatMap(s => [s, ...s.subsections, ...s.subsections.flatMap(sub => sub.subsections || [])]);
+    const current = allSections.find(s => s.key === sectionKey);
+    const content = current?.content || '';
+    const lines = content.split('\n').filter(l => l.trim().length > 0);
+    const bulletLines = lines.filter(l => l.startsWith('• ')).length;
+    const hasBullets = lines.length > 0 && bulletLines > lines.length / 2;
+    
     return (
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: isHidden ? 0 : 6, marginTop: 4 }}>
         <TouchableOpacity
@@ -445,9 +457,9 @@ export default function EditReportScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: hasBullets ? '#f0f0f0' : '#fff3e0', borderRadius: 6 }}
             data-testid={`toggle-bullets-${sectionKey}`}
           >
-            <Ionicons name={hasBullets ? 'list' : 'text'} size={16} color={hasBullets ? '#000000' : '#e65100'} />
+            <Ionicons name={hasBullets ? 'list' : 'list-outline'} size={16} color={hasBullets ? '#000000' : '#e65100'} />
             <Text style={{ fontSize: 11, marginLeft: 4, color: hasBullets ? '#000000' : '#e65100', fontWeight: '500' }}>
-              {hasBullets ? 'Com Marcadores' : 'Sem Marcadores'}
+              {hasBullets ? 'Remover Marcadores' : 'Adicionar Marcadores'}
             </Text>
           </TouchableOpacity>
         )}
@@ -457,10 +469,8 @@ export default function EditReportScreen() {
 
   const renderSmartTextArea = (sectionKey: string, content: string, placeholder: string) => {
     if (hiddenTextAreas.has(sectionKey)) return null;
-    if (plainTextOverride.has(sectionKey) || NO_BULLET_SECTIONS.includes(sectionKey)) {
-      return <PlainTextArea value={content} onChangeText={(t) => updateSectionContent(sectionKey, t)} placeholder={placeholder} />;
-    }
-    return <BulletTextArea value={content} onChangeText={(t) => updateSectionContent(sectionKey, t)} placeholder={placeholder} />;
+    // Always use PlainTextArea - user freely edits text and toggles bullets via button
+    return <PlainTextArea value={content} onChangeText={(t) => updateSectionContent(sectionKey, t)} placeholder={placeholder} />;
   };
 
   const addSubsection = (parentKey: string) => {
@@ -821,7 +831,31 @@ export default function EditReportScreen() {
                   {expandedDay === entry.id && (
                     <View style={{ marginTop: 12 }}>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: '#555', marginBottom: 6 }}>Descrição das Atividades</Text>
-                      <BulletTextArea
+                      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const content = entry.description || '';
+                            const lines = content.split('\n');
+                            const bulletLines = lines.filter(l => l.startsWith('• ')).length;
+                            const hasMost = lines.filter(l => l.trim().length > 0).length > 0 && bulletLines > lines.filter(l => l.trim().length > 0).length / 2;
+                            if (hasMost) {
+                              const cleaned = content.replace(/^• /gm, '');
+                              setDailyEntries(prev => prev.map(de => de.id === entry.id ? { ...de, description: cleaned } : de));
+                            } else {
+                              const bulleted = lines.map(l => l.startsWith('• ') ? l : '• ' + l).join('\n');
+                              setDailyEntries(prev => prev.map(de => de.id === entry.id ? { ...de, description: bulleted } : de));
+                            }
+                          }}
+                          style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: '#f0f0f0', borderRadius: 6 }}
+                          data-testid={`toggle-bullets-daily-${entry.id}`}
+                        >
+                          <Ionicons name="list" size={16} color="#000" />
+                          <Text style={{ fontSize: 11, marginLeft: 4, color: '#000', fontWeight: '500' }}>
+                            {(entry.description || '').split('\n').filter(l => l.startsWith('• ')).length > (entry.description || '').split('\n').filter(l => l.trim().length > 0).length / 2 ? 'Remover Marcadores' : 'Adicionar Marcadores'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <PlainTextArea
                         value={entry.description}
                         onChangeText={(t) => setDailyEntries(prev => prev.map(de => de.id === entry.id ? { ...de, description: t } : de))}
                         placeholder="Descreva as atividades realizadas neste dia..."

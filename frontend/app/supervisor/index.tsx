@@ -112,9 +112,24 @@ export default function SupervisorDashboard() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+      } else {
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
+        const result = await FileSystem.downloadAsync(
+          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
+          fileUri,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (result.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
+        } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
       }
     } catch (error: any) {
       if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');
+      else Alert.alert('Erro', 'Erro ao baixar PDF: ' + (error.message || ''));
     }
   };
 
@@ -133,14 +148,29 @@ export default function SupervisorDashboard() {
     } catch { if (Platform.OS === 'web') window.alert('Erro ao abrir PDF do relatório'); }
   };
 
-  const handleDownloadReportPDF = (report: Report) => {
+  const handleDownloadReportPDF = async (report: Report) => {
     try {
       if (Platform.OS === 'web') {
         const url = getReportPdfUrl(report.id);
-        // Use window.location.href as reliable fallback for iOS Safari
         window.location.href = url;
+      } else {
+        const token = await AsyncStorage.getItem('token');
+        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const fileUri = `${FileSystem.cacheDirectory}report_${report.id}_${Date.now()}.pdf`;
+        const result = await FileSystem.downloadAsync(
+          `${baseURL}/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`,
+          fileUri
+        );
+        if (result.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
+        } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
       }
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao baixar PDF do relatório'); }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert('Erro ao baixar PDF do relatório');
+      else Alert.alert('Erro', 'Erro ao baixar PDF: ' + (error.message || ''));
+    }
   };
 
   const handleDeleteTimesheet = (timesheet: Timesheet) => {
@@ -217,22 +247,50 @@ export default function SupervisorDashboard() {
   };
 
   const handleFinalizeTimesheet = async (ts: Timesheet) => {
-    if (Platform.OS === 'web') { if (!window.confirm('Deseja finalizar esta timesheet? Após a finalização você não poderá mais editá-la.')) return; }
-    else { /* native alert */ }
+    const msg = 'Você deseja enviar para o administrador essa Timesheet? Após o envio você não poderá mais editá-la.';
+    if (Platform.OS === 'web') { if (!window.confirm(msg)) return; }
+    else {
+      const confirmed = await new Promise<boolean>((resolve) =>
+        Alert.alert('Enviar Timesheet', msg, [
+          { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Enviar', onPress: () => resolve(true) },
+        ])
+      );
+      if (!confirmed) return;
+    }
     try {
       await timesheetAPI.finalize(ts.id);
-      if (Platform.OS === 'web') window.alert('Timesheet finalizada com sucesso!');
+      if (Platform.OS === 'web') window.alert('Timesheet enviada para o administrador com sucesso!');
+      else Alert.alert('Sucesso', 'Timesheet enviada para o administrador com sucesso!');
       loadData();
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao finalizar timesheet'); }
+    } catch {
+      if (Platform.OS === 'web') window.alert('Erro ao enviar timesheet');
+      else Alert.alert('Erro', 'Erro ao enviar timesheet');
+    }
   };
 
   const handleFinalizeReport = async (rpt: Report) => {
-    if (Platform.OS === 'web') { if (!window.confirm('Deseja finalizar este relatório? Após a finalização você não poderá mais editá-lo.')) return; }
+    const typeLabel = rpt.report_type === 'service' ? 'Relatório de Serviço' : 'Relatório Diário';
+    const msg = `Você deseja enviar para o administrador esse ${typeLabel}? Após o envio você não poderá mais editá-lo.`;
+    if (Platform.OS === 'web') { if (!window.confirm(msg)) return; }
+    else {
+      const confirmed = await new Promise<boolean>((resolve) =>
+        Alert.alert(`Enviar ${typeLabel}`, msg, [
+          { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Enviar', onPress: () => resolve(true) },
+        ])
+      );
+      if (!confirmed) return;
+    }
     try {
       await reportAPI.finalize(rpt.id);
-      if (Platform.OS === 'web') window.alert('Relatório finalizado com sucesso!');
+      if (Platform.OS === 'web') window.alert(`${typeLabel} enviado para o administrador com sucesso!`);
+      else Alert.alert('Sucesso', `${typeLabel} enviado para o administrador com sucesso!`);
       loadData();
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao finalizar relatório'); }
+    } catch {
+      if (Platform.OS === 'web') window.alert(`Erro ao enviar ${typeLabel.toLowerCase()}`);
+      else Alert.alert('Erro', `Erro ao enviar ${typeLabel.toLowerCase()}`);
+    }
   };
 
   const handleDuplicateTimesheet = async (ts: Timesheet) => {
@@ -332,7 +390,7 @@ export default function SupervisorDashboard() {
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-timesheet?id=${ts.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteTimesheet(ts); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
                             <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicateTimesheet(ts); }} style={styles.actionBtn} data-testid={`duplicate-ts-${ts.id}`}><Ionicons name="copy-outline" size={20} color="#000000" /></TouchableOpacity>
-                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeTimesheet(ts); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-ts-${ts.id}`}><Ionicons name="checkmark-done" size={20} color="#2e7d32" /></TouchableOpacity>
+                            <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeTimesheet(ts); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-ts-${ts.id}`}><Ionicons name="send" size={18} color="#2e7d32" /></TouchableOpacity>
                           </>
                         )}
                         <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadPDF(ts); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#000000" /></TouchableOpacity>
@@ -386,7 +444,7 @@ export default function SupervisorDashboard() {
                           <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/supervisor/edit-report?id=${rpt.id}`); }} style={styles.actionBtn}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
                           <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDuplicate(rpt); }} style={styles.actionBtn} data-testid={`duplicate-report-${rpt.id}`}><Ionicons name="copy-outline" size={20} color="#000000" /></TouchableOpacity>
                           <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDeleteReport(rpt); }} style={styles.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
-                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeReport(rpt); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-rpt-${rpt.id}`}><Ionicons name="checkmark-done" size={20} color="#2e7d32" /></TouchableOpacity>
+                          <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleFinalizeReport(rpt); }} style={[styles.actionBtn, { backgroundColor: '#e8f5e9', borderRadius: 6 }]} data-testid={`finalize-rpt-${rpt.id}`}><Ionicons name="send" size={18} color="#2e7d32" /></TouchableOpacity>
                         </>
                       )}
                       <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#000000" /></TouchableOpacity>

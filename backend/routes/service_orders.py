@@ -92,8 +92,8 @@ async def get_os_archive(current_user: Dict[str, Any] = Depends(get_admin_user))
     for so in service_orders:
         so_id = str(so["_id"])
         
-        # Get timesheets for this OS (only finalized ones for admin archive)
-        timesheets = await db.timesheets.find({"os_id": so_id, "status": "finalized"}).sort("created_at", 1).to_list(100)
+        # Get timesheets for this OS (all timesheets, not just finalized)
+        timesheets = await db.timesheets.find({"os_id": so_id}).sort("created_at", 1).to_list(100)
         ts_list = []
         for idx, ts in enumerate(timesheets):
             ts["id"] = str(ts.pop("_id"))

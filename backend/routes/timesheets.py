@@ -72,18 +72,17 @@ async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user
     timesheets = await db.timesheets.find(query).sort("created_at", -1).to_list(500)
     result = []
     
+    # Cache SO data for backfilling legacy timesheets
+    so_cache: Dict[str, dict] = {}
+    
     # For admin: compute sequence_number for timesheets that don't have one
     if current_user.get("role") == UserRole.ADMIN:
-        # Group by os_id to assign sequence numbers for legacy timesheets
-        os_counters: Dict[str, int] = {}
-        # First pass: collect all timesheets sorted by created_at ASC per OS
         os_groups: Dict[str, list] = {}
         for ts in timesheets:
             os_id = ts.get("os_id", "")
             if os_id not in os_groups:
                 os_groups[os_id] = []
             os_groups[os_id].append(ts)
-        # Sort each group by created_at ASC to assign consistent sequence numbers
         for os_id in os_groups:
             os_groups[os_id].sort(key=lambda x: x.get("created_at", datetime.min))
             for idx, ts in enumerate(os_groups[os_id]):
@@ -91,7 +90,24 @@ async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user
                     ts["sequence_number"] = idx + 1
     
     for ts in timesheets:
-        ts["id"] = str(ts.pop("_id"))  # Rename _id to id
+        # Backfill missing service/location/observations from SO for legacy timesheets
+        if not ts.get("service") or not ts.get("location"):
+            os_id = ts.get("os_id", "")
+            if os_id and os_id not in so_cache:
+                try:
+                    so = await db.service_orders.find_one({"_id": ObjectId(os_id)})
+                    so_cache[os_id] = so or {}
+                except Exception:
+                    so_cache[os_id] = {}
+            so_data = so_cache.get(os_id, {})
+            if not ts.get("service"):
+                ts["service"] = so_data.get("service", "")
+            if not ts.get("location"):
+                ts["location"] = so_data.get("location", "")
+        if "observations" not in ts:
+            ts["observations"] = ""
+        
+        ts["id"] = str(ts.pop("_id"))
         result.append(ts)
     return result
 

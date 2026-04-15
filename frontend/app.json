@@ -2,7 +2,7 @@
   "expo": {
     "name": "TWAS",
     "slug": "frontend",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "twas",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "4",
+      "buildNumber": "5",
       "bundleIdentifier": "app.emergent.repairproposalsappbd787ce7"
     },
     "android": {

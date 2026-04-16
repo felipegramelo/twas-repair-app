@@ -28,7 +28,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(userData);
       }
     } catch (error) {
-      console.error('Error loading stored data:', error);
+      // Token expired or invalid - clear it
+      await AsyncStorage.removeItem('token');
+      setUser(null);
     } finally {
       setLoading(false);
     }

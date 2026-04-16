@@ -35,13 +35,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function signIn(email: string, password: string) {
-    try {
-      const response = await authAPI.login(email, password);
-      await AsyncStorage.setItem('token', response.access_token);
-      setUser(response.user);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.detail || 'Erro ao fazer login');
+    const maxRetries = 3;
+    let lastError: any = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await authAPI.login(email, password);
+        await AsyncStorage.setItem('token', response.access_token);
+        setUser(response.user);
+        return;
+      } catch (error: any) {
+        lastError = error;
+        if (error.response?.status === 401 || error.response?.status === 400) {
+          throw new Error(error.response?.data?.detail || 'Email ou senha incorretos');
+        }
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
     }
+    
+    if (lastError?.message?.includes('Network') || lastError?.code === 'ERR_NETWORK') {
+      throw new Error('Sem conexão com o servidor. Verifique sua internet e tente novamente.');
+    }
+    throw new Error(lastError?.response?.data?.detail || 'Erro ao conectar. Tente novamente.');
   }
 
   async function signOut() {

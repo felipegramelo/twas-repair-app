@@ -7,6 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { serviceOrderAPI, employeeAPI } from '../../services/api';
 import { ServiceOrder, Employee, SOEmployee } from '../../types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 const FUNCTIONS = ['E', 'EN', 'Sup', 'T', 'M', 'TS'];
 const FUNC_LABELS: Record<string, string> = { 'E': 'Engenheiro', 'EN': 'Encarregado', 'Sup': 'Supervisor', 'T': 'Técnico', 'M': 'Mecânico', 'TS': 'Téc. Segurança' };
@@ -48,6 +51,28 @@ export default function ServiceOrdersScreen() {
       setServiceOrders(soData); setAllEmployees(empData);
     } catch { if (Platform.OS === 'web') window.alert('Erro ao carregar dados'); else Alert.alert('Erro', 'Erro ao carregar dados'); }
     finally { setLoading(false); }
+  };
+
+  const handleDownloadOSPdf = async (so: ServiceOrder) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+      const pdfUrl = `${baseURL}/service-orders/${so.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`;
+      if (Platform.OS === 'web') {
+        window.open(pdfUrl, '_blank');
+      } else {
+        const fileUri = `${FileSystem.cacheDirectory}OS_${so.os_number}_${Date.now()}.pdf`;
+        const result = await FileSystem.downloadAsync(pdfUrl, fileUri);
+        if (result.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
+        } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert('Erro ao baixar PDF da OS');
+      else Alert.alert('Erro', 'Erro ao baixar PDF: ' + (error.message || ''));
+    }
   };
 
   const loadServiceOrders = async () => {
@@ -198,6 +223,7 @@ export default function ServiceOrdersScreen() {
               </View>
             </TouchableOpacity>
             <View style={s.actions}>
+              <TouchableOpacity onPress={() => handleDownloadOSPdf(item)} style={s.actionBtn} data-testid={`os-pdf-${item.id}`}><Ionicons name="document-text-outline" size={20} color="#000000" /></TouchableOpacity>
               <TouchableOpacity onPress={() => openEdit(item)} style={s.actionBtn}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
               <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn}><Ionicons name="trash-outline" size={20} color="#d32f2f" /></TouchableOpacity>
             </View>

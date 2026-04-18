@@ -18,6 +18,7 @@ from pathlib import Path
 from database import db
 from config import SECRET_KEY, ALGORITHM, get_object
 from dependencies import get_current_user, get_admin_user
+from models import UserRole
 
 router = APIRouter()
 

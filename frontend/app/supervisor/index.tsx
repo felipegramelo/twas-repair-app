@@ -347,6 +347,39 @@ export default function SupervisorDashboard() {
   const getReportTypeLabel = (t: string) => t === 'service' ? 'Rel. Serviço' : 'Rel. Diário';
   const getReportTypeColor = (t: string) => t === 'service' ? '#1565c0' : '#2e7d32';
 
+  const [translateTarget, setTranslateTarget] = useState<{id: string, type: string} | null>(null);
+  const [translating, setTranslating] = useState(false);
+
+  const handleTranslate = async (docId: string, docType: string, targetLang: string) => {
+    setTranslateTarget(null);
+    setTranslating(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+      const resp = await fetch(`${baseURL}/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ document_id: docId, document_type: docType, target_language: targetLang })
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        const langName = targetLang === 'en' ? 'Inglês' : 'Espanhol';
+        if (Platform.OS === 'web') window.alert(`Traduzido para ${langName} com sucesso! Uma cópia foi criada.`);
+        else Alert.alert('Sucesso', `Traduzido para ${langName} com sucesso! Uma cópia foi criada.`);
+        loadData();
+      } else {
+        const msg = data.detail || 'Erro ao traduzir';
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Erro', msg);
+      }
+    } catch (error: any) {
+      if (Platform.OS === 'web') window.alert('Erro ao traduzir: ' + (error.message || ''));
+      else Alert.alert('Erro', 'Erro ao traduzir: ' + (error.message || ''));
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const unifiedItems: UnifiedItem[] = [
     ...timesheets.map(t => ({ kind: 'timesheet' as const, data: t })),
     ...reports.map(r => ({ kind: 'report' as const, data: r })),
@@ -422,6 +455,7 @@ export default function SupervisorDashboard() {
                           </>
                         )}
                         <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadPDF(ts); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#000000" /></TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); setTranslateTarget({id: ts.id, type: 'timesheet'}); }} style={styles.actionBtn} data-testid={`translate-ts-${ts.id}`}><Ionicons name="language-outline" size={20} color="#0066cc" /></TouchableOpacity>
                       </View>
                     </View>
                     <View style={styles.cardInfo}>
@@ -476,6 +510,7 @@ export default function SupervisorDashboard() {
                         </>
                       )}
                       <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDownloadReportPDF(rpt); }} style={styles.actionBtn}><Ionicons name="download-outline" size={20} color="#000000" /></TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); setTranslateTarget({id: rpt.id, type: 'report'}); }} style={styles.actionBtn} data-testid={`translate-rpt-${rpt.id}`}><Ionicons name="language-outline" size={20} color="#0066cc" /></TouchableOpacity>
                     </View>
                   </View>
                   <View style={styles.cardInfo}>
@@ -537,6 +572,45 @@ export default function SupervisorDashboard() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Translate Language Modal */}
+      <Modal visible={!!translateTarget} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setTranslateTarget(null)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Traduzir para...</Text>
+            <TouchableOpacity style={styles.modalOption} onPress={() => translateTarget && handleTranslate(translateTarget.id, translateTarget.type, 'en')} data-testid="translate-en">
+              <Text style={{ fontSize: 28 }}>EN</Text>
+              <View style={styles.modalOptionText}>
+                <Text style={styles.modalOptionTitle}>Inglês</Text>
+                <Text style={styles.modalOptionDesc}>Criar cópia traduzida em inglês</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalOption} onPress={() => translateTarget && handleTranslate(translateTarget.id, translateTarget.type, 'es')} data-testid="translate-es">
+              <Text style={{ fontSize: 28 }}>ES</Text>
+              <View style={styles.modalOptionText}>
+                <Text style={styles.modalOptionTitle}>Espanhol</Text>
+                <Text style={styles.modalOptionDesc}>Criar cópia traduzida em espanhol</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setTranslateTarget(null)}>
+              <Text style={styles.modalCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Translating Overlay */}
+      {translating && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+          <View style={{ backgroundColor: '#fff', padding: 24, borderRadius: 12, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#000" />
+            <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600' }}>Traduzindo...</Text>
+            <Text style={{ marginTop: 4, fontSize: 12, color: '#666' }}>Isso pode levar alguns segundos</Text>
+          </View>
+        </View>
+      )}
 
       {/* Duplicate Modal */}
       <Modal visible={showDuplicateModal} transparent animationType="slide">

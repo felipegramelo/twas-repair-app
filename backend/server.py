@@ -73,6 +73,13 @@ async def startup_event():
                 "created_at": __import__('datetime').datetime.utcnow()
             })
             logging.info("Admin user seeded")
+        else:
+            # Ensure admin has all permissions
+            await db.users.update_one(
+                {"email": "admin@twasrepair.com"},
+                {"$set": {"bm_access": True, "os_archive_access": True, "proposta_access": True, "dashboard_access": True}}
+            )
+            logging.info("Admin permissions updated")
     except Exception as e:
         logging.error(f"Admin seed failed: {e}")
 

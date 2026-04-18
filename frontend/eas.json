@@ -15,7 +15,7 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://twas-repair-app-1.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://twas-repair-app-production.up.railway.app"
       },
       "ios": {
         "buildConfiguration": "Release"

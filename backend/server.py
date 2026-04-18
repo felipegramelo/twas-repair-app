@@ -52,6 +52,27 @@ async def startup_event():
         logging.info("Object storage initialized")
     except Exception as e:
         logging.error(f"Storage init failed (will retry on first upload): {e}")
+    
+    # Seed admin user if not exists
+    try:
+        from database import db
+        from config import get_password_hash
+        admin = await db.users.find_one({"email": "admin@twasrepair.com"})
+        if not admin:
+            await db.users.insert_one({
+                "name": "Administrador",
+                "email": "admin@twasrepair.com",
+                "password_hash": get_password_hash("admin123"),
+                "role": "admin",
+                "bm_access": True,
+                "os_archive_access": True,
+                "proposta_access": True,
+                "dashboard_access": True,
+                "created_at": __import__('datetime').datetime.utcnow()
+            })
+            logging.info("Admin user seeded")
+    except Exception as e:
+        logging.error(f"Admin seed failed: {e}")
 
 
 @app.on_event("shutdown")

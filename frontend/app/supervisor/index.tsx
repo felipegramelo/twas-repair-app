@@ -439,6 +439,12 @@ export default function SupervisorDashboard() {
                               <Text style={[styles.typeBadgeText, { color: '#2e7d32' }]}>Finalizado</Text>
                             </View>
                           )}
+                          {(ts as any).language && (
+                            <View style={[styles.typeBadge, { backgroundColor: '#e3f2fd' }]}>
+                              <Ionicons name="language-outline" size={12} color="#1565c0" />
+                              <Text style={[styles.typeBadgeText, { color: '#1565c0' }]}>Tradução {(ts as any).language === 'en' ? 'EN' : 'ES'}</Text>
+                            </View>
+                          )}
                         </View>
                       </View>
                       <View style={styles.actions}>
@@ -492,6 +498,12 @@ export default function SupervisorDashboard() {
                           <View style={[styles.typeBadge, { backgroundColor: '#e8f5e9' }]}>
                             <Ionicons name="checkmark-circle" size={12} color="#2e7d32" />
                             <Text style={[styles.typeBadgeText, { color: '#2e7d32' }]}>Finalizado</Text>
+                          </View>
+                        )}
+                        {(rpt as any).language && (
+                          <View style={[styles.typeBadge, { backgroundColor: '#e3f2fd' }]}>
+                            <Ionicons name="language-outline" size={12} color="#1565c0" />
+                            <Text style={[styles.typeBadgeText, { color: '#1565c0' }]}>Tradução {(rpt as any).language === 'en' ? 'EN' : 'ES'}</Text>
                           </View>
                         )}
                       </View>

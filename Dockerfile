@@ -15,6 +15,8 @@ RUN pip install --no-cache-dir --extra-index-url https://d33sy5i8bnduwe.cloudfro
 # Copy backend code
 COPY backend/ ./
 COPY logo.bmp ./logo.bmp
+# Also copy to parent path since routes reference ROOT_DIR / "../logo.bmp"
+RUN cp /app/logo.bmp /logo.bmp
 
 # Start server
 CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8001}"]

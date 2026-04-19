@@ -46,7 +46,7 @@ async def call_llm(text: str, target_lang: str) -> str:
         api_key=EMERGENT_KEY,
         session_id=f"translate-{uuid.uuid4().hex[:8]}",
         system_message=f"You are a professional translator. Translate the following text from Portuguese to {target_lang}. Keep the same formatting, bullet points, and line breaks. Only return the translated text, nothing else."
-    ).with_model("openai", "gpt-4.1-mini")
+    ).with_model("gemini", "gemini-2.0-flash")
 
     response = await chat.send_message(UserMessage(text=text))
     return response

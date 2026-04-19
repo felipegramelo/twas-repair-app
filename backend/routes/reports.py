@@ -546,7 +546,13 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             logging.error(f"Error loading logo: {e}")
     
     is_service = report.get("report_type") == "service"
-    report_title = "RELATÓRIO TÉCNICO" if is_service else "RELATÓRIO DIÁRIO"
+    report_lang = report.get("language", "pt")
+    if report_lang == "en":
+        report_title = "TECHNICAL REPORT" if is_service else "DAILY REPORT"
+    elif report_lang == "es":
+        report_title = "INFORME T\u00c9CNICO" if is_service else "INFORME DIARIO"
+    else:
+        report_title = "RELAT\u00d3RIO T\u00c9CNICO" if is_service else "RELAT\u00d3RIO DI\u00c1RIO"
     periodo_inicio = report.get("periodo_inicio", "")
     periodo_fim = report.get("periodo_fim", "")
     periodo_str = f"{periodo_inicio} a {periodo_fim}" if periodo_inicio and periodo_fim else periodo_inicio or periodo_fim or ""
@@ -749,15 +755,41 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     elements.append(Paragraph(embarcacao_cover_name, vessel_cover_style))
     elements.append(Spacer(1, 0.5*cm))
     
-    # Info table
+    # Info table - translate labels based on report language
+    report_lang = report.get("language", "pt")
+    if report_lang == "en":
+        lbl_cliente = "CLIENT:"
+        lbl_embarcacao = "VESSEL:"
+        lbl_local = "LOCATION:"
+        lbl_os = "SERVICE ORDER:"
+        lbl_servico = "SERVICE:"
+        lbl_executado = "PERFORMED BY:"
+        lbl_periodo = "PERIOD:"
+    elif report_lang == "es":
+        lbl_cliente = "CLIENTE:"
+        lbl_embarcacao = "EMBARCACI\u00d3N:"
+        lbl_local = "UBICACI\u00d3N:"
+        lbl_os = "ORDEN DE SERVICIO:"
+        lbl_servico = "SERVICIO:"
+        lbl_executado = "EJECUTADO POR:"
+        lbl_periodo = "PER\u00cdODO:"
+    else:
+        lbl_cliente = "CLIENTE:"
+        lbl_embarcacao = "EMBARCA\u00c7\u00c3O:"
+        lbl_local = "LOCAL:"
+        lbl_os = "ORDEM DE SERVI\u00c7O:"
+        lbl_servico = "SERVI\u00c7O:"
+        lbl_executado = "EXECUTADO POR:"
+        lbl_periodo = "PER\u00cdODO:"
+    
     info_data = [
-        [Paragraph("<b>CLIENTE:</b>", label_style), Paragraph(report.get("client", ""), value_style)],
-        [Paragraph("<b>EMBARCA\u00c7\u00c3O:</b>", label_style), Paragraph(report.get("embarcacao", ""), value_style)],
-        [Paragraph("<b>LOCAL:</b>", label_style), Paragraph(report.get("location", ""), value_style)],
-        [Paragraph("<b>ORDEM DE SERVIÇO:</b>", label_style), Paragraph(report.get("os_number", ""), value_style)],
-        [Paragraph("<b>SERVIÇO:</b>", label_style), Paragraph(report.get("service", ""), value_style)],
-        [Paragraph("<b>EXECUTADO POR:</b>", label_style), Paragraph(report.get("executado_por", report.get("supervisor_name", "")), value_style)],
-        [Paragraph("<b>PERÍODO:</b>", label_style), Paragraph(periodo_str, value_style)],
+        [Paragraph(f"<b>{lbl_cliente}</b>", label_style), Paragraph(report.get("client", ""), value_style)],
+        [Paragraph(f"<b>{lbl_embarcacao}</b>", label_style), Paragraph(report.get("embarcacao", ""), value_style)],
+        [Paragraph(f"<b>{lbl_local}</b>", label_style), Paragraph(report.get("location", ""), value_style)],
+        [Paragraph(f"<b>{lbl_os}</b>", label_style), Paragraph(report.get("os_number", ""), value_style)],
+        [Paragraph(f"<b>{lbl_servico}</b>", label_style), Paragraph(report.get("service", ""), value_style)],
+        [Paragraph(f"<b>{lbl_executado}</b>", label_style), Paragraph(report.get("executado_por", report.get("supervisor_name", "")), value_style)],
+        [Paragraph(f"<b>{lbl_periodo}</b>", label_style), Paragraph(periodo_str, value_style)],
     ]
     info_table = Table(info_data, colWidths=[5*cm, content_width - 5*cm])
     info_table.setStyle(TableStyle([
@@ -773,8 +805,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     # ===== SUMÁRIO PAGE =====
     elements.append(PageBreak())
+    sumario_label = "TABLE OF CONTENTS" if report_lang == "en" else "TABLA DE CONTENIDO" if report_lang == "es" else "SUM\u00c1RIO"
     sumario_title_style = ParagraphStyle('SumarioTitle', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceBefore=12, spaceAfter=24)
-    elements.append(Paragraph("SUMÁRIO", sumario_title_style))
+    elements.append(Paragraph(sumario_label, sumario_title_style))
     elements.append(Spacer(1, 0.5*cm))
     
     sections = report.get("sections", [])

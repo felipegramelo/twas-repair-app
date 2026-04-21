@@ -340,7 +340,11 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
     contact_val_style = ParagraphStyle('ContactVal', parent=styles['Normal'], fontSize=7, fontName='Helvetica', alignment=TA_CENTER, textColor=colors.HexColor('#333333'))
     contact_data = [
         [Paragraph("<b>CONTATO COMERCIAL</b>", contact_style), Paragraph("<b>CONTATO T\u00c9CNICO</b>", contact_style), Paragraph("<b>LOG\u00cdSTICA</b>", contact_style)],
-        [Paragraph("twas@twasrepair.com", contact_val_style), Paragraph("twas@twasrepair.com", contact_val_style), Paragraph("twas@twasrepair.com", contact_val_style)],
+        [
+            Paragraph("<b>Daniel Gussen</b><br/>daniel.gussen@twasrepair.com<br/>21 98802-0417", contact_val_style),
+            Paragraph("<b>Felipe Melo</b><br/>felipe.melo@twasrepair.com<br/>21 99657-46215", contact_val_style),
+            Paragraph("<b>Jorge Campos</b><br/>jorge.campos@twasrepair.com<br/>21 99759-8722", contact_val_style),
+        ],
     ]
     contact_table = Table(contact_data, colWidths=[content_width / 3, content_width / 3, content_width / 3])
     contact_table.setStyle(TableStyle([

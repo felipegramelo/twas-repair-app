@@ -157,6 +157,8 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
     contato = proposal.get("contato", "") if proposal else ""
     email = proposal.get("email", "") if proposal else ""
     employees = so.get("employees", [])
+    schedule_type = so.get("schedule_type", "07-19")
+    schedule_label = "06h \u00e0s 18h" if schedule_type == "06-18" else "07h \u00e0s 19h"
     current_date = datetime.utcnow().strftime("%d/%m/%Y")
 
     def draw_os_page(canvas_obj, doc_obj):
@@ -264,6 +266,7 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
         [Paragraph("<b>E-MAIL / TEL:</b>", label_style), Paragraph(email, value_style)],
         [Paragraph("<b>Previs\u00e3o de in\u00edcio:</b>", label_style), Paragraph("___/___/______", value_style)],
         [Paragraph("<b>Previs\u00e3o de t\u00e9rmino:</b>", label_style), Paragraph("___/___/______", value_style)],
+        [Paragraph("<b>Hor\u00e1rio de trabalho:</b>", label_style), Paragraph(schedule_label, value_style)],
         [Paragraph("<b>Local de estadia da embarca\u00e7\u00e3o:</b>", label_style), Paragraph(location, value_style)],
         [Paragraph("<b>Local de realiza\u00e7\u00e3o dos servi\u00e7os:</b>", label_style), Paragraph(location, value_style)],
     ]
@@ -416,38 +419,56 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
 
 @router.get("/admin/os-archive")
 async def get_os_archive(current_user: Dict[str, Any] = Depends(get_admin_user)):
-    """Get all service orders with their related documents (timesheets + reports)"""
+    """Get all service orders with their related documents (timesheets + reports).
+
+    Optimized: single pass on each collection (3 queries total) and grouping in memory,
+    replacing the former N+1 pattern (1 + 2 * len(service_orders) queries).
+    """
     service_orders = await db.service_orders.find().sort("os_number", 1).to_list(500)
-    
+    if not service_orders:
+        return []
+
+    so_ids = [str(so["_id"]) for so in service_orders]
+
+    # Batch fetch all related timesheets and reports in 2 queries total
+    all_timesheets = await db.timesheets.find({"os_id": {"$in": so_ids}}).sort("created_at", 1).to_list(5000)
+    all_reports = await db.reports.find({"os_id": {"$in": so_ids}, "status": "finalized"}).sort("created_at", -1).to_list(5000)
+
+    # Group by os_id
+    ts_by_os: Dict[str, List[Dict[str, Any]]] = {}
+    for ts in all_timesheets:
+        ts_by_os.setdefault(ts.get("os_id", ""), []).append(ts)
+
+    reports_by_os: Dict[str, List[Dict[str, Any]]] = {}
+    for r in all_reports:
+        reports_by_os.setdefault(r.get("os_id", ""), []).append(r)
+
+    def _iso(v: Any) -> str:
+        return v.isoformat() if hasattr(v, "isoformat") else str(v or "")
+
     result = []
     for so in service_orders:
         so_id = str(so["_id"])
-        
-        # Get timesheets for this OS (all timesheets, not just finalized)
-        timesheets = await db.timesheets.find({"os_id": so_id}).sort("created_at", 1).to_list(100)
+
         ts_list = []
-        for idx, ts in enumerate(timesheets):
+        for idx, ts in enumerate(ts_by_os.get(so_id, [])):
             ts["id"] = str(ts.pop("_id"))
-            ts.pop("_id", None)
-            if "sequence_number" not in ts or not ts.get("sequence_number"):
+            if not ts.get("sequence_number"):
                 ts["sequence_number"] = idx + 1
-            ts["created_at"] = ts.get("created_at", "").isoformat() if hasattr(ts.get("created_at", ""), "isoformat") else str(ts.get("created_at", ""))
-            ts["updated_at"] = ts.get("updated_at", "").isoformat() if hasattr(ts.get("updated_at", ""), "isoformat") else str(ts.get("updated_at", ""))
+            ts["created_at"] = _iso(ts.get("created_at"))
+            ts["updated_at"] = _iso(ts.get("updated_at"))
             ts_list.append(ts)
-        
-        # Get reports for this OS (only finalized ones for admin archive)
-        reports = await db.reports.find({"os_id": so_id, "status": "finalized"}).sort("created_at", -1).to_list(100)
+
         report_list = []
-        for r in reports:
+        for r in reports_by_os.get(so_id, []):
             r["id"] = str(r.pop("_id"))
-            r.pop("_id", None)
-            r["created_at"] = r.get("created_at", "").isoformat() if hasattr(r.get("created_at", ""), "isoformat") else str(r.get("created_at", ""))
-            r["updated_at"] = r.get("updated_at", "").isoformat() if hasattr(r.get("updated_at", ""), "isoformat") else str(r.get("updated_at", ""))
+            r["created_at"] = _iso(r.get("created_at"))
+            r["updated_at"] = _iso(r.get("updated_at"))
             report_list.append(r)
-        
+
         service_reports = [r for r in report_list if r.get("report_type") == "service"]
         daily_reports = [r for r in report_list if r.get("report_type") == "daily"]
-        
+
         result.append({
             "id": so_id,
             "os_number": so.get("os_number", ""),
@@ -460,5 +481,5 @@ async def get_os_archive(current_user: Dict[str, Any] = Depends(get_admin_user))
             "daily_reports": daily_reports,
             "total_documents": len(ts_list) + len(report_list),
         })
-    
+
     return result

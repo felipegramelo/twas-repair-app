@@ -5,16 +5,17 @@ Unificar dois apps (Timesheet Tracker e Service/Daily Report) em um unico app "T
 
 ## Stack Tecnica
 - Frontend: React Native (Expo SDK 54, Expo Router), TypeScript
-- Backend: FastAPI, MongoDB (motor) - Estrutura Modular
+- Backend: FastAPI, MongoDB (motor) - Estrutura Modular com indices criados no startup
 - PDF: ReportLab + PyMuPDF (fitz)
 - Storage: Emergent Object Storage
+- Deploy: Backend no Railway (Dockerfile), Frontend iOS/Android via EAS
 
 ## Arquitetura Backend (Refatorado)
 ```
 backend/
-  server.py          (59 linhas - app init + router includes)
+  server.py          (app init + router includes + indices no startup)
   database.py, config.py, dependencies.py, models.py
-  routes/ (auth, employees, service_orders, timesheets, reports, proposals, boletim, dashboard, sharing)
+  routes/ (auth, employees, service_orders, timesheets, reports, proposals, boletim, dashboard, sharing, translate)
 ```
 
 ## Funcionalidades Implementadas
@@ -31,9 +32,22 @@ backend/
 - [x] Confirmacao "Enviar para administrador" com tipo do documento
 - [x] Backend refatorado (monolito -> modular)
 - [x] Object Storage atualizado (novos endpoints /init, /objects/)
+- [x] Traducao automatica (EN/ES) via Gemini
+- [x] PDF OS atualizado (2026-04-21):
+    - Contatos reais: Daniel Gussen (Comercial), Felipe Melo (Tecnico), Jorge Campos (Logistica)
+    - Secao EQUIPE mostra apenas quantidade por funcao (nomes completos: Tecnico, Mecanico, etc)
+    - Previsao de inicio / Previsao de termino (era "P. de inicio / P. de termino")
+    - Linha "Horario de trabalho" com valor 06h-18h ou 07h-19h
+- [x] Campo schedule_type (06-18 / 07-19) na UI de OS (2026-04-21)
+- [x] Otimizacao N+1 em /admin/os-archive: 3 queries totais (batch com $in) ao inves de 1+2N (2026-04-21)
+- [x] Indices MongoDB criados no startup: timesheets.os_id, reports.os_id, reports.(os_id,status), service_orders.os_number
 
 ## Versao Atual: 1.0.10 (build 6)
 
 ## Credenciais de Teste
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
+
+## Backlog (P1/P2)
+- [P2] Refatorar frontend/app/supervisor/edit-report.tsx (>1000 linhas) em componentes menores
+- [P2] Modo Offline com AsyncStorage + fila de sincronizacao

@@ -54,7 +54,18 @@ async def startup_event():
         logging.info("Object storage initialized")
     except Exception as e:
         logging.error(f"Storage init failed (will retry on first upload): {e}")
-    
+
+    # Ensure critical indexes for query performance
+    try:
+        from database import db
+        await db.timesheets.create_index("os_id")
+        await db.reports.create_index("os_id")
+        await db.reports.create_index([("os_id", 1), ("status", 1)])
+        await db.service_orders.create_index("os_number")
+        logging.info("Indexes ensured")
+    except Exception as e:
+        logging.error(f"Index creation failed: {e}")
+
     # Seed admin user if not exists
     try:
         from database import db

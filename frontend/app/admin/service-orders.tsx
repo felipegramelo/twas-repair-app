@@ -28,6 +28,7 @@ export default function ServiceOrdersScreen() {
   const [embarcacao, setEmbarcacao] = useState('');
   const [service, setService] = useState('');
   const [soEmployees, setSOEmployees] = useState<SOEmployee[]>([]);
+  const [scheduleType, setScheduleType] = useState<'06-18' | '07-19'>('07-19');
   const [employeePickerVisible, setEmployeePickerVisible] = useState(false);
   const [funcPickerVisible, setFuncPickerVisible] = useState(false);
   const [editingEmpIndex, setEditingEmpIndex] = useState<number | null>(null);
@@ -83,13 +84,14 @@ export default function ServiceOrdersScreen() {
   };
 
   const openAdd = () => {
-    setEditingSO(null); setOsNumber(''); setClient(''); setLocation(''); setEmbarcacao(''); setService(''); setSOEmployees([]);
+    setEditingSO(null); setOsNumber(''); setClient(''); setLocation(''); setEmbarcacao(''); setService(''); setSOEmployees([]); setScheduleType('07-19');
     setModalVisible(true);
   };
 
   const openEdit = (so: ServiceOrder) => {
     setEditingSO(so); setOsNumber(so.os_number); setClient(so.client); setLocation(so.location); setEmbarcacao(so.embarcacao || ''); setService(so.service);
     setSOEmployees(so.employees || []);
+    setScheduleType((so.schedule_type as '06-18' | '07-19') || '07-19');
     setModalVisible(true);
   };
 
@@ -100,8 +102,8 @@ export default function ServiceOrdersScreen() {
       return;
     }
     try {
-      if (editingSO) await serviceOrderAPI.update(editingSO.id, osNumber, client, location, service, soEmployees, embarcacao);
-      else await serviceOrderAPI.create(osNumber, client, location, service, soEmployees, embarcacao);
+      if (editingSO) await serviceOrderAPI.update(editingSO.id, osNumber, client, location, service, soEmployees, embarcacao, scheduleType);
+      else await serviceOrderAPI.create(osNumber, client, location, service, soEmployees, embarcacao, scheduleType);
       setModalVisible(false); loadServiceOrders();
     } catch {
       if (Platform.OS === 'web') window.alert('Erro ao salvar');
@@ -246,6 +248,30 @@ export default function ServiceOrdersScreen() {
           <TextInput style={s.input} value={location} onChangeText={setLocation} placeholder="Local do servico" />
           <Text style={s.label}>Serviço *</Text>
           <TextInput style={s.input} value={service} onChangeText={setService} placeholder="Descrição" />
+
+          <Text style={s.label}>Horário de Trabalho</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+            {(['06-18', '07-19'] as const).map(opt => (
+              <TouchableOpacity
+                key={opt}
+                data-testid={`so-schedule-${opt}`}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  backgroundColor: scheduleType === opt ? '#000000' : '#f5f5f5',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: scheduleType === opt ? '#000000' : '#e0e0e0',
+                }}
+                onPress={() => setScheduleType(opt)}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '700', color: scheduleType === opt ? '#fff' : '#333' }}>
+                  {opt === '06-18' ? '06h - 18h' : '07h - 19h'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           <View style={s.sectionHeader}>
             <Text style={s.label}>Funcionários ({soEmployees.length})</Text>

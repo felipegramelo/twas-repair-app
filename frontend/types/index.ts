@@ -63,6 +63,7 @@ export interface ServiceOrder {
   embarcacao?: string;
   service: string;
   employees: SOEmployee[];
+  schedule_type?: '06-18' | '07-19';
 }
 
 export interface TimesheetEntry {

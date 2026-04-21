@@ -262,8 +262,8 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
         [Paragraph("<b>CLIENTE:</b>", label_style), Paragraph(client, value_style)],
         [Paragraph("<b>CONTATO:</b>", label_style), Paragraph(contato, value_style)],
         [Paragraph("<b>E-MAIL / TEL:</b>", label_style), Paragraph(email, value_style)],
-        [Paragraph("<b>P. de in\u00edcio:</b>", label_style), Paragraph("___/___/______", value_style)],
-        [Paragraph("<b>P. de t\u00e9rmino:</b>", label_style), Paragraph("___/___/______", value_style)],
+        [Paragraph("<b>Previs\u00e3o de in\u00edcio:</b>", label_style), Paragraph("___/___/______", value_style)],
+        [Paragraph("<b>Previs\u00e3o de t\u00e9rmino:</b>", label_style), Paragraph("___/___/______", value_style)],
         [Paragraph("<b>Local de estadia da embarca\u00e7\u00e3o:</b>", label_style), Paragraph(location, value_style)],
         [Paragraph("<b>Local de realiza\u00e7\u00e3o dos servi\u00e7os:</b>", label_style), Paragraph(location, value_style)],
     ]
@@ -298,23 +298,40 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
     elements.append(Paragraph("<b>EQUIPE:</b>", section_title_style))
     if employees:
         from collections import Counter
+
+        # Mapeamento de abreviacoes (codigos usados na UI) para nomes completos
+        ROLE_FULL_NAME = {
+            "E": "Engenheiro",
+            "EN": "Encarregado",
+            "SUP": "Supervisor",
+            "T": "T\u00e9cnico",
+            "M": "Mec\u00e2nico",
+            "TS": "T\u00e9cnico de Seguran\u00e7a",
+        }
+
+        def _expand(role: str) -> str:
+            r = (role or "").strip()
+            if not r:
+                return "N\u00e3o informado"
+            # Match case-insensitive exato; caso contrario mantem como digitado
+            return ROLE_FULL_NAME.get(r.upper(), r)
+
         role_counts = Counter()
         for emp in employees:
-            role = (emp.get("function") or emp.get("funcao") or "").strip()
-            if not role:
-                role = "N\u00e3o informado"
-            role_counts[role] += 1
+            raw_role = emp.get("function") or emp.get("funcao") or ""
+            role_counts[_expand(raw_role)] += 1
 
         def _pluralize(role: str, qty: int) -> str:
             r = role.strip()
             if qty <= 1:
                 return r
             lower = r.lower()
-            # Pluralizacao simples PT-BR
-            if lower.endswith(("\u00e3o",)):
+            if lower.endswith("\u00e3o"):
                 return r[:-2] + "\u00f5es"
-            if lower.endswith(("r", "s", "z")):
-                return r if lower.endswith("s") else r + "es"
+            if lower.endswith("s"):
+                return r
+            if lower.endswith(("r", "z")):
+                return r + "es"
             if lower.endswith("l"):
                 return r[:-1] + "is"
             if lower.endswith("m"):

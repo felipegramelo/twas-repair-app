@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "5",
+      "buildNumber": "7",
       "bundleIdentifier": "app.emergent.repairproposalsappbd787ce7"
     },
     "android": {

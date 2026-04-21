@@ -252,7 +252,7 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
     small_style = ParagraphStyle('Small', parent=styles['Normal'], fontSize=8, fontName='Helvetica', textColor=colors.HexColor('#333333'), spaceAfter=0)
 
     elements = []
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.2 * cm))
 
     # === SECTION 1: Main Info Table ===
     col1 = content_width * 0.50
@@ -270,8 +270,8 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
     info_table = Table(info_data, colWidths=[col1, col2])
     info_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
         ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
@@ -279,20 +279,20 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
         ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f5f5f5')),
     ]))
     elements.append(info_table)
-    elements.append(Spacer(1, 0.4 * cm))
+    elements.append(Spacer(1, 0.3 * cm))
 
     # === SECTION 2: Escopo do Trabalho ===
     elements.append(Paragraph("<b>SERVI\u00c7OS A SEREM EXECUTADOS:</b>", section_title_style))
-    scope_text = service if service else "_______________________________________________"
+    scope_text = service if service else " "
     scope_box = Table([[Paragraph(scope_text, value_style)]], colWidths=[content_width])
     scope_box.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 30),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 20),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(scope_box)
-    elements.append(Spacer(1, 0.4 * cm))
+    elements.append(Spacer(1, 0.3 * cm))
 
     # === SECTION 3: Equipe ===
     elements.append(Paragraph("<b>EQUIPE:</b>", section_title_style))
@@ -302,12 +302,12 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
             team_data.append([emp.get("name", ""), emp.get("function", emp.get("funcao", ""))])
         team_table = Table(team_data, colWidths=[content_width * 0.6, content_width * 0.4])
         team_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 9),
-            ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),
+            ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),
+            ('FONT', (0, 1), (-1, -1), 'Helvetica', 8),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e0e0')),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ('LEFTPADDING', (0, 0), (-1, -1), 6),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
             ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cccccc')),
@@ -315,98 +315,44 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
         elements.append(team_table)
     else:
         elements.append(Paragraph("A definir", small_style))
-    elements.append(Spacer(1, 0.4 * cm))
+    elements.append(Spacer(1, 0.3 * cm))
 
-    # === SECTION 4: Itens Incluidos (Checklist) ===
-    elements.append(Paragraph("<b>ITENS A SEREM INCLU\u00cdDOS:</b>", section_title_style))
-    checklist_items = [
-        "ANDAIME", "ILUMINA\u00c7\u00c3O", "VENTILA\u00c7\u00c3O", "LIMPEZA (ANTES E DEPOIS)",
-        "FERRAMENTAS ESPECIAIS", "GUINDASTE", "TRANSPORTE", "TESTES",
-        "TRATAMENTO / PINTURA", "OUTRO"
-    ]
-    check_header = [Paragraph("<b>ITEM</b>", small_style), Paragraph("<b>TWAS</b>", small_style), Paragraph("<b>CLIENTE</b>", small_style), Paragraph("<b>N/A</b>", small_style)]
-    check_data = [check_header]
-    box_char = "\u2610"
-    for item in checklist_items:
-        check_data.append([Paragraph(item, small_style), Paragraph(box_char, small_style), Paragraph(box_char, small_style), Paragraph(box_char, small_style)])
-    
-    check_table = Table(check_data, colWidths=[content_width * 0.55, content_width * 0.15, content_width * 0.15, content_width * 0.15])
-    check_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e0e0')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cccccc')),
-    ]))
-    elements.append(check_table)
-    elements.append(Spacer(1, 0.4 * cm))
-
-    # === SECTION 5: Materiais ===
-    elements.append(Paragraph("<b>MATERIAIS A SEREM USADOS:</b>", section_title_style))
-    mat_header = [Paragraph("<b>DESCRI\u00c7\u00c3O</b>", small_style), Paragraph("<b>QTDE</b>", small_style), Paragraph("<b>UNID.</b>", small_style)]
-    mat_data = [mat_header]
-    for _ in range(5):
-        mat_data.append([Paragraph("", small_style), Paragraph("", small_style), Paragraph("", small_style)])
-    mat_table = Table(mat_data, colWidths=[content_width * 0.6, content_width * 0.2, content_width * 0.2])
-    mat_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e0e0')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
-        ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cccccc')),
-    ]))
-    elements.append(mat_table)
-    elements.append(Spacer(1, 0.4 * cm))
-
-    # === SECTION 6: Observações ===
-    elements.append(Paragraph("<b>OBSERVA\u00c7\u00d5ES:</b>", section_title_style))
-    obs_box = Table([[Paragraph("", value_style)]], colWidths=[content_width])
-    obs_box.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 30),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    elements.append(obs_box)
-    elements.append(Spacer(1, 0.4 * cm))
-
-    # === SECTION 7: Termo Estimado de Entrega ===
+    # === SECTION 4: Termo Estimado de Entrega ===
     elements.append(Paragraph("<b>TERMO ESTIMADO DE ENTREGA:</b>", section_title_style))
     termo_box = Table([[Paragraph("A definir conforme escopo do trabalho.", small_style)]], colWidths=[content_width])
     termo_box.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(termo_box)
-    elements.append(Spacer(1, 0.5 * cm))
+    elements.append(Spacer(1, 0.3 * cm))
 
-    # === SECTION 8: Elaborado por ===
+    # === SECTION 5: Elaborado por ===
     elements.append(Paragraph("<b>ELABORADO POR:</b>", section_title_style))
     elaborado = proposal.get("contato", "") if proposal else ""
     elements.append(Paragraph(elaborado if elaborado else "TWAS REPAIR", value_style))
-    elements.append(Spacer(1, 0.8 * cm))
+    elements.append(Spacer(1, 0.4 * cm))
 
-    # === SECTION 9: Signatures ===
-    sig_data = [[
-        Paragraph("<b>RESPONS\u00c1VEL COMERCIAL</b>", ParagraphStyle('SigLabel', parent=styles['Normal'], fontSize=8, fontName='Helvetica-Bold', alignment=TA_CENTER)),
-        Paragraph("<b>RESPONS\u00c1VEL T\u00c9CNICO</b>", ParagraphStyle('SigLabel2', parent=styles['Normal'], fontSize=8, fontName='Helvetica-Bold', alignment=TA_CENTER)),
-        Paragraph("<b>LOG\u00cdSTICA</b>", ParagraphStyle('SigLabel3', parent=styles['Normal'], fontSize=8, fontName='Helvetica-Bold', alignment=TA_CENTER)),
-    ]]
-    sig_table = Table(sig_data, colWidths=[content_width / 3, content_width / 3, content_width / 3])
-    sig_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    # === SECTION 6: Contatos ===
+    contact_style = ParagraphStyle('ContactLabel', parent=styles['Normal'], fontSize=8, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black)
+    contact_val_style = ParagraphStyle('ContactVal', parent=styles['Normal'], fontSize=7, fontName='Helvetica', alignment=TA_CENTER, textColor=colors.HexColor('#333333'))
+    contact_data = [
+        [Paragraph("<b>CONTATO COMERCIAL</b>", contact_style), Paragraph("<b>CONTATO T\u00c9CNICO</b>", contact_style), Paragraph("<b>LOG\u00cdSTICA</b>", contact_style)],
+        [Paragraph("twas@twasrepair.com", contact_val_style), Paragraph("twas@twasrepair.com", contact_val_style), Paragraph("twas@twasrepair.com", contact_val_style)],
+    ]
+    contact_table = Table(contact_data, colWidths=[content_width / 3, content_width / 3, content_width / 3])
+    contact_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('LINEABOVE', (0, 0), (-1, -1), 0.5, colors.black),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#777777')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#cccccc')),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0f0f0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
-    elements.append(sig_table)
+    elements.append(contact_table)
 
     doc.build(elements, onFirstPage=draw_os_page, onLaterPages=draw_os_page)
     pdf_bytes = buffer.getvalue()

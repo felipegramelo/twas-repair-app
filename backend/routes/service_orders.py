@@ -294,18 +294,44 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
     elements.append(scope_box)
     elements.append(Spacer(1, 0.3 * cm))
 
-    # === SECTION 3: Equipe ===
+    # === SECTION 3: Equipe (agrupada por funcao, apenas quantidade) ===
     elements.append(Paragraph("<b>EQUIPE:</b>", section_title_style))
     if employees:
-        team_data = [["Nome", "Fun\u00e7\u00e3o"]]
+        from collections import Counter
+        role_counts = Counter()
         for emp in employees:
-            team_data.append([emp.get("name", ""), emp.get("function", emp.get("funcao", ""))])
-        team_table = Table(team_data, colWidths=[content_width * 0.6, content_width * 0.4])
+            role = (emp.get("function") or emp.get("funcao") or "").strip()
+            if not role:
+                role = "N\u00e3o informado"
+            role_counts[role] += 1
+
+        def _pluralize(role: str, qty: int) -> str:
+            r = role.strip()
+            if qty <= 1:
+                return r
+            lower = r.lower()
+            # Pluralizacao simples PT-BR
+            if lower.endswith(("\u00e3o",)):
+                return r[:-2] + "\u00f5es"
+            if lower.endswith(("r", "s", "z")):
+                return r if lower.endswith("s") else r + "es"
+            if lower.endswith("l"):
+                return r[:-1] + "is"
+            if lower.endswith("m"):
+                return r[:-1] + "ns"
+            return r + "s"
+
+        team_data = [["Qtd.", "Fun\u00e7\u00e3o"]]
+        for role, qty in sorted(role_counts.items(), key=lambda x: (-x[1], x[0].lower())):
+            team_data.append([f"{qty:02d}", _pluralize(role, qty)])
+
+        team_table = Table(team_data, colWidths=[content_width * 0.2, content_width * 0.8])
         team_table.setStyle(TableStyle([
             ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),
             ('FONT', (0, 1), (-1, -1), 'Helvetica', 8),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e0e0')),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),
             ('TOPPADDING', (0, 0), (-1, -1), 3),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ('LEFTPADDING', (0, 0), (-1, -1), 6),

@@ -14,6 +14,8 @@
       "bundleIdentifier": "app.emergent.repairproposalsappbd787ce7"
     },
     "android": {
+      "package": "app.emergent.dutysheet930c27ab",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"

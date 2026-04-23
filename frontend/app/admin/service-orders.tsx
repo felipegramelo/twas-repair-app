@@ -46,12 +46,19 @@ export default function ServiceOrdersScreen() {
   useEffect(() => { loadData(); }, [filterMonth, filterYear]);
 
   const loadData = async () => {
-    try {
-      const m = filterMonth === 0 ? undefined : filterMonth;
-      const [soData, empData] = await Promise.all([serviceOrderAPI.getAll(m, filterYear), employeeAPI.getAll()]);
-      setServiceOrders(soData); setAllEmployees(empData);
-    } catch { if (Platform.OS === 'web') window.alert('Erro ao carregar dados'); else Alert.alert('Erro', 'Erro ao carregar dados'); }
-    finally { setLoading(false); }
+    const m = filterMonth === 0 ? undefined : filterMonth;
+    // Load in parallel but independently so a failure in one doesn't kill the other
+    const [soRes, empRes] = await Promise.allSettled([
+      serviceOrderAPI.getAll(m, filterYear),
+      employeeAPI.getAll(),
+    ]);
+    if (soRes.status === 'fulfilled') setServiceOrders(soRes.value);
+    if (empRes.status === 'fulfilled') setAllEmployees(empRes.value);
+    if (soRes.status === 'rejected' || empRes.status === 'rejected') {
+      const msg = 'Erro ao carregar dados. Tente novamente.';
+      if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Erro', msg);
+    }
+    setLoading(false);
   };
 
   const handleDownloadOSPdf = async (so: ServiceOrder) => {

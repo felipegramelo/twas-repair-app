@@ -601,7 +601,7 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     import re
     def _safe(s: str) -> str:
         return re.sub(r'[<>:"/\\|?*]', '', str(s or '')).strip()
-    filename = f"{_safe(ts.get('os_number', ''))} - {_safe(ts.get('client', ''))} - Timesheet - {_safe(ts.get('service', ''))}.pdf".strip(" -")
+    filename = f"{_safe(ts.get('os_number', ''))} - {_safe(ts.get('client', ''))} - TM - {_safe(ts.get('service', ''))}.pdf".strip(" -")
 
     return StreamingResponse(
         buffer,

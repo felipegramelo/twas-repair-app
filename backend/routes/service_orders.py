@@ -408,10 +408,15 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
     pdf_bytes = buffer.getvalue()
     buffer.close()
 
+    def _safe(s: str) -> str:
+        import re
+        return re.sub(r'[<>:"/\\|?*]', '', str(s or '')).strip()
+    filename = f"{_safe(os_number)} - {_safe(client)} - Ordem de Servico - {_safe(service)}.pdf".strip(" -")
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename=OS_{os_number}.pdf"}
+        headers={"Content-Disposition": f'inline; filename="{filename}"'}
     )
 
 

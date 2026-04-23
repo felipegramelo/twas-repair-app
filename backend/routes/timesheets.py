@@ -597,12 +597,17 @@ async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depe
     # Build PDF with page template callbacks
     doc.build(elements, onFirstPage=on_first_page, onLaterPages=on_later_pages)
     buffer.seek(0)
-    
+
+    import re
+    def _safe(s: str) -> str:
+        return re.sub(r'[<>:"/\\|?*]', '', str(s or '')).strip()
+    filename = f"{_safe(ts.get('os_number', ''))} - {_safe(ts.get('client', ''))} - Timesheet - {_safe(ts.get('service', ''))}.pdf".strip(" -")
+
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename=timesheet_{ts['os_number']}.pdf",
+            "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",

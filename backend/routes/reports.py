@@ -1390,12 +1390,18 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     pdf_doc.save(final_buffer)
     pdf_doc.close()
     final_buffer.seek(0)
-    
+
+    import re
+    def _safe(s: str) -> str:
+        return re.sub(r'[<>:"/\\|?*]', '', str(s or '')).strip()
+    report_kind = "Relatorio Tecnico" if report.get("report_type") == "service" else "Relatorio Diario"
+    filename = f"{_safe(report.get('os_number', ''))} - {_safe(report.get('client', ''))} - {report_kind} - {_safe(report.get('service', ''))}.pdf".strip(" -")
+
     return StreamingResponse(
         final_buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename=relatorio_{report.get('os_number', 'report')}.pdf",
+            "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
         }
     )

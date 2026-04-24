@@ -233,15 +233,32 @@ export default function BMScreen() {
   const handleSavePrice = async () => {
     if (!priceForm.client_name) return showMsg('Informe o nome do cliente');
     try {
+      // Ensure each price entry has both day_rate and night_rate (backend requires both)
+      const normalized = {
+        client_name: priceForm.client_name,
+        prices: (priceForm.prices || []).map((p: any) => {
+          const day = parseFloat(p.day_rate) || 0;
+          const night = parseFloat(p.night_rate) || +(day * 1.2).toFixed(2);
+          return {
+            function_code: p.function_code,
+            function_name: p.function_name || p.function_code,
+            day_rate: day,
+            night_rate: night,
+          };
+        }),
+      };
       if (editingPriceId) {
-        await clientPriceAPI.update(editingPriceId, priceForm);
+        await clientPriceAPI.update(editingPriceId, normalized);
       } else {
-        await clientPriceAPI.create(priceForm);
+        await clientPriceAPI.create(normalized);
       }
       showMsg('Tabela de preços salva!');
       setShowPriceForm(false);
       loadData();
-    } catch { showMsg('Erro ao salvar tabela'); }
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'Erro ao salvar tabela';
+      showMsg(typeof detail === 'string' ? detail : 'Erro ao salvar tabela');
+    }
   };
 
   const handleDeletePrice = async (id: string) => {

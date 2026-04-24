@@ -128,24 +128,14 @@ export default function ServiceOrdersScreen() {
     }
   };
 
-  // Open employee picker (iOS requires closing parent modal first)
+  // Open employee picker (rendered as absolute overlay inside the parent modal)
   const openEmployeePicker = () => {
     setSelectedNewEmps([]);
-    if (Platform.OS === 'ios') {
-      // iOS does not allow nested modals. Close parent modal first,
-      // then open the picker after the dismiss animation completes.
-      setModalVisible(false);
-      setTimeout(() => setEmployeePickerVisible(true), 400);
-    } else {
-      setEmployeePickerVisible(true);
-    }
+    setEmployeePickerVisible(true);
   };
 
   const closeEmployeePicker = () => {
     setEmployeePickerVisible(false);
-    if (Platform.OS === 'ios') {
-      setTimeout(() => setModalVisible(true), 400);
-    }
   };
 
   // Toggle single employee selection in picker
@@ -178,9 +168,6 @@ export default function ServiceOrdersScreen() {
     setSelectedNewEmps([]);
     setBulkFuncPickerVisible(false);
     setEmployeePickerVisible(false);
-    if (Platform.OS === 'ios') {
-      setTimeout(() => setModalVisible(true), 400);
-    }
   };
 
   const removeEmployee = (index: number) => {
@@ -189,12 +176,7 @@ export default function ServiceOrdersScreen() {
 
   const openFuncPicker = (index: number) => {
     setEditingEmpIndex(index);
-    if (Platform.OS === 'ios') {
-      setModalVisible(false);
-      setTimeout(() => setFuncPickerVisible(true), 400);
-    } else {
-      setFuncPickerVisible(true);
-    }
+    setFuncPickerVisible(true);
   };
 
   const setEmployeeFunc = (func: string) => {
@@ -203,9 +185,6 @@ export default function ServiceOrdersScreen() {
     updated[editingEmpIndex] = { ...updated[editingEmpIndex], function: func };
     setSOEmployees(updated);
     setFuncPickerVisible(false);
-    if (Platform.OS === 'ios') {
-      setTimeout(() => setModalVisible(true), 400);
-    }
   };
 
   const getEmpName = (empId: string) => allEmployees.find(e => e.id === empId)?.name || 'Desconhecido';
@@ -312,82 +291,89 @@ export default function ServiceOrdersScreen() {
             <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => setModalVisible(false)}><Text style={s.cancelText}>Cancelar</Text></TouchableOpacity>
             <TouchableOpacity style={[s.modalBtn, s.saveBtn]} onPress={handleSave}><Text style={s.saveText}>Salvar</Text></TouchableOpacity>
           </View>
-        </ScrollView></View></View>
-      </Modal>
+        </ScrollView>
 
-      {/* Employee Picker with Multi-select */}
-      <Modal visible={employeePickerVisible} animationType="slide" transparent presentationStyle="overFullScreen" onRequestClose={() => setEmployeePickerVisible(false)}>
-        <View style={s.modalOverlay}><View style={s.modalContent}>
-          <Text style={s.modalTitle}>Selecionar Funcionários</Text>
-
-          {availableEmployees.length > 0 && (
-            <TouchableOpacity style={s.selectAllRow} onPress={selectAllEmployees}>
-              <View style={[s.checkbox, allSelected && s.checkboxChecked]}>
-                {allSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
-              </View>
-              <Text style={s.selectAllText}>Selecionar Todos ({availableEmployees.length})</Text>
-            </TouchableOpacity>
-          )}
-
-          <ScrollView style={{ maxHeight: 350 }}>
-            {availableEmployees.map(emp => {
-              const isSelected = selectedNewEmps.includes(emp.id);
-              return (
-                <TouchableOpacity key={emp.id} style={s.pickerItem} onPress={() => toggleEmpSelection(emp.id)}>
-                  <View style={[s.checkbox, isSelected && s.checkboxChecked]}>
-                    {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+        {/* Employee Picker overlay (rendered INSIDE parent modal as absolute layer) */}
+        {employeePickerVisible && (
+          <View style={overlay.layer}>
+            <View style={overlay.box}>
+              <Text style={s.modalTitle}>Selecionar Funcionários</Text>
+              {availableEmployees.length > 0 && (
+                <TouchableOpacity style={s.selectAllRow} onPress={selectAllEmployees}>
+                  <View style={[s.checkbox, allSelected && s.checkboxChecked]}>
+                    {allSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
                   </View>
-                  <Text style={[s.pickerItemText, isSelected && { color: '#000000', fontWeight: '600' }]}>{emp.name}</Text>
+                  <Text style={s.selectAllText}>Selecionar Todos ({availableEmployees.length})</Text>
                 </TouchableOpacity>
-              );
-            })}
-            {availableEmployees.length === 0 && (
-              <Text style={s.emptyText}>Todos os funcionários já foram adicionados</Text>
-            )}
-          </ScrollView>
-
-          <View style={[s.modalBtns, { marginTop: 16 }]}>
-            <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={closeEmployeePicker}>
-              <Text style={s.cancelText}>Fechar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.modalBtn, s.saveBtn, selectedNewEmps.length === 0 && { opacity: 0.4 }]}
-              onPress={confirmAddEmployees}
-              disabled={selectedNewEmps.length === 0}
-            >
-              <Text style={s.saveText}>Adicionar ({selectedNewEmps.length})</Text>
-            </TouchableOpacity>
+              )}
+              <ScrollView style={{ maxHeight: 350 }}>
+                {availableEmployees.map(emp => {
+                  const isSelected = selectedNewEmps.includes(emp.id);
+                  return (
+                    <TouchableOpacity key={emp.id} style={s.pickerItem} onPress={() => toggleEmpSelection(emp.id)}>
+                      <View style={[s.checkbox, isSelected && s.checkboxChecked]}>
+                        {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+                      </View>
+                      <Text style={[s.pickerItemText, isSelected && { color: '#000000', fontWeight: '600' }]}>{emp.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {availableEmployees.length === 0 && (
+                  <Text style={s.emptyText}>Todos os funcionários já foram adicionados</Text>
+                )}
+              </ScrollView>
+              <View style={[s.modalBtns, { marginTop: 16 }]}>
+                <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={closeEmployeePicker}>
+                  <Text style={s.cancelText}>Fechar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.modalBtn, s.saveBtn, selectedNewEmps.length === 0 && { opacity: 0.4 }]}
+                  onPress={confirmAddEmployees}
+                  disabled={selectedNewEmps.length === 0}
+                >
+                  <Text style={s.saveText}>Adicionar ({selectedNewEmps.length})</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </View></View>
-      </Modal>
+        )}
 
-      {/* Bulk Function Picker - after selecting employees */}
-      <Modal visible={bulkFuncPickerVisible} animationType="fade" transparent presentationStyle="overFullScreen" onRequestClose={() => setBulkFuncPickerVisible(false)}>
-        <View style={s.modalOverlay}><View style={[s.modalContent, { maxWidth: 320, alignSelf: 'center' }]}>
-          <Text style={s.modalTitle}>Função para {selectedNewEmps.length} funcionário(s)</Text>
-          <Text style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Selecione a função. Você pode alterar individualmente depois.</Text>
-          {FUNCTIONS.map(f => (
-            <TouchableOpacity key={f} style={s.funcItem} onPress={() => addSelectedWithFunction(f)}>
-              <Text style={s.funcItemText}>{f}</Text>
-              <Text style={s.funcItemDesc}>{FUNC_LABELS[f]}</Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity style={[s.closeBtn, { marginTop: 12 }]} onPress={() => { setBulkFuncPickerVisible(false); setEmployeePickerVisible(false); if (Platform.OS === 'ios') setTimeout(() => setModalVisible(true), 400); }}>
-            <Text style={s.closeBtnText}>Cancelar</Text>
-          </TouchableOpacity>
-        </View></View>
-      </Modal>
+        {/* Bulk function picker overlay */}
+        {bulkFuncPickerVisible && (
+          <View style={overlay.layer}>
+            <View style={[overlay.box, { maxWidth: 340 }]}>
+              <Text style={s.modalTitle}>Função para {selectedNewEmps.length} funcionário(s)</Text>
+              <Text style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Selecione a função. Você pode alterar individualmente depois.</Text>
+              {FUNCTIONS.map(f => (
+                <TouchableOpacity key={f} style={s.funcItem} onPress={() => addSelectedWithFunction(f)}>
+                  <Text style={s.funcItemText}>{f}</Text>
+                  <Text style={s.funcItemDesc}>{FUNC_LABELS[f]}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={[s.closeBtn, { marginTop: 12 }]} onPress={() => setBulkFuncPickerVisible(false)}>
+                <Text style={s.closeBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
-      {/* Individual Function Picker */}
-      <Modal visible={funcPickerVisible} animationType="fade" transparent presentationStyle="overFullScreen" onRequestClose={() => setFuncPickerVisible(false)}>
-        <View style={s.modalOverlay}><View style={[s.modalContent, { maxWidth: 300, alignSelf: 'center' }]}>
-          <Text style={s.modalTitle}>Selecionar Funcao</Text>
-          {FUNCTIONS.map(f => (
-            <TouchableOpacity key={f} style={s.funcItem} onPress={() => setEmployeeFunc(f)}>
-              <Text style={s.funcItemText}>{f}</Text>
-              <Text style={s.funcItemDesc}>{FUNC_LABELS[f]}</Text>
-            </TouchableOpacity>
-          ))}
+        {/* Individual function picker overlay */}
+        {funcPickerVisible && (
+          <View style={overlay.layer}>
+            <View style={[overlay.box, { maxWidth: 320 }]}>
+              <Text style={s.modalTitle}>Selecionar Função</Text>
+              {FUNCTIONS.map(f => (
+                <TouchableOpacity key={f} style={s.funcItem} onPress={() => setEmployeeFunc(f)}>
+                  <Text style={s.funcItemText}>{f}</Text>
+                  <Text style={s.funcItemDesc}>{FUNC_LABELS[f]}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={[s.closeBtn, { marginTop: 12 }]} onPress={() => setFuncPickerVisible(false)}>
+                <Text style={s.closeBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         </View></View>
       </Modal>
 
@@ -468,4 +454,26 @@ const s = StyleSheet.create({
   funcItem: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', gap: 12 },
   funcItemText: { fontSize: 18, fontWeight: '700', color: '#000000', width: 36 },
   funcItemDesc: { fontSize: 16, color: '#666' },
+});
+
+// Absolute overlay used to render pickers ON TOP of the OS modal (iOS-friendly: no nested Modal)
+const overlay = StyleSheet.create({
+  layer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  box: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    maxHeight: '85%',
+  },
 });

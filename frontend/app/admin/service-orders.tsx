@@ -128,6 +128,26 @@ export default function ServiceOrdersScreen() {
     }
   };
 
+  // Open employee picker (iOS requires closing parent modal first)
+  const openEmployeePicker = () => {
+    setSelectedNewEmps([]);
+    if (Platform.OS === 'ios') {
+      // iOS does not allow nested modals. Close parent modal first,
+      // then open the picker after the dismiss animation completes.
+      setModalVisible(false);
+      setTimeout(() => setEmployeePickerVisible(true), 400);
+    } else {
+      setEmployeePickerVisible(true);
+    }
+  };
+
+  const closeEmployeePicker = () => {
+    setEmployeePickerVisible(false);
+    if (Platform.OS === 'ios') {
+      setTimeout(() => setModalVisible(true), 400);
+    }
+  };
+
   // Toggle single employee selection in picker
   const toggleEmpSelection = (empId: string) => {
     setSelectedNewEmps(prev =>
@@ -158,13 +178,24 @@ export default function ServiceOrdersScreen() {
     setSelectedNewEmps([]);
     setBulkFuncPickerVisible(false);
     setEmployeePickerVisible(false);
+    if (Platform.OS === 'ios') {
+      setTimeout(() => setModalVisible(true), 400);
+    }
   };
 
   const removeEmployee = (index: number) => {
     setSOEmployees(soEmployees.filter((_, i) => i !== index));
   };
 
-  const openFuncPicker = (index: number) => { setEditingEmpIndex(index); setFuncPickerVisible(true); };
+  const openFuncPicker = (index: number) => {
+    setEditingEmpIndex(index);
+    if (Platform.OS === 'ios') {
+      setModalVisible(false);
+      setTimeout(() => setFuncPickerVisible(true), 400);
+    } else {
+      setFuncPickerVisible(true);
+    }
+  };
 
   const setEmployeeFunc = (func: string) => {
     if (editingEmpIndex === null) return;
@@ -172,6 +203,9 @@ export default function ServiceOrdersScreen() {
     updated[editingEmpIndex] = { ...updated[editingEmpIndex], function: func };
     setSOEmployees(updated);
     setFuncPickerVisible(false);
+    if (Platform.OS === 'ios') {
+      setTimeout(() => setModalVisible(true), 400);
+    }
   };
 
   const getEmpName = (empId: string) => allEmployees.find(e => e.id === empId)?.name || 'Desconhecido';
@@ -256,7 +290,7 @@ export default function ServiceOrdersScreen() {
 
           <View style={s.sectionHeader}>
             <Text style={s.label}>Funcionários ({soEmployees.length})</Text>
-            <TouchableOpacity onPress={() => { setSelectedNewEmps([]); setEmployeePickerVisible(true); }} style={s.addEmpBtn}>
+            <TouchableOpacity onPress={openEmployeePicker} style={s.addEmpBtn}>
               <Ionicons name="add" size={18} color="#000000" /><Text style={s.addEmpText}>Adicionar</Text>
             </TouchableOpacity>
           </View>
@@ -313,7 +347,7 @@ export default function ServiceOrdersScreen() {
           </ScrollView>
 
           <View style={[s.modalBtns, { marginTop: 16 }]}>
-            <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={() => setEmployeePickerVisible(false)}>
+            <TouchableOpacity style={[s.modalBtn, s.cancelBtn]} onPress={closeEmployeePicker}>
               <Text style={s.cancelText}>Fechar</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -338,7 +372,7 @@ export default function ServiceOrdersScreen() {
               <Text style={s.funcItemDesc}>{FUNC_LABELS[f]}</Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={[s.closeBtn, { marginTop: 12 }]} onPress={() => setBulkFuncPickerVisible(false)}>
+          <TouchableOpacity style={[s.closeBtn, { marginTop: 12 }]} onPress={() => { setBulkFuncPickerVisible(false); setEmployeePickerVisible(false); if (Platform.OS === 'ios') setTimeout(() => setModalVisible(true), 400); }}>
             <Text style={s.closeBtnText}>Cancelar</Text>
           </TouchableOpacity>
         </View></View>

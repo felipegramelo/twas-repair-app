@@ -267,13 +267,19 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
     current_user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         raise HTTPException(status_code=401, detail="Usuário não encontrado")
+    # Normalize _id to string (matches other routes that use get_current_user)
+    current_user["_id"] = str(current_user["_id"])
 
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not ts:
         raise HTTPException(status_code=404, detail="Timesheet not found")
 
-    # Check permissions
-    if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
+    # Check permissions (same rule as GET: admin, owner, or shared)
+    if (
+        current_user.get("role") != UserRole.ADMIN
+        and ts["supervisor_id"] != current_user["_id"]
+        and current_user["_id"] not in ts.get("shared_with", [])
+    ):
         raise HTTPException(status_code=403, detail="Access denied")
     
     # Create PDF with A4 page size

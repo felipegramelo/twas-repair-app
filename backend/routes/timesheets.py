@@ -249,11 +249,29 @@ async def duplicate_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends
 # ==================== PDF GENERATION ====================
 
 @router.get("/timesheets/{ts_id}/pdf")
-async def generate_timesheet_pdf(ts_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
+async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None), credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))):
+    # Accept token via query string (?token=...) OR Authorization: Bearer header (for mobile & web)
+    auth_token = token
+    if not auth_token and credentials:
+        auth_token = credentials.credentials
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Token não fornecido")
+    try:
+        payload = jwt.decode(auth_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token inválido")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    current_user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Usuário não encontrado")
+
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not ts:
         raise HTTPException(status_code=404, detail="Timesheet not found")
-    
+
     # Check permissions
     if current_user.get("role") != UserRole.ADMIN and ts["supervisor_id"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Access denied")

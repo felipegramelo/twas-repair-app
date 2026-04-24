@@ -122,6 +122,15 @@ class BMCalculateRequest(BaseModel):
     timesheet_ids: List[str] = []
     data_inicio: str = ""
     data_fim: str = ""
+    calc_mode: str = "daily"  # "daily" (default) or "hourly"
+
+
+def _time_to_minutes_safe(s: str) -> int:
+    try:
+        parts = (s or "").split(":")
+        return int(parts[0]) * 60 + (int(parts[1]) if len(parts) > 1 else 0)
+    except Exception:
+        return 0
 
 
 @router.post("/bm/calculate/{os_id}")
@@ -151,8 +160,11 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
     if body.data_fim:
         date_filter_end = parse_date_sortable(body.data_fim)
 
-    # Count unique employee+date per function per shift
-    function_days = {}
+    is_hourly = body.calc_mode == "hourly"
+
+    # For daily: count unique employee+date; for hourly: sum worked minutes
+    function_days = {}      # key -> set(emp_date) when daily
+    function_minutes = {}   # key -> int total minutes when hourly
     all_dates = []
 
     for ts in timesheets:
@@ -160,9 +172,9 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
             func = entry.get("employee_function", "T")
             date = entry.get("date", "")
             start_str = entry.get("service_start", "")
+            end_str = entry.get("service_end", "")
             if not start_str or not date:
                 continue
-            # Apply date filter
             if date_filter_start or date_filter_end:
                 date_sortable = parse_date_sortable(date)
                 if date_filter_start and date_sortable < date_filter_start:
@@ -172,42 +184,60 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
             all_dates.append(date)
             try:
                 start_hour = int(start_str.split(":")[0])
-            except:
+            except Exception:
                 continue
             is_day = day_start <= start_hour < day_end
             shift = "day" if is_day else "night"
             key = f"{func}_{shift}"
-            if key not in function_days:
-                function_days[key] = set()
-            emp_date = f"{entry.get('employee_id', '')}_{date}"
-            function_days[key].add(emp_date)
 
-    # Sort dates
+            if is_hourly:
+                s_min = _time_to_minutes_safe(start_str)
+                e_min = _time_to_minutes_safe(end_str)
+                if e_min <= s_min:
+                    # overnight shift: assume +24h
+                    e_min += 24 * 60
+                worked_minutes = max(0, e_min - s_min)
+                function_minutes[key] = function_minutes.get(key, 0) + worked_minutes
+            else:
+                if key not in function_days:
+                    function_days[key] = set()
+                emp_date = f"{entry.get('employee_id', '')}_{date}"
+                function_days[key].add(emp_date)
+
     sorted_dates = sorted(set(all_dates), key=parse_date_sortable)
-    # Use user-provided dates or auto-detect from data
     data_inicial = body.data_inicio if body.data_inicio else (sorted_dates[0] if sorted_dates else "")
     data_final = body.data_fim if body.data_fim else (sorted_dates[-1] if sorted_dates else "")
 
-    # Get client prices
     client_name = so.get("client", "")
     price_table = await db.client_prices.find_one({"client_name": client_name})
 
     items = []
-    for key in sorted(function_days.keys()):
-        dates_set = function_days[key]
+    keys = sorted(function_minutes.keys()) if is_hourly else sorted(function_days.keys())
+    for key in keys:
         func_code, shift = key.rsplit("_", 1)
         func_name = FUNCTION_NAMES.get(func_code, func_code)
-        qtd = len(dates_set)
-        rate = 0.0
+
+        # Lookup rate from client price table
+        day_rate = 0.0
+        hour_rate = 0.0
         if price_table:
             for p in price_table.get("prices", []):
                 if p["function_code"] == func_code:
-                    day_rate = p.get("day_rate", 0)
-                    if shift == "day":
-                        rate = day_rate
-                    else:
-                        rate = round(day_rate * 1.2, 2)  # Noturno = diurno + 20%
+                    day_rate = p.get("day_rate", 0) or 0
+                    hour_rate = p.get("hour_rate", 0) or 0
+                    # If hour_rate not defined, derive from day_rate assuming 12h turn
+                    if not hour_rate and day_rate:
+                        hour_rate = round(day_rate / 12.0, 2)
                     break
+
+        if is_hourly:
+            minutes = function_minutes[key]
+            qtd = round(minutes / 60.0, 2)  # hours (supports fractions)
+            rate = hour_rate if shift == "day" else round(hour_rate * 1.2, 2)
+        else:
+            qtd = len(function_days[key])
+            rate = day_rate if shift == "day" else round(day_rate * 1.2, 2)
+
         display_name = func_name if shift == "day" else f"{func_name} (NOTURNO)"
         items.append({
             "function_code": func_code,
@@ -217,6 +247,7 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
             "data_final": data_final,
             "valor_und": rate,
             "qtd": qtd,
+            "unit_label": "h" if is_hourly else "dia",
             "valor_total": round(rate * qtd, 2),
         })
 
@@ -228,6 +259,7 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
         "location": so.get("location", ""),
         "service": so.get("service", ""),
         "schedule_type": schedule_type,
+        "calc_mode": body.calc_mode,
         "data_inicial": data_inicial,
         "data_final": data_final,
         "items": items,

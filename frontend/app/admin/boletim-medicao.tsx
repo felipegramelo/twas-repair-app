@@ -37,6 +37,7 @@ export default function BMScreen() {
   // Date filter state
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [calcMode, setCalcMode] = useState<'daily' | 'hourly'>('daily');
 
   // Edit BM state
   const [editingBMId, setEditingBMId] = useState<string | null>(null);
@@ -120,6 +121,7 @@ export default function BMScreen() {
         timesheet_ids: selectedTimesheets,
         data_inicio: dataInicio,
         data_fim: dataFim,
+        calc_mode: calcMode,
       });
       setCalcResult(result);
       if (!result.has_price_table) showMsg('Atenção: Não há tabela de preços cadastrada para o cliente ' + result.client + '. Os valores estarão zerados.');
@@ -464,6 +466,33 @@ export default function BMScreen() {
                 </View>
               )}
 
+              <Text style={s.sectionTitle}>Modo de Cálculo</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                {([
+                  { key: 'daily', label: 'Por Diária' },
+                  { key: 'hourly', label: 'Por Hora' },
+                ] as const).map(opt => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    data-testid={`bm-calc-mode-${opt.key}`}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      borderRadius: 8,
+                      backgroundColor: calcMode === opt.key ? '#000000' : '#f5f5f5',
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: calcMode === opt.key ? '#000000' : '#e0e0e0',
+                    }}
+                    onPress={() => setCalcMode(opt.key)}
+                  >
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: calcMode === opt.key ? '#fff' : '#333' }}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <TouchableOpacity style={s.calcBtn} onPress={handleCalculate} disabled={calcLoading}>
                 {calcLoading ? <ActivityIndicator color="#fff" /> : <><Ionicons name="calculator" size={18} color="#fff" /><Text style={s.calcBtnText}>Calcular</Text></>}
               </TouchableOpacity>
@@ -474,7 +503,7 @@ export default function BMScreen() {
                   {calcResult.items.map((item: any, i: number) => (
                     <View key={i} style={s.calcItem}>
                       <Text style={s.calcFunc}>{item.function_name}</Text>
-                      <Text style={s.calcDetail}>{item.qtd} diaria(s) x {formatCurrency(item.valor_und)} = {formatCurrency(item.valor_total)}</Text>
+                      <Text style={s.calcDetail}>{item.qtd} {item.unit_label || 'dia'}(s) x {formatCurrency(item.valor_und)} = {formatCurrency(item.valor_total)}</Text>
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
                         <View style={{ flex: 1 }}>
                           <Text style={[s.label, { marginTop: 0, fontSize: 12 }]}>Cod.</Text>

@@ -157,8 +157,6 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
     contato = proposal.get("contato", "") if proposal else ""
     email = proposal.get("email", "") if proposal else ""
     employees = so.get("employees", [])
-    schedule_type = so.get("schedule_type", "07-19")
-    schedule_label = "06h \u00e0s 18h" if schedule_type == "06-18" else "07h \u00e0s 19h"
     current_date = datetime.utcnow().strftime("%d/%m/%Y")
 
     def draw_os_page(canvas_obj, doc_obj):
@@ -266,7 +264,6 @@ async def generate_os_pdf(so_id: str, token: Optional[str] = Query(None), creden
         [Paragraph("<b>E-MAIL / TEL:</b>", label_style), Paragraph(email, value_style)],
         [Paragraph("<b>Previs\u00e3o de in\u00edcio:</b>", label_style), Paragraph("___/___/______", value_style)],
         [Paragraph("<b>Previs\u00e3o de t\u00e9rmino:</b>", label_style), Paragraph("___/___/______", value_style)],
-        [Paragraph("<b>Hor\u00e1rio de trabalho:</b>", label_style), Paragraph(schedule_label, value_style)],
         [Paragraph("<b>Local de estadia da embarca\u00e7\u00e3o:</b>", label_style), Paragraph(location, value_style)],
         [Paragraph("<b>Local de realiza\u00e7\u00e3o dos servi\u00e7os:</b>", label_style), Paragraph(location, value_style)],
     ]

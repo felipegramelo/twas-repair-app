@@ -96,7 +96,6 @@ class ServiceOrder(BaseModel):
     embarcacao: Optional[str] = ""
     service: str
     employees: List[SOEmployee] = []
-    schedule_type: Optional[str] = "07-19"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:

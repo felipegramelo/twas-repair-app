@@ -282,7 +282,7 @@ export default function ServiceOrdersScreen() {
       </Modal>
 
       {/* Employee Picker with Multi-select */}
-      <Modal visible={employeePickerVisible} animationType="slide" transparent onRequestClose={() => setEmployeePickerVisible(false)}>
+      <Modal visible={employeePickerVisible} animationType="slide" transparent presentationStyle="overFullScreen" onRequestClose={() => setEmployeePickerVisible(false)}>
         <View style={s.modalOverlay}><View style={s.modalContent}>
           <Text style={s.modalTitle}>Selecionar Funcionários</Text>
 
@@ -328,7 +328,7 @@ export default function ServiceOrdersScreen() {
       </Modal>
 
       {/* Bulk Function Picker - after selecting employees */}
-      <Modal visible={bulkFuncPickerVisible} animationType="fade" transparent onRequestClose={() => setBulkFuncPickerVisible(false)}>
+      <Modal visible={bulkFuncPickerVisible} animationType="fade" transparent presentationStyle="overFullScreen" onRequestClose={() => setBulkFuncPickerVisible(false)}>
         <View style={s.modalOverlay}><View style={[s.modalContent, { maxWidth: 320, alignSelf: 'center' }]}>
           <Text style={s.modalTitle}>Função para {selectedNewEmps.length} funcionário(s)</Text>
           <Text style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Selecione a função. Você pode alterar individualmente depois.</Text>
@@ -345,7 +345,7 @@ export default function ServiceOrdersScreen() {
       </Modal>
 
       {/* Individual Function Picker */}
-      <Modal visible={funcPickerVisible} animationType="fade" transparent onRequestClose={() => setFuncPickerVisible(false)}>
+      <Modal visible={funcPickerVisible} animationType="fade" transparent presentationStyle="overFullScreen" onRequestClose={() => setFuncPickerVisible(false)}>
         <View style={s.modalOverlay}><View style={[s.modalContent, { maxWidth: 300, alignSelf: 'center' }]}>
           <Text style={s.modalTitle}>Selecionar Funcao</Text>
           {FUNCTIONS.map(f => (

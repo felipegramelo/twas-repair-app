@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { signIn, user, loading } = useAuth();
   const router = useRouter();
@@ -87,9 +88,21 @@ export default function LoginScreen() {
               placeholder="Senha"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               autoComplete="password"
             />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeButton}
+              testID="toggle-password-visibility"
+              accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            >
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={22}
+                color="#666"
+              />
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
@@ -160,6 +173,10 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 56,
     fontSize: 16,
+  },
+  eyeButton: {
+    padding: 8,
+    marginLeft: 4,
   },
   button: {
     backgroundColor: '#000000',

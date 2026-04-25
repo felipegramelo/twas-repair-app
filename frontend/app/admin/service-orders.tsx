@@ -63,7 +63,7 @@ export default function ServiceOrdersScreen() {
   const handleDownloadOSPdf = async (so: ServiceOrder) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+      const baseURL = BACKEND_URL + '/api';
       const pdfUrl = `${baseURL}/service-orders/${so.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`;
       if (Platform.OS === 'web') {
         window.open(pdfUrl, '_blank');

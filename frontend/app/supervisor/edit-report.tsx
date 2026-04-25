@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI } from '../../services/api';
+import { BACKEND_URL } from '../../services/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -146,7 +147,7 @@ export default function EditReportScreen() {
   };
 
   const getPdfUrl = () => {
-    const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
+    const baseUrl = BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
     // Token included for web (window.open needs it in URL). On native, pdfHelper adds it if missing.
     return `${baseUrl}/api/reports/${id}/pdf?token=${encodeURIComponent(token)}&t=${Date.now()}`;
   };

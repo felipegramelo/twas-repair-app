@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI, supervisorAPI, sharingAPI } from '../../services/api';
+import { BACKEND_URL } from '../../services/config';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
 
 interface ReportItem {
@@ -49,7 +50,7 @@ export default function DailyReportsScreen() {
 
   const handleOpenPDF = async (report: ReportItem) => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, `relatorio_diario_${report.os_number}.pdf`);
     } catch (error) {
@@ -60,7 +61,7 @@ export default function DailyReportsScreen() {
 
   const handleDownloadPDF = async (report: ReportItem) => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, `relatorio_diario_${report.os_number}.pdf`);
       if (Platform.OS === 'web') window.alert('PDF baixado com sucesso!');

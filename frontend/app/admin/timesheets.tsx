@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { timesheetAPI, supervisorAPI, sharingAPI } from '../../services/api';
+import { BACKEND_URL } from '../../services/config';
 import { Timesheet } from '../../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -65,7 +66,7 @@ export default function AdminTimesheetsScreen() {
         window.open(url, '_blank');
       } else {
         const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const baseURL = BACKEND_URL + '/api';
         const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
@@ -104,7 +105,7 @@ export default function AdminTimesheetsScreen() {
         window.alert('PDF baixado com sucesso!');
       } else {
         const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const baseURL = BACKEND_URL + '/api';
         const fileName = `timesheet_${timesheet.os_number || 'ts'}_${Date.now()}.pdf`;
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(

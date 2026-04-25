@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sharing from 'expo-sharing';
 import { proposalAPI } from '../../services/api';
+import { BACKEND_URL } from '../../services/config';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
 import { Proposal, ProposalItem, ProposalSubsection } from '../../types';
 
@@ -288,7 +289,7 @@ export default function PropostasScreen() {
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       } else {
         // iOS/Android native: download via expo-file-system and share
-        const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+        const backendUrl = BACKEND_URL;
         const pdfUrl = `${backendUrl}/api/proposals/${proposal.id}/pdf?tipo=${tipo}&t=${Date.now()}`;
         const fileName = `Proposta_${tipo}_${proposal.numero_proposta.replace(/ /g, '_')}.pdf`;
         await downloadAndSharePDF(

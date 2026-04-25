@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { authAPI } from '../services/api';
+import { BACKEND_URL } from '../services/config';
 import { User } from '../types';
 
 interface AuthContextData {
@@ -26,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = await AsyncStorage.getItem('token');
       if (token) {
         // Wake up server with a quick ping before full auth check
-        try { await axios.get(process.env.EXPO_PUBLIC_BACKEND_URL + '/api/auth/login', { timeout: 5000 }).catch(() => {}); } catch {}
+        try { await axios.get(BACKEND_URL + '/api/auth/login', { timeout: 5000 }).catch(() => {}); } catch {}
         const userData = await authAPI.getMe();
         setUser(userData);
       }

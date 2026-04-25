@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { timesheetAPI, reportAPI, serviceOrderAPI } from '../../services/api';
+import { BACKEND_URL } from '../../services/config';
 import { Timesheet, Report, ServiceOrder } from '../../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -81,7 +82,7 @@ export default function SupervisorDashboard() {
         window.open(url, '_blank');
       } else {
         const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const baseURL = BACKEND_URL + '/api';
         const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
@@ -114,7 +115,7 @@ export default function SupervisorDashboard() {
         URL.revokeObjectURL(url);
       } else {
         const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const baseURL = BACKEND_URL + '/api';
         const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
@@ -134,7 +135,7 @@ export default function SupervisorDashboard() {
   };
 
   const getReportPdfUrl = (reportId: string) => {
-    const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
+    const baseURL = BACKEND_URL || process.env.EXPO_PUBLIC_REPORT_API_URL?.replace('/api', '');
     return `${baseURL}/api/reports/${reportId}/pdf?token=${encodeURIComponent(authToken)}&t=${Date.now()}`;
   };
 
@@ -145,7 +146,7 @@ export default function SupervisorDashboard() {
         window.open(url, '_blank');
       } else {
         const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const baseURL = BACKEND_URL + '/api';
         const fileUri = `${FileSystem.cacheDirectory}report_${report.id}_${Date.now()}.pdf`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`,
@@ -170,7 +171,7 @@ export default function SupervisorDashboard() {
         window.location.href = url;
       } else {
         const token = await AsyncStorage.getItem('token');
-        const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+        const baseURL = BACKEND_URL + '/api';
         const fileUri = `${FileSystem.cacheDirectory}report_${report.id}_${Date.now()}.pdf`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`,
@@ -355,7 +356,7 @@ export default function SupervisorDashboard() {
     setTranslating(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+      const baseURL = BACKEND_URL + '/api';
       const resp = await fetch(`${baseURL}/translate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },

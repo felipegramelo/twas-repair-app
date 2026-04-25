@@ -41,8 +41,14 @@ backend/
 - [x] Campo schedule_type (06-18 / 07-19) na UI de OS (2026-04-21)
 - [x] Otimizacao N+1 em /admin/os-archive: 3 queries totais (batch com $in) ao inves de 1+2N (2026-04-21)
 - [x] Indices MongoDB criados no startup: timesheets.os_id, reports.os_id, reports.(os_id,status), service_orders.os_number
+- [x] URL Production hardcoded em frontend/services/config.ts (2026-04-25)
+    - Evita que builds Android via Emergent ("Re-deploy and generate build") apontem para o banco preview
+    - Todas as 22 ocorrencias de `process.env.EXPO_PUBLIC_BACKEND_URL` substituidas por `BACKEND_URL` de `services/config.ts`
+    - Override opcional via EXPO_PUBLIC_BACKEND_URL_OVERRIDE para testes
+    - Arquivos atualizados: AuthContext.tsx, api.ts, services/config.ts, admin/(service-orders, boletim-medicao, daily-reports, timesheets, propostas, service-reports, os-archive), supervisor/(index, edit-report)
+    - Bug pre-existente corrigido: codigo orfao no fim de service-orders.tsx (linhas 480-485)
 
-## Versao Atual: 1.0.10 (build 6)
+## Versao Atual: 1.0.22 (proxima build Android)
 
 ## Credenciais de Teste
 - Admin: admin@twasrepair.com / admin123

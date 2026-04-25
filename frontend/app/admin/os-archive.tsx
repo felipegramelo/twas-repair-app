@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { archiveAPI, timesheetAPI, reportAPI } from '../../services/api';
+import { BACKEND_URL } from '../../services/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
 
@@ -92,7 +93,7 @@ export default function OSArchiveScreen() {
 
   const handleOpenTimesheetPDF = async (ts: DocItem) => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/timesheets/${ts.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => timesheetAPI.downloadPDF(ts.id),
@@ -104,7 +105,7 @@ export default function OSArchiveScreen() {
 
   const handleOpenReportPDF = async (report: DocItem) => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => reportAPI.downloadPDF(report.id),
@@ -116,7 +117,7 @@ export default function OSArchiveScreen() {
 
   const handleDownloadTimesheetPDF = async (ts: DocItem) => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/timesheets/${ts.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => timesheetAPI.downloadPDF(ts.id),
@@ -128,7 +129,7 @@ export default function OSArchiveScreen() {
 
   const handleDownloadReportPDF = async (report: DocItem) => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
       await downloadAndSharePDF(
         () => reportAPI.downloadPDF(report.id),

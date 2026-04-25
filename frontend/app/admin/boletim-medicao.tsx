@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { bmAPI, clientPriceAPI } from '../../services/api';
+import { BACKEND_URL } from '../../services/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
 
@@ -225,7 +226,7 @@ export default function BMScreen() {
 
   const handleOpenPDF = async (id: string) => {
     const token = await AsyncStorage.getItem('token');
-    const baseURL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+    const baseURL = BACKEND_URL + '/api';
     const url = `${baseURL}/bm/${id}/pdf?token=${token}&t=${Date.now()}`;
     if (Platform.OS === 'web') window.open(url, '_blank');
   };

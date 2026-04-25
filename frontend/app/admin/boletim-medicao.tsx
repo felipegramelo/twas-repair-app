@@ -530,40 +530,49 @@ export default function BMScreen() {
                 <Modal
                   visible
                   transparent
-                  animationType="slide"
+                  animationType="fade"
                   onRequestClose={() => setShowDatePicker(null)}
                 >
-                  <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-                    <View style={{ backgroundColor: '#fff', paddingBottom: 30, paddingTop: 8 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}
+                    onPress={() => setShowDatePicker(null)}
+                  >
+                    <TouchableOpacity activeOpacity={1} style={{ width: '92%', maxWidth: 380, backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden' }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
                         <TouchableOpacity onPress={() => setShowDatePicker(null)}>
                           <Text style={{ fontSize: 16, color: '#888' }}>Cancelar</Text>
                         </TouchableOpacity>
-                        <Text style={{ fontSize: 16, fontWeight: '700' }}>
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#000' }}>
                           {showDatePicker === 'inicio' ? 'Data Início' : 'Data Fim'}
                         </Text>
                         <TouchableOpacity onPress={() => setShowDatePicker(null)}>
                           <Text style={{ fontSize: 16, color: '#000', fontWeight: '700' }}>OK</Text>
                         </TouchableOpacity>
                       </View>
-                      <DateTimePicker
-                        value={
-                          (showDatePicker === 'inicio' ? ptToDate(dataInicio) : ptToDate(dataFim)) || new Date()
-                        }
-                        mode="date"
-                        display="inline"
-                        themeVariant="light"
-                        locale="pt-BR"
-                        onChange={(_event: any, selectedDate?: Date) => {
-                          if (selectedDate) {
-                            const formatted = dateToPt(selectedDate);
-                            if (showDatePicker === 'inicio') setDataInicio(formatted);
-                            else setDataFim(formatted);
+                      <View style={{ height: 380, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 }}>
+                        <DateTimePicker
+                          value={
+                            (showDatePicker === 'inicio' ? ptToDate(dataInicio) : ptToDate(dataFim)) || new Date()
                           }
-                        }}
-                      />
-                    </View>
-                  </View>
+                          mode="date"
+                          display="inline"
+                          themeVariant="light"
+                          locale="pt-BR"
+                          maximumDate={new Date(2030, 11, 31)}
+                          minimumDate={new Date(2020, 0, 1)}
+                          style={{ width: '100%', height: 360 }}
+                          onChange={(_event: any, selectedDate?: Date) => {
+                            if (selectedDate) {
+                              const formatted = dateToPt(selectedDate);
+                              if (showDatePicker === 'inicio') setDataInicio(formatted);
+                              else setDataFim(formatted);
+                            }
+                          }}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
                 </Modal>
               )}
 

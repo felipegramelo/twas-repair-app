@@ -551,8 +551,9 @@ export default function BMScreen() {
                           (showDatePicker === 'inicio' ? ptToDate(dataInicio) : ptToDate(dataFim)) || new Date()
                         }
                         mode="date"
-                        display="spinner"
+                        display="inline"
                         themeVariant="light"
+                        locale="pt-BR"
                         onChange={(_event: any, selectedDate?: Date) => {
                           if (selectedDate) {
                             const formatted = dateToPt(selectedDate);

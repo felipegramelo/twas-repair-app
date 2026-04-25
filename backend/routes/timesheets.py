@@ -37,6 +37,7 @@ async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any
     ts_dict = ts_data.model_dump()
     ts_dict["os_number"] = so["os_number"]
     ts_dict["client"] = so["client"]
+    ts_dict["embarcacao"] = so.get("embarcacao", "")
     ts_dict["location"] = so["location"]
     ts_dict["service"] = so["service"]
     ts_dict["supervisor_id"] = current_user["_id"]
@@ -281,6 +282,15 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         and current_user["_id"] not in ts.get("shared_with", [])
     ):
         raise HTTPException(status_code=403, detail="Access denied")
+
+    # Fallback: timesheets created before embarcacao was tracked - load from OS
+    if not ts.get("embarcacao"):
+        try:
+            so_doc = await db.service_orders.find_one({"_id": ObjectId(ts.get("os_id"))})
+            if so_doc:
+                ts["embarcacao"] = so_doc.get("embarcacao", "")
+        except Exception:
+            pass
     
     # Create PDF with A4 page size
     buffer = io.BytesIO()
@@ -433,7 +443,10 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
             Paragraph("<b>Local / Location:</b>", styles['Normal'])
         ],
         [
-            Paragraph(ts.get("client", ""), styles['Normal']),
+            Paragraph(
+                f"{ts.get('client', '')}{(' / ' + ts.get('embarcacao', '')) if ts.get('embarcacao') else ''}",
+                styles['Normal']
+            ),
             Paragraph(ts.get("location", ""), styles['Normal'])
         ]
     ]

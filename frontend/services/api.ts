@@ -1,8 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Employee, ServiceOrder, Timesheet, TimesheetEntry } from '../types';
-
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+import { BACKEND_URL, API_URL } from './config';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -381,7 +380,7 @@ export const reportAPI = {
     return response.data;
   },
   getPhotoUrl: (storagePath: string, token: string) => {
-    const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL + '/api';
+    const baseUrl = BACKEND_URL + '/api';
     return `${baseUrl}/photos/${storagePath}?auth=${token}`;
   },
 };

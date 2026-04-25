@@ -507,21 +507,17 @@ export default function BMScreen() {
                 </View>
               )}
 
-              {/* Native date picker modal (iOS/Android only) */}
-              {showDatePicker && Platform.OS !== 'web' && (
+              {/* Native date picker (iOS in modal, Android inline auto-popup) */}
+              {showDatePicker && Platform.OS === 'android' && (
                 <DateTimePicker
                   value={
                     (showDatePicker === 'inicio' ? ptToDate(dataInicio) : ptToDate(dataFim)) || new Date()
                   }
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  display="default"
                   onChange={(event: any, selectedDate?: Date) => {
-                    // On Android the picker auto-dismisses, on iOS we keep open until user taps outside
-                    if (Platform.OS === 'android') setShowDatePicker(null);
-                    if (event?.type === 'dismissed') {
-                      setShowDatePicker(null);
-                      return;
-                    }
+                    setShowDatePicker(null);
+                    if (event?.type === 'dismissed') return;
                     if (selectedDate) {
                       const formatted = dateToPt(selectedDate);
                       if (showDatePicker === 'inicio') setDataInicio(formatted);
@@ -531,12 +527,43 @@ export default function BMScreen() {
                 />
               )}
               {showDatePicker && Platform.OS === 'ios' && (
-                <TouchableOpacity
-                  style={{ alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 16 }}
-                  onPress={() => setShowDatePicker(null)}
+                <Modal
+                  visible
+                  transparent
+                  animationType="slide"
+                  onRequestClose={() => setShowDatePicker(null)}
                 >
-                  <Text style={{ color: '#000', fontWeight: '700' }}>OK</Text>
-                </TouchableOpacity>
+                  <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+                    <View style={{ backgroundColor: '#fff', paddingBottom: 30, paddingTop: 8 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+                        <TouchableOpacity onPress={() => setShowDatePicker(null)}>
+                          <Text style={{ fontSize: 16, color: '#888' }}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <Text style={{ fontSize: 16, fontWeight: '700' }}>
+                          {showDatePicker === 'inicio' ? 'Data Início' : 'Data Fim'}
+                        </Text>
+                        <TouchableOpacity onPress={() => setShowDatePicker(null)}>
+                          <Text style={{ fontSize: 16, color: '#000', fontWeight: '700' }}>OK</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={
+                          (showDatePicker === 'inicio' ? ptToDate(dataInicio) : ptToDate(dataFim)) || new Date()
+                        }
+                        mode="date"
+                        display="spinner"
+                        themeVariant="light"
+                        onChange={(_event: any, selectedDate?: Date) => {
+                          if (selectedDate) {
+                            const formatted = dateToPt(selectedDate);
+                            if (showDatePicker === 'inicio') setDataInicio(formatted);
+                            else setDataFim(formatted);
+                          }
+                        }}
+                      />
+                    </View>
+                  </View>
+                </Modal>
               )}
 
               <Text style={s.sectionTitle}>Modo de Cálculo</Text>

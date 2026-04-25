@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput,
   ActivityIndicator, Platform, Alert, Modal,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,6 +39,23 @@ export default function BMScreen() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [calcMode, setCalcMode] = useState<'daily' | 'hourly'>('daily');
+  const [showDatePicker, setShowDatePicker] = useState<null | 'inicio' | 'fim'>(null);
+
+  // Helpers to convert "DD/MM/YYYY" <-> Date
+  const ptToDate = (s: string): Date | null => {
+    if (!s) return null;
+    const parts = s.split('/');
+    if (parts.length !== 3) return null;
+    const [d, m, y] = parts.map(Number);
+    if (!d || !m || !y) return null;
+    return new Date(y, m - 1, d);
+  };
+  const dateToPt = (d: Date): string => {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = d.getFullYear();
+    return `${dd}/${mm}/${yy}`;
+  };
 
   // Edit BM state
   const [editingBMId, setEditingBMId] = useState<string | null>(null);
@@ -445,12 +463,15 @@ export default function BMScreen() {
                         data-testid="date-inicio-picker"
                       />
                     ) : (
-                      <TextInput
-                        style={s.input}
-                        value={dataInicio}
-                        onChangeText={setDataInicio}
-                        placeholder="DD/MM/AAAA"
-                      />
+                      <TouchableOpacity
+                        style={[s.input, { justifyContent: 'center' }]}
+                        onPress={() => setShowDatePicker('inicio')}
+                        data-testid="date-inicio-picker-mobile"
+                      >
+                        <Text style={{ fontSize: 14, color: dataInicio ? '#212121' : '#999' }}>
+                          {dataInicio || 'Selecionar data'}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                   <View style={s.dateField}>
@@ -472,15 +493,50 @@ export default function BMScreen() {
                         data-testid="date-fim-picker"
                       />
                     ) : (
-                      <TextInput
-                        style={s.input}
-                        value={dataFim}
-                        onChangeText={setDataFim}
-                        placeholder="DD/MM/AAAA"
-                      />
+                      <TouchableOpacity
+                        style={[s.input, { justifyContent: 'center' }]}
+                        onPress={() => setShowDatePicker('fim')}
+                        data-testid="date-fim-picker-mobile"
+                      >
+                        <Text style={{ fontSize: 14, color: dataFim ? '#212121' : '#999' }}>
+                          {dataFim || 'Selecionar data'}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
+              )}
+
+              {/* Native date picker modal (iOS/Android only) */}
+              {showDatePicker && Platform.OS !== 'web' && (
+                <DateTimePicker
+                  value={
+                    (showDatePicker === 'inicio' ? ptToDate(dataInicio) : ptToDate(dataFim)) || new Date()
+                  }
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event: any, selectedDate?: Date) => {
+                    // On Android the picker auto-dismisses, on iOS we keep open until user taps outside
+                    if (Platform.OS === 'android') setShowDatePicker(null);
+                    if (event?.type === 'dismissed') {
+                      setShowDatePicker(null);
+                      return;
+                    }
+                    if (selectedDate) {
+                      const formatted = dateToPt(selectedDate);
+                      if (showDatePicker === 'inicio') setDataInicio(formatted);
+                      else setDataFim(formatted);
+                    }
+                  }}
+                />
+              )}
+              {showDatePicker && Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={{ alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 16 }}
+                  onPress={() => setShowDatePicker(null)}
+                >
+                  <Text style={{ color: '#000', fontWeight: '700' }}>OK</Text>
+                </TouchableOpacity>
               )}
 
               <Text style={s.sectionTitle}>Modo de Cálculo</Text>

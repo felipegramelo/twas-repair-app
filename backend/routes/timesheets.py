@@ -14,6 +14,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 import io
 import jwt
 from pathlib import Path
+from PIL import Image as PILImage
 
 from database import db
 from config import SECRET_KEY, ALGORITHM, get_object

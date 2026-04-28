@@ -50,6 +50,22 @@ backend/
 
 ## Versao Atual: 1.0.22 (proxima build Android)
 
+## Boletim de Medição - Refatoração Completa (2026-04-28)
+- **Tela: `app/admin/boletim-medicao.tsx`**
+- Toggle "Por Diária / Por Hora" SUBSTITUÍDO por "Onshore (8h) / Offshore (12h)"
+- Onshore: base 8h, hour_rate = day_rate / 7 (desconta 1h almoço)
+- Offshore: base 12h, hour_rate = day_rate / 11 (desconta 1h almoço)
+- **Horas extras com multiplicadores:** Seg-Sex +70%, Sábado +80%, Dom/Feriado +100%
+- **Horas de viagem** somam à diária; excedente vira hora extra
+- **Saída: linhas separadas** por tipo (Diárias / Extras Seg-Sex / Extras Sábado / Extras Dom-Feriado)
+- **Vírgula em valores quebrados** funcionando: tabela aceita "2.850,72" e formata em pt-BR
+- **Nova aba "Feriados"**:
+  - Feriados nacionais brasileiros calculados automaticamente (`backend/holidays_util.py`)
+    - Fixos: 01/01, 21/04, 01/05, 07/09, 12/10, 02/11, 15/11, 25/12
+    - Móveis baseados na Páscoa: Carnaval, Sexta-Santa, Corpus Christi
+  - CRUD de feriados regionais (`/api/holidays`)
+- Novos arquivos: `backend/holidays_util.py`, `backend/routes/holidays.py`
+
 ## Deploy Web (Vercel) - Configurado em 2026-04-28
 - vercel.json + .vercelignore criados na raiz
 - Build command: `cd frontend && yarn install --frozen-lockfile && npx expo export --platform web`

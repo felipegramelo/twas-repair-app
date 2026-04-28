@@ -122,7 +122,7 @@ class BMCalculateRequest(BaseModel):
     timesheet_ids: List[str] = []
     data_inicio: str = ""
     data_fim: str = ""
-    calc_mode: str = "daily"  # "daily" (default) or "hourly"
+    calc_mode: str = "onshore"  # "onshore" (8h base, /7) or "offshore" (12h base, /11)
 
 
 def _time_to_minutes_safe(s: str) -> int:
@@ -131,6 +131,27 @@ def _time_to_minutes_safe(s: str) -> int:
         return int(parts[0]) * 60 + (int(parts[1]) if len(parts) > 1 else 0)
     except Exception:
         return 0
+
+
+def _worked_minutes(start_str: str, end_str: str) -> int:
+    """Compute worked minutes between two HH:MM, handling overnight shifts."""
+    s = _time_to_minutes_safe(start_str)
+    e = _time_to_minutes_safe(end_str)
+    if not start_str or not end_str:
+        return 0
+    if e <= s:
+        e += 24 * 60
+    return max(0, e - s)
+
+
+def _date_to_weekday(d: str) -> int:
+    """DD/MM/YYYY -> 0=Mon...6=Sun. Returns -1 on parse error."""
+    try:
+        from datetime import date as _date
+        parts = d.split("/")
+        return _date(int(parts[2]), int(parts[1]), int(parts[0])).weekday()
+    except Exception:
+        return -1
 
 
 @router.post("/bm/calculate/{os_id}")
@@ -144,6 +165,13 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
         day_start, day_end = 6, 18
     else:
         day_start, day_end = 7, 19
+
+    # Onshore: base 8h, divisor 7 (subtract 1h lunch from 8h)
+    # Offshore: base 12h, divisor 11 (subtract 1h lunch from 12h)
+    is_offshore = body.calc_mode == "offshore"
+    base_hours = 12 if is_offshore else 8
+    base_minutes = base_hours * 60
+    hour_divisor = 11 if is_offshore else 7
 
     # Fetch only selected timesheets or all if none specified
     if body.timesheet_ids:
@@ -160,12 +188,23 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
     if body.data_fim:
         date_filter_end = parse_date_sortable(body.data_fim)
 
-    is_hourly = body.calc_mode == "hourly"
+    # Aggregations per (function, shift):
+    #   diaria_count: int (number of unique employee+date pairs)
+    #   extras_weekday: int (minutes Mon-Fri beyond base)
+    #   extras_saturday: int (minutes Saturday beyond base)
+    #   extras_sunday_holiday: int (minutes Sunday/Holiday beyond base)
+    function_data: Dict[str, Dict[str, Any]] = {}
+    all_dates: List[str] = []
 
-    # For daily: count unique employee+date; for hourly: sum worked minutes
-    function_days = {}      # key -> set(emp_date) when daily
-    function_minutes = {}   # key -> int total minutes when hourly
-    all_dates = []
+    # Pre-compute holidays for the years involved
+    from holidays_util import all_holidays_in_range
+    candidate_dates = []
+    for ts in timesheets:
+        for entry in ts.get("entries", []):
+            d = entry.get("date", "")
+            if d:
+                candidate_dates.append(d)
+    holidays_set = await all_holidays_in_range(db, candidate_dates)
 
     for ts in timesheets:
         for entry in ts.get("entries", []):
@@ -173,6 +212,9 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
             date = entry.get("date", "")
             start_str = entry.get("service_start", "")
             end_str = entry.get("service_end", "")
+            travel_s = entry.get("travel_start", "") or ""
+            travel_e = entry.get("travel_end", "") or ""
+
             if not start_str or not date:
                 continue
             if date_filter_start or date_filter_end:
@@ -181,28 +223,47 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
                     continue
                 if date_filter_end and date_sortable > date_filter_end:
                     continue
+
             all_dates.append(date)
+
             try:
                 start_hour = int(start_str.split(":")[0])
             except Exception:
                 continue
-            is_day = day_start <= start_hour < day_end
-            shift = "day" if is_day else "night"
+            is_day_shift = day_start <= start_hour < day_end
+            shift = "day" if is_day_shift else "night"
             key = f"{func}_{shift}"
 
-            if is_hourly:
-                s_min = _time_to_minutes_safe(start_str)
-                e_min = _time_to_minutes_safe(end_str)
-                if e_min <= s_min:
-                    # overnight shift: assume +24h
-                    e_min += 24 * 60
-                worked_minutes = max(0, e_min - s_min)
-                function_minutes[key] = function_minutes.get(key, 0) + worked_minutes
-            else:
-                if key not in function_days:
-                    function_days[key] = set()
-                emp_date = f"{entry.get('employee_id', '')}_{date}"
-                function_days[key].add(emp_date)
+            if key not in function_data:
+                function_data[key] = {
+                    "diaria_emp_dates": set(),
+                    "extras_weekday": 0,
+                    "extras_saturday": 0,
+                    "extras_sunday_holiday": 0,
+                }
+
+            # Add this employee+date as a unique daily
+            emp_date = f"{entry.get('employee_id', '')}_{date}"
+            function_data[key]["diaria_emp_dates"].add(emp_date)
+
+            # Compute total worked minutes (service + travel)
+            service_min = _worked_minutes(start_str, end_str)
+            travel_min = 0
+            if travel_s and travel_e and travel_s not in ("", "-", "0") and travel_e not in ("", "-", "0"):
+                travel_min = _worked_minutes(travel_s, travel_e)
+            total_min = service_min + travel_min
+
+            # Extra hours beyond base
+            if total_min > base_minutes:
+                extra_min = total_min - base_minutes
+                weekday = _date_to_weekday(date)
+                is_holiday = date in holidays_set
+                if is_holiday or weekday == 6:
+                    function_data[key]["extras_sunday_holiday"] += extra_min
+                elif weekday == 5:
+                    function_data[key]["extras_saturday"] += extra_min
+                elif 0 <= weekday <= 4:
+                    function_data[key]["extras_weekday"] += extra_min
 
     sorted_dates = sorted(set(all_dates), key=parse_date_sortable)
     data_inicial = body.data_inicio if body.data_inicio else (sorted_dates[0] if sorted_dates else "")
@@ -212,44 +273,64 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
     price_table = await db.client_prices.find_one({"client_name": client_name})
 
     items = []
-    keys = sorted(function_minutes.keys()) if is_hourly else sorted(function_days.keys())
-    for key in keys:
+    for key in sorted(function_data.keys()):
         func_code, shift = key.rsplit("_", 1)
         func_name = FUNCTION_NAMES.get(func_code, func_code)
+        data = function_data[key]
 
-        # Lookup rate from client price table
+        # Lookup rates from client price table
         day_rate = 0.0
-        hour_rate = 0.0
+        night_rate = 0.0
         if price_table:
             for p in price_table.get("prices", []):
                 if p["function_code"] == func_code:
                     day_rate = p.get("day_rate", 0) or 0
-                    hour_rate = p.get("hour_rate", 0) or 0
-                    # If hour_rate not defined, derive from day_rate assuming 12h turn
-                    if not hour_rate and day_rate:
-                        hour_rate = round(day_rate / 12.0, 2)
+                    night_rate = p.get("night_rate", 0) or round(day_rate * 1.2, 2)
                     break
 
-        if is_hourly:
-            minutes = function_minutes[key]
-            qtd = round(minutes / 60.0, 2)  # hours (supports fractions)
-            rate = hour_rate if shift == "day" else round(hour_rate * 1.2, 2)
-        else:
-            qtd = len(function_days[key])
-            rate = day_rate if shift == "day" else round(day_rate * 1.2, 2)
-
+        base_rate = day_rate if shift == "day" else night_rate
+        hour_rate = round(base_rate / hour_divisor, 2) if hour_divisor else 0
         display_name = func_name if shift == "day" else f"{func_name} (NOTURNO)"
-        items.append({
-            "function_code": func_code,
-            "function_name": display_name,
-            "shift": shift,
-            "data_inicial": data_inicial,
-            "data_final": data_final,
-            "valor_und": rate,
-            "qtd": qtd,
-            "unit_label": "h" if is_hourly else "dia",
-            "valor_total": round(rate * qtd, 2),
-        })
+
+        diaria_qtd = len(data["diaria_emp_dates"])
+        if diaria_qtd > 0:
+            items.append({
+                "function_code": func_code,
+                "function_name": display_name,
+                "shift": shift,
+                "category": "diaria",
+                "data_inicial": data_inicial,
+                "data_final": data_final,
+                "valor_und": base_rate,
+                "qtd": diaria_qtd,
+                "unit_label": "dia",
+                "valor_total": round(base_rate * diaria_qtd, 2),
+            })
+
+        # Build extras line items if any
+        extras_specs = [
+            ("extras_weekday", "H. Extra Seg-Sex (+70%)", 1.70),
+            ("extras_saturday", "H. Extra Sábado (+80%)", 1.80),
+            ("extras_sunday_holiday", "H. Extra Dom/Feriado (+100%)", 2.00),
+        ]
+        for field, label_suffix, mult in extras_specs:
+            mins = data[field]
+            if mins <= 0:
+                continue
+            qtd_h = round(mins / 60.0, 2)
+            rate = round(hour_rate * mult, 2)
+            items.append({
+                "function_code": func_code,
+                "function_name": f"{display_name} - {label_suffix}",
+                "shift": shift,
+                "category": field,
+                "data_inicial": data_inicial,
+                "data_final": data_final,
+                "valor_und": rate,
+                "qtd": qtd_h,
+                "unit_label": "h",
+                "valor_total": round(rate * qtd_h, 2),
+            })
 
     subtotal = sum(item["valor_total"] for item in items)
     return {
@@ -260,11 +341,14 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
         "service": so.get("service", ""),
         "schedule_type": schedule_type,
         "calc_mode": body.calc_mode,
+        "base_hours": base_hours,
+        "hour_divisor": hour_divisor,
         "data_inicial": data_inicial,
         "data_final": data_final,
         "items": items,
         "subtotal": round(subtotal, 2),
         "has_price_table": price_table is not None,
+        "holidays_considered": sorted(holidays_set),
     }
 
 # ==================== BM CRUD ====================

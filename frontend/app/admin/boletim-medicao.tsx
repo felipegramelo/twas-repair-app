@@ -7,7 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { bmAPI, clientPriceAPI } from '../../services/api';
+import { bmAPI, clientPriceAPI, holidaysAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
@@ -19,7 +19,7 @@ const showMsg = (msg: string) => {
 
 export default function BMScreen() {
   const router = useRouter();
-  const [tab, setTab] = useState<'bm' | 'prices'>('bm');
+  const [tab, setTab] = useState<'bm' | 'prices' | 'holidays'>('bm');
   const [bms, setBms] = useState<any[]>([]);
   const [prices, setPrices] = useState<any[]>([]);
   const [serviceOrders, setServiceOrders] = useState<any[]>([]);
@@ -39,7 +39,7 @@ export default function BMScreen() {
   // Date filter state
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
-  const [calcMode, setCalcMode] = useState<'daily' | 'hourly'>('daily');
+  const [calcMode, setCalcMode] = useState<'onshore' | 'offshore'>('onshore');
   const [showDatePicker, setShowDatePicker] = useState<null | 'inicio' | 'fim'>(null);
 
   // Helpers to convert "DD/MM/YYYY" <-> Date
@@ -65,6 +65,14 @@ export default function BMScreen() {
   const [showPriceForm, setShowPriceForm] = useState(false);
   const [priceForm, setPriceForm] = useState({ client_name: '', prices: [] as any[] });
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+
+  // Holidays state
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [holidaysLoaded, setHolidaysLoaded] = useState(false);
+  const [holidayYear, setHolidayYear] = useState<number>(new Date().getFullYear());
+  const [newHolidayDate, setNewHolidayDate] = useState('');
+  const [newHolidayDesc, setNewHolidayDesc] = useState('');
+  const [showHolidayDatePicker, setShowHolidayDatePicker] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -290,6 +298,43 @@ export default function BMScreen() {
     try { await clientPriceAPI.delete(id); loadData(); } catch { showMsg('Erro ao excluir'); }
   };
 
+  // ===== Holidays handlers =====
+  const loadHolidays = async (year: number) => {
+    try {
+      const data = await holidaysAPI.list(year);
+      setHolidays(data || []);
+    } catch {
+      setHolidays([]);
+      showMsg('Não foi possível carregar feriados (verifique se o backend está atualizado)');
+    } finally {
+      setHolidaysLoaded(true);
+    }
+  };
+
+  const handleAddHoliday = async () => {
+    if (!newHolidayDate) return showMsg('Informe a data');
+    try {
+      await holidaysAPI.create({ date: newHolidayDate, description: newHolidayDesc });
+      setNewHolidayDate('');
+      setNewHolidayDesc('');
+      loadHolidays(holidayYear);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || 'Erro ao adicionar feriado';
+      showMsg(typeof detail === 'string' ? detail : 'Erro ao adicionar feriado');
+    }
+  };
+
+  const handleDeleteHoliday = async (id: string) => {
+    if (Platform.OS === 'web' && !window.confirm('Excluir este feriado regional?')) return;
+    try {
+      await holidaysAPI.delete(id);
+      loadHolidays(holidayYear);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || 'Erro ao excluir feriado';
+      showMsg(typeof detail === 'string' ? detail : 'Erro ao excluir feriado');
+    }
+  };
+
   const updatePriceRow = (idx: number, field: string, value: string) => {
     const updated = [...priceForm.prices];
     // Keep value as raw string while user is typing - parse only on save
@@ -334,6 +379,9 @@ export default function BMScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={[s.tab, tab === 'prices' && s.tabActive]} onPress={() => setTab('prices')} data-testid="tab-prices">
           <Text style={[s.tabText, tab === 'prices' && s.tabTextActive]}>Tabela de Preços</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.tab, tab === 'holidays' && s.tabActive]} onPress={() => { setTab('holidays'); loadHolidays(holidayYear); }} testID="tab-holidays">
+          <Text style={[s.tabText, tab === 'holidays' && s.tabTextActive]}>Feriados</Text>
         </TouchableOpacity>
       </View>
 
@@ -404,6 +452,110 @@ export default function BMScreen() {
                 </View>
               </View>
             ))}
+          </>
+        )}
+
+        {tab === 'holidays' && (
+          <>
+            <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e0e0e0' }}>
+              <Text style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+                Feriados nacionais brasileiros são detectados automaticamente. Use esta tela para cadastrar feriados regionais (estaduais ou municipais) que devem contar como Domingo (+100%) no cálculo do BM.
+              </Text>
+              <Text style={[s.label, { marginTop: 4 }]}>Ano</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {[holidayYear - 1, holidayYear, holidayYear + 1].map(y => (
+                  <TouchableOpacity
+                    key={y}
+                    style={{
+                      paddingVertical: 8, paddingHorizontal: 14, borderRadius: 6,
+                      backgroundColor: holidayYear === y ? '#000' : '#f5f5f5',
+                      borderWidth: 1, borderColor: holidayYear === y ? '#000' : '#e0e0e0',
+                    }}
+                    onPress={() => { setHolidayYear(y); loadHolidays(y); }}
+                  >
+                    <Text style={{ color: holidayYear === y ? '#fff' : '#333', fontWeight: '600' }}>{y}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[s.label, { marginTop: 4 }]}>Adicionar Feriado Regional</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                <TouchableOpacity
+                  style={[s.input, { flex: 1, justifyContent: 'center' }]}
+                  onPress={() => setShowHolidayDatePicker(true)}
+                  testID="holiday-date-picker-btn"
+                >
+                  <Text style={{ color: newHolidayDate ? '#000' : '#999' }}>{newHolidayDate || 'DD/MM/AAAA'}</Text>
+                </TouchableOpacity>
+                <TextInput
+                  style={[s.input, { flex: 2 }]}
+                  value={newHolidayDesc}
+                  onChangeText={setNewHolidayDesc}
+                  placeholder="Descrição (ex: Dia da Cidade)"
+                />
+              </View>
+              {showHolidayDatePicker && (
+                <DateTimePicker
+                  value={ptToDate(newHolidayDate) || new Date(holidayYear, 0, 1)}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  onChange={(_, selected) => {
+                    if (Platform.OS !== 'ios') setShowHolidayDatePicker(false);
+                    if (selected) setNewHolidayDate(dateToPt(selected));
+                  }}
+                />
+              )}
+              {Platform.OS === 'ios' && showHolidayDatePicker && (
+                <TouchableOpacity onPress={() => setShowHolidayDatePicker(false)} style={{ alignSelf: 'flex-end', padding: 8 }}>
+                  <Text style={{ color: '#000', fontWeight: '600' }}>OK</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={s.saveBtn} onPress={handleAddHoliday} testID="add-holiday-btn">
+                <Text style={s.saveBtnText}>+ Adicionar</Text>
+              </TouchableOpacity>
+            </View>
+
+            {!holidaysLoaded ? (
+              <View style={s.empty}>
+                <Ionicons name="hourglass-outline" size={64} color="#ccc" />
+                <Text style={s.emptyText}>Carregando feriados...</Text>
+              </View>
+            ) : holidays.length === 0 ? (
+              <View style={s.empty}>
+                <Ionicons name="calendar-outline" size={64} color="#ccc" />
+                <Text style={s.emptyText}>Nenhum feriado encontrado para {holidayYear}</Text>
+              </View>
+            ) : (
+              <>
+                {holidays.filter(h => h.type === 'regional').length > 0 && (
+                  <Text style={[s.sectionTitle, { marginTop: 8 }]}>Feriados Regionais</Text>
+                )}
+                {holidays.filter(h => h.type === 'regional').map(h => (
+                  <View key={h.id} style={[s.card, { padding: 12 }]} testID={`holiday-${h.id}`}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: '#000' }}>{h.date}</Text>
+                        <Text style={{ fontSize: 13, color: '#666' }}>{h.description || 'Feriado regional'}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => handleDeleteHoliday(h.id)} style={{ padding: 8 }}>
+                        <Ionicons name="trash-outline" size={20} color="#d32f2f" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+
+                <Text style={[s.sectionTitle, { marginTop: 16 }]}>Feriados Nacionais (automáticos)</Text>
+                {holidays.filter(h => h.type === 'national').map(h => (
+                  <View key={h.id} style={[s.card, { padding: 12, backgroundColor: '#fafafa' }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="flag" size={16} color="#888" style={{ marginRight: 8 }} />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#333' }}>{h.date}</Text>
+                      <Text style={{ fontSize: 13, color: '#666', marginLeft: 12 }}>{h.description}</Text>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -601,12 +753,12 @@ export default function BMScreen() {
               <Text style={s.sectionTitle}>Modo de Cálculo</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
                 {([
-                  { key: 'daily', label: 'Por Diária' },
-                  { key: 'hourly', label: 'Por Hora' },
+                  { key: 'onshore', label: 'Onshore (8h)' },
+                  { key: 'offshore', label: 'Offshore (12h)' },
                 ] as const).map(opt => (
                   <TouchableOpacity
                     key={opt.key}
-                    data-testid={`bm-calc-mode-${opt.key}`}
+                    testID={`bm-calc-mode-${opt.key}`}
                     style={{
                       flex: 1,
                       paddingVertical: 12,

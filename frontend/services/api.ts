@@ -208,9 +208,26 @@ export const clientPriceAPI = {
   },
 };
 
+// Holidays API (regional + national listing)
+export const holidaysAPI = {
+  list: async (year?: number) => {
+    const url = year ? `/holidays?year=${year}` : '/holidays';
+    const response = await api.get(url);
+    return response.data;
+  },
+  create: async (data: { date: string; description?: string }) => {
+    const response = await api.post('/holidays', data);
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/holidays/${id}`);
+    return response.data;
+  },
+};
+
 // Boletim de Medição API
 export const bmAPI = {
-  calculate: async (osId: string, payload?: { timesheet_ids?: string[], data_inicio?: string, data_fim?: string }) => {
+  calculate: async (osId: string, payload?: { timesheet_ids?: string[], data_inicio?: string, data_fim?: string, calc_mode?: 'onshore' | 'offshore' }) => {
     const response = await api.post(`/bm/calculate/${osId}`, payload || {});
     return response.data;
   },

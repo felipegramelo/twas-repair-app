@@ -15,6 +15,7 @@ from routes.boletim import router as boletim_router
 from routes.dashboard import router as dashboard_router
 from routes.sharing import router as sharing_router
 from routes.translate import router as translate_router
+from routes.holidays import router as holidays_router
 
 app = FastAPI(title="TWAS REPAIR API")
 
@@ -30,6 +31,7 @@ app.include_router(boletim_router, prefix=api_prefix)
 app.include_router(dashboard_router, prefix=api_prefix)
 app.include_router(sharing_router, prefix=api_prefix)
 app.include_router(translate_router, prefix=api_prefix)
+app.include_router(holidays_router, prefix=api_prefix)
 
 app.add_middleware(
     CORSMiddleware,

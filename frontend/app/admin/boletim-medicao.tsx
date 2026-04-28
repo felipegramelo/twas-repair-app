@@ -241,10 +241,15 @@ export default function BMScreen() {
   const openPriceForm = (existing?: any) => {
     if (existing) {
       setEditingPriceId(existing.id);
-      setPriceForm({ client_name: existing.client_name, prices: existing.prices || [] });
+      // Format numbers to BR string for editing (2850.72 -> "2.850,72")
+      const pricesAsStrings = (existing.prices || []).map((p: any) => ({
+        ...p,
+        day_rate: typeof p.day_rate === 'number' ? formatBRNumber(p.day_rate) : (p.day_rate || ''),
+      }));
+      setPriceForm({ client_name: existing.client_name, prices: pricesAsStrings });
     } else {
       setEditingPriceId(null);
-      setPriceForm({ client_name: '', prices: FUNCTION_OPTIONS.map(f => ({ function_code: f.code, function_name: f.name, day_rate: 0 })) });
+      setPriceForm({ client_name: '', prices: FUNCTION_OPTIONS.map(f => ({ function_code: f.code, function_name: f.name, day_rate: '' })) });
     }
     setShowPriceForm(true);
   };
@@ -256,8 +261,8 @@ export default function BMScreen() {
       const normalized = {
         client_name: priceForm.client_name,
         prices: (priceForm.prices || []).map((p: any) => {
-          const day = parseFloat(p.day_rate) || 0;
-          const night = parseFloat(p.night_rate) || +(day * 1.2).toFixed(2);
+          const day = parseBR(p.day_rate);
+          const night = p.night_rate != null && p.night_rate !== '' ? parseBR(p.night_rate) : +(day * 1.2).toFixed(2);
           return {
             function_code: p.function_code,
             function_name: p.function_name || p.function_code,
@@ -287,8 +292,24 @@ export default function BMScreen() {
 
   const updatePriceRow = (idx: number, field: string, value: string) => {
     const updated = [...priceForm.prices];
-    updated[idx] = { ...updated[idx], [field]: parseFloat(value) || 0 };
+    // Keep value as raw string while user is typing - parse only on save
+    updated[idx] = { ...updated[idx], [field]: value };
     setPriceForm({ ...priceForm, prices: updated });
+  };
+
+  // Parse Brazilian-format number string ("2.850,72" or "2850,72" or "2850.72") to number
+  const parseBR = (val: any): number => {
+    if (val == null || val === '') return 0;
+    if (typeof val === 'number') return val;
+    const cleaned = String(val).trim().replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  };
+
+  // Format number to Brazilian display string ("2850.72" -> "2.850,72")
+  const formatBRNumber = (n: number): string => {
+    if (n == null || isNaN(n)) return '';
+    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   const formatCurrency = (v: number) => {
@@ -712,11 +733,17 @@ export default function BMScreen() {
                   <View style={s.priceFormInputs}>
                     <View style={s.priceFormField}>
                       <Text style={s.priceFormSublabel}>Valor Diurno (R$)</Text>
-                      <TextInput style={s.priceFormInput} value={String(p.day_rate || '')} onChangeText={v => updatePriceRow(i, 'day_rate', v)} keyboardType="numeric" />
+                      <TextInput
+                        style={s.priceFormInput}
+                        value={String(p.day_rate ?? '')}
+                        onChangeText={v => updatePriceRow(i, 'day_rate', v)}
+                        keyboardType="decimal-pad"
+                        placeholder="Ex: 2.850,72"
+                      />
                     </View>
                     <View style={s.priceFormField}>
                       <Text style={s.priceFormSublabel}>Noturno (+20%)</Text>
-                      <Text style={[s.priceFormInput, { paddingVertical: 11, color: '#666', backgroundColor: '#f5f5f5' }]}>{formatCurrency((p.day_rate || 0) * 1.2)}</Text>
+                      <Text style={[s.priceFormInput, { paddingVertical: 11, color: '#666', backgroundColor: '#f5f5f5' }]}>{formatCurrency(parseBR(p.day_rate) * 1.2)}</Text>
                     </View>
                   </View>
                 </View>

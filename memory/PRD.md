@@ -50,6 +50,13 @@ backend/
 
 ## Versao Atual: 1.0.22 (proxima build Android)
 
+## Deploy Web (Vercel) - Configurado em 2026-04-28
+- vercel.json + .vercelignore criados na raiz
+- Build command: `cd frontend && yarn install --frozen-lockfile && npx expo export --platform web`
+- Output dir: `frontend/dist`
+- SPA rewrites configurados (todas rotas -> index.html)
+- Build local validado: 22 rotas estaticas, 7.5MB, login funcionando contra Railway
+
 ## Credenciais de Teste
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123

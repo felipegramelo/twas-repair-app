@@ -112,3 +112,20 @@ class TestPDFLogo:
         has_img, count = _pdf_has_image(pdf)
         assert has_img, f"Report PDF {report_id} has no embedded images (logo missing!)"
         print(f"[OK] Report PDF: {count} image(s)")
+
+    def test_bm_pdf_has_logo(self, admin_token):
+        """REGRESSION: PILImage import bug — Boletim de Medição PDF must contain the logo."""
+        resp = requests.get(
+            f"{BASE_URL}/api/bm",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            timeout=15,
+        ).json()
+        bms = resp.get("bms", []) if isinstance(resp, dict) else resp
+        if not bms:
+            pytest.skip("No Boletins de Medição in DB to test")
+
+        bm_id = bms[0]["id"]
+        pdf = _download_pdf(f"{BASE_URL}/api/bm/{bm_id}/pdf", admin_token)
+        has_img, count = _pdf_has_image(pdf)
+        assert has_img, f"BM PDF {bm_id} has no embedded images (logo missing!)"
+        print(f"[OK] Boletim de Medição PDF: {count} image(s)")

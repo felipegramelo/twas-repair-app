@@ -57,9 +57,18 @@ function InlineCalendar({ onSelect }: { onSelect: (date: string) => void }) {
 }
 
 // Inline time picker - renders directly in form without overlay/modal
-function InlineTimePicker({ onSelect }: { onSelect: (time: string) => void }) {
+function InlineTimePicker({ onSelect, allowNone = false }: { onSelect: (time: string) => void; allowNone?: boolean }) {
   return (
-    <View style={{ maxHeight: 200, backgroundColor: '#f8f9fa', borderRadius: 12, marginTop: 8, borderWidth: 1, borderColor: '#e0e0e0', overflow: 'hidden' }}>
+    <View style={{ maxHeight: 240, backgroundColor: '#f8f9fa', borderRadius: 12, marginTop: 8, borderWidth: 1, borderColor: '#e0e0e0', overflow: 'hidden' }}>
+      {allowNone && (
+        <TouchableOpacity
+          testID="time-picker-none"
+          style={{ padding: 12, borderBottomWidth: 2, borderBottomColor: '#d32f2f', alignItems: 'center', backgroundColor: '#fff5f5' }}
+          onPress={() => onSelect('')}
+        >
+          <Text style={{ fontSize: 15, color: '#d32f2f', fontWeight: '700' }}>Nenhum horário (apenas viagem)</Text>
+        </TouchableOpacity>
+      )}
       <FlatList
         data={TIME_SLOTS}
         keyExtractor={item => item}
@@ -326,7 +335,7 @@ export default function EditTimesheetScreen() {
               <Text style={serviceStart ? s.selectTextSelected : s.selectText}>{serviceStart || 'Selecionar horário'}</Text>
               <Ionicons name="time" size={20} color="#000000" />
             </TouchableOpacity>
-            {timePickerField === 'serviceStart' && <InlineTimePicker onSelect={(t: string) => { setServiceStart(t); setTimePickerField(null); }} />}
+            {timePickerField === 'serviceStart' && <InlineTimePicker allowNone onSelect={(t: string) => { setServiceStart(t); if (!t) setServiceEnd(''); setTimePickerField(null); }} />}
 
             {/* Service End */}
             <Text style={s.inputLabel}>Serviço - Fim</Text>
@@ -334,7 +343,7 @@ export default function EditTimesheetScreen() {
               <Text style={serviceEnd ? s.selectTextSelected : s.selectText}>{serviceEnd || 'Selecionar horário'}</Text>
               <Ionicons name="time" size={20} color="#000000" />
             </TouchableOpacity>
-            {timePickerField === 'serviceEnd' && <InlineTimePicker onSelect={(t: string) => { setServiceEnd(t); setTimePickerField(null); }} />}
+            {timePickerField === 'serviceEnd' && <InlineTimePicker allowNone onSelect={(t: string) => { setServiceEnd(t); if (!t) setServiceStart(''); setTimePickerField(null); }} />}
 
             {/* Travel */}
             <TouchableOpacity style={s.travelCheckRow} onPress={() => { setHasTravel(!hasTravel); if (hasTravel) { setTravelStart(''); setTravelEnd(''); } }} data-testid="has-travel-checkbox">

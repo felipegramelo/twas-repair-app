@@ -22,6 +22,7 @@ from database import db
 from config import SECRET_KEY, ALGORITHM, put_object, get_object, APP_NAME
 from dependencies import get_current_user, get_admin_user
 from models import ReportCreate, ReportUpdate, UserRole
+from utils import parse_date_sortable
 
 router = APIRouter()
 

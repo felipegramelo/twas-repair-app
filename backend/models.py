@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime
+from fastapi import HTTPException
 
 # ==================== MODELS ====================
 

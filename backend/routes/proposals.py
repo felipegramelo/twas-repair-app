@@ -22,6 +22,7 @@ from database import db
 from config import SECRET_KEY, ALGORITHM, put_object, get_object, APP_NAME
 from dependencies import get_current_user, get_admin_user
 from models import UserRole
+from utils import MIME_TYPES, convert_pdf_to_images, format_currency
 
 router = APIRouter()
 
@@ -651,22 +652,26 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
             sp = dp.get("storage_path", "")
             if sp:
                 try:
-                    photo_url = get_object_url(sp)
-                    all_images.append(photo_url)
+                    data, _ = get_object(sp)
+                    if data:
+                        all_images.append(data)
                 except Exception:
                     pass
 
-        for img_url in all_images:
+        for img_data_or_url in all_images:
             try:
-                if img_url.startswith("http"):
+                if isinstance(img_data_or_url, bytes):
+                    img_data = io.BytesIO(img_data_or_url)
+                    pil = PILImage.open(img_data)
+                elif img_data_or_url.startswith("http"):
                     import urllib.request
                     img_data = io.BytesIO()
-                    with urllib.request.urlopen(img_url, timeout=10) as resp:
+                    with urllib.request.urlopen(img_data_or_url, timeout=10) as resp:
                         img_data.write(resp.read())
                     img_data.seek(0)
                     pil = PILImage.open(img_data)
                 else:
-                    img_path = Path(img_url)
+                    img_path = Path(img_data_or_url)
                     if img_path.exists():
                         pil = PILImage.open(img_path)
                     else:
@@ -711,12 +716,10 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
                 sp_path = sp.get("storage_path", "")
                 if sp_path:
                     try:
-                        photo_url = get_object_url(sp_path)
-                        import urllib.request
-                        img_data = io.BytesIO()
-                        with urllib.request.urlopen(photo_url, timeout=10) as resp_data:
-                            img_data.write(resp_data.read())
-                        img_data.seek(0)
+                        data, _ = get_object(sp_path)
+                        if not data:
+                            continue
+                        img_data = io.BytesIO(data)
                         pil = PILImage.open(img_data)
                         iw, ih = pil.size
                         max_w = content_width * 0.8

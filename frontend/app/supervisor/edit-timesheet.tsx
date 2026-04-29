@@ -321,7 +321,7 @@ export default function EditTimesheetScreen() {
             )}
 
             {/* Service Start */}
-            <Text style={s.inputLabel}>Serviço - Início *</Text>
+            <Text style={s.inputLabel}>Serviço - Início</Text>
             <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('serviceStart')} data-testid="entry-service-start-btn">
               <Text style={serviceStart ? s.selectTextSelected : s.selectText}>{serviceStart || 'Selecionar horário'}</Text>
               <Ionicons name="time" size={20} color="#000000" />
@@ -329,7 +329,7 @@ export default function EditTimesheetScreen() {
             {timePickerField === 'serviceStart' && <InlineTimePicker onSelect={(t: string) => { setServiceStart(t); setTimePickerField(null); }} />}
 
             {/* Service End */}
-            <Text style={s.inputLabel}>Serviço - Fim *</Text>
+            <Text style={s.inputLabel}>Serviço - Fim</Text>
             <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('serviceEnd')} data-testid="entry-service-end-btn">
               <Text style={serviceEnd ? s.selectTextSelected : s.selectText}>{serviceEnd || 'Selecionar horário'}</Text>
               <Ionicons name="time" size={20} color="#000000" />

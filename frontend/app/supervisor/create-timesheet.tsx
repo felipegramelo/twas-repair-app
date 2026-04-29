@@ -466,20 +466,25 @@ export default function CreateTimesheetScreen() {
               )}
 
               {/* Service Start */}
-              <Text style={styles.inputLabel}>Serviço - Início *</Text>
+              <Text style={styles.inputLabel}>Serviço - Início</Text>
               <TouchableOpacity style={styles.selectButton} onPress={() => openInlinePicker('serviceStart')} data-testid="entry-service-start-btn">
                 <Text style={serviceStart ? styles.selectTextSelected : styles.selectText}>
-                  {serviceStart || 'Selecionar horário'}
+                  {serviceStart || 'Selecionar horário (ou deixe em branco se só viagem)'}
                 </Text>
                 <Ionicons name="time" size={20} color="#000000" />
               </TouchableOpacity>
+              {serviceStart ? (
+                <TouchableOpacity onPress={() => { setServiceStart(''); setServiceEnd(''); }} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
+                  <Text style={{ color: '#d32f2f', fontSize: 12 }}>Limpar horários de serviço</Text>
+                </TouchableOpacity>
+              ) : null}
               {timePickerField === 'serviceStart' && <InlineTimePicker onSelect={(t: string) => { setServiceStart(t); setTimePickerField(null); }} />}
 
               {/* Service End */}
-              <Text style={styles.inputLabel}>Serviço - Fim *</Text>
+              <Text style={styles.inputLabel}>Serviço - Fim</Text>
               <TouchableOpacity style={styles.selectButton} onPress={() => openInlinePicker('serviceEnd')} data-testid="entry-service-end-btn">
                 <Text style={serviceEnd ? styles.selectTextSelected : styles.selectText}>
-                  {serviceEnd || 'Selecionar horário'}
+                  {serviceEnd || 'Selecionar horário (ou deixe em branco se só viagem)'}
                 </Text>
                 <Ionicons name="time" size={20} color="#000000" />
               </TouchableOpacity>

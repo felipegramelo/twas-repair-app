@@ -211,12 +211,16 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
         for entry in ts.get("entries", []):
             func = entry.get("employee_function", "T")
             date = entry.get("date", "")
-            start_str = entry.get("service_start", "")
-            end_str = entry.get("service_end", "")
+            start_str = entry.get("service_start", "") or ""
+            end_str = entry.get("service_end", "") or ""
             travel_s = entry.get("travel_start", "") or ""
             travel_e = entry.get("travel_end", "") or ""
 
-            if not start_str or not date:
+            has_service = start_str and end_str and start_str not in ("-", "0") and end_str not in ("-", "0")
+            has_travel = travel_s and travel_e and travel_s not in ("-", "0") and travel_e not in ("-", "0")
+
+            # Skip if neither service nor travel and skip if no date
+            if not date or (not has_service and not has_travel):
                 continue
             if date_filter_start or date_filter_end:
                 date_sortable = parse_date_sortable(date)
@@ -227,8 +231,10 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
 
             all_dates.append(date)
 
+            # Determine shift: from service start hour, or from travel start hour if travel-only
+            ref_time = start_str if has_service else travel_s
             try:
-                start_hour = int(start_str.split(":")[0])
+                start_hour = int(ref_time.split(":")[0])
             except Exception:
                 continue
             is_day_shift = day_start <= start_hour < day_end
@@ -243,15 +249,14 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
                     "extras_sunday_holiday": 0,
                 }
 
-            # Add this employee+date as a unique daily
+            # Add this employee+date as a unique daily (counts as full diaria
+            # regardless of whether the day is service-only, travel-only, or both)
             emp_date = f"{entry.get('employee_id', '')}_{date}"
             function_data[key]["diaria_emp_dates"].add(emp_date)
 
             # Compute total worked minutes (service + travel)
-            service_min = _worked_minutes(start_str, end_str)
-            travel_min = 0
-            if travel_s and travel_e and travel_s not in ("", "-", "0") and travel_e not in ("", "-", "0"):
-                travel_min = _worked_minutes(travel_s, travel_e)
+            service_min = _worked_minutes(start_str, end_str) if has_service else 0
+            travel_min = _worked_minutes(travel_s, travel_e) if has_travel else 0
             total_min = service_min + travel_min
 
             # Extra hours beyond base

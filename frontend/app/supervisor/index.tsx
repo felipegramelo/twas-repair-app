@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { timesheetAPI, reportAPI, serviceOrderAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
+import { buildPdfFilename } from '../../utils/pdfHelper';
 import { Timesheet, Report, ServiceOrder } from '../../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -83,7 +84,8 @@ export default function SupervisorDashboard() {
       } else {
         const token = await AsyncStorage.getItem('token');
         const baseURL = BACKEND_URL + '/api';
-        const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
+        const fileName = buildPdfFilename('TM', timesheet.os_number, timesheet.client, timesheet.service);
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
           fileUri,
@@ -91,7 +93,7 @@ export default function SupervisorDashboard() {
         );
         if (result.status === 200) {
           const isAvailable = await Sharing.isAvailableAsync();
-          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: fileName });
           else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
         } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
       }
@@ -108,7 +110,7 @@ export default function SupervisorDashboard() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `timesheet_${timesheet.os_number}_${timesheet.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        link.download = buildPdfFilename('TM', timesheet.os_number, timesheet.client, timesheet.service);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -116,7 +118,8 @@ export default function SupervisorDashboard() {
       } else {
         const token = await AsyncStorage.getItem('token');
         const baseURL = BACKEND_URL + '/api';
-        const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
+        const fileName = buildPdfFilename('TM', timesheet.os_number, timesheet.client, timesheet.service);
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
           fileUri,
@@ -124,7 +127,7 @@ export default function SupervisorDashboard() {
         );
         if (result.status === 200) {
           const isAvailable = await Sharing.isAvailableAsync();
-          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: fileName });
           else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
         } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
       }
@@ -147,14 +150,15 @@ export default function SupervisorDashboard() {
       } else {
         const token = await AsyncStorage.getItem('token');
         const baseURL = BACKEND_URL + '/api';
-        const fileUri = `${FileSystem.cacheDirectory}report_${report.id}_${Date.now()}.pdf`;
+        const fileName = buildPdfFilename('REL', report.os_number, report.client, report.service);
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`,
           fileUri
         );
         if (result.status === 200) {
           const isAvailable = await Sharing.isAvailableAsync();
-          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: fileName });
           else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
         } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
       }
@@ -172,14 +176,15 @@ export default function SupervisorDashboard() {
       } else {
         const token = await AsyncStorage.getItem('token');
         const baseURL = BACKEND_URL + '/api';
-        const fileUri = `${FileSystem.cacheDirectory}report_${report.id}_${Date.now()}.pdf`;
+        const fileName = buildPdfFilename('REL', report.os_number, report.client, report.service);
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`,
           fileUri
         );
         if (result.status === 200) {
           const isAvailable = await Sharing.isAvailableAsync();
-          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+          if (isAvailable) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: fileName });
           else Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
         } else Alert.alert('Erro', 'Erro ao gerar PDF. Status: ' + result.status);
       }

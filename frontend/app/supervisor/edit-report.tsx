@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
+import { buildPdfFilename } from '../../utils/pdfHelper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -165,7 +166,7 @@ export default function EditReportScreen() {
     } else {
       setPdfLoading(true);
       try {
-        const fileName = `relatorio_${report?.os_number || id}.pdf`;
+        const fileName = buildPdfFilename('REL', report?.os_number, report?.client, report?.service);
         await downloadAndSharePDF(
           () => reportAPI.downloadPDF(id!),
           url,
@@ -187,7 +188,7 @@ export default function EditReportScreen() {
       window.location.href = url;
     } else {
       try {
-        const fileName = `relatorio_${report?.os_number || id}.pdf`;
+        const fileName = buildPdfFilename('REL', report?.os_number, report?.client, report?.service);
         await downloadAndSharePDF(
           () => reportAPI.downloadPDF(id!),
           url,

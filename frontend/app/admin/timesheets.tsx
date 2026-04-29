@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { timesheetAPI, supervisorAPI, sharingAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
+import { buildPdfFilename } from '../../utils/pdfHelper';
 import { Timesheet } from '../../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -67,7 +68,8 @@ export default function AdminTimesheetsScreen() {
       } else {
         const token = await AsyncStorage.getItem('token');
         const baseURL = BACKEND_URL + '/api';
-        const fileUri = `${FileSystem.cacheDirectory}timesheet_${timesheet.id}_${Date.now()}.pdf`;
+        const fileName = buildPdfFilename('TM', timesheet.os_number, timesheet.client, timesheet.service);
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
           fileUri,
@@ -76,7 +78,7 @@ export default function AdminTimesheetsScreen() {
         if (result.status === 200) {
           const isAvailable = await Sharing.isAvailableAsync();
           if (isAvailable) {
-            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: fileName });
           } else {
             Alert.alert('Sucesso', 'PDF salvo em: ' + result.uri);
           }
@@ -97,7 +99,7 @@ export default function AdminTimesheetsScreen() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `timesheet_${timesheet.os_number}_${timesheet.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+        link.download = buildPdfFilename('TM', timesheet.os_number, timesheet.client, timesheet.service);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -106,7 +108,7 @@ export default function AdminTimesheetsScreen() {
       } else {
         const token = await AsyncStorage.getItem('token');
         const baseURL = BACKEND_URL + '/api';
-        const fileName = `timesheet_${timesheet.os_number || 'ts'}_${Date.now()}.pdf`;
+        const fileName = buildPdfFilename('TM', timesheet.os_number, timesheet.client, timesheet.service);
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
           `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
@@ -116,7 +118,7 @@ export default function AdminTimesheetsScreen() {
         if (result.status === 200) {
           const isAvailable = await Sharing.isAvailableAsync();
           if (isAvailable) {
-            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Salvar PDF' });
+            await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: fileName });
           } else {
             Alert.alert('Sucesso', 'PDF salvo com sucesso!');
           }

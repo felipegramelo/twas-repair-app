@@ -4,6 +4,25 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 /**
+ * Build a standardized PDF filename matching the backend's format:
+ *   "{os_number} - {client} - {docType} - {service}.pdf"
+ * Example: "04 - 2603 - 01 - Petrobras - TM - Turbina Principal.pdf"
+ * docType should be: "OS" (Service Order), "TM" (Timesheet), "REL" (Report), "BM" (Boletim)
+ */
+export function buildPdfFilename(
+  docType: 'OS' | 'TM' | 'REL' | 'BM',
+  osNumber?: string | null,
+  client?: string | null,
+  service?: string | null,
+): string {
+  const safe = (s?: string | null) =>
+    String(s || '').replace(/[<>:"/\\|?*]/g, '').trim();
+  const parts = [safe(osNumber), safe(client), docType, safe(service)].filter(Boolean);
+  const base = parts.join(' - ') || `${docType}_${Date.now()}`;
+  return `${base}.pdf`;
+}
+
+/**
  * Download and open/share a PDF file.
  * On web: creates a download link.
  * On iOS/Android: downloads via expo-file-system and opens share sheet.

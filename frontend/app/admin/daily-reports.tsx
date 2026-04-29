@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { reportAPI, supervisorAPI, sharingAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
-import { downloadAndSharePDF } from '../../utils/pdfHelper';
+import { downloadAndSharePDF, buildPdfFilename } from '../../utils/pdfHelper';
 
 interface ReportItem {
   id: string;
@@ -52,7 +52,7 @@ export default function DailyReportsScreen() {
     try {
       const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
-      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, `relatorio_diario_${report.os_number}.pdf`);
+      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, buildPdfFilename('REL', report.os_number, report.client, report.service));
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
       else Alert.alert('Erro', 'Erro ao abrir PDF');
@@ -63,7 +63,7 @@ export default function DailyReportsScreen() {
     try {
       const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
-      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, `relatorio_diario_${report.os_number}.pdf`);
+      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, buildPdfFilename('REL', report.os_number, report.client, report.service));
       if (Platform.OS === 'web') window.alert('PDF baixado com sucesso!');
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');

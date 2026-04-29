@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { archiveAPI, timesheetAPI, reportAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { downloadAndSharePDF } from '../../utils/pdfHelper';
+import { downloadAndSharePDF, buildPdfFilename } from '../../utils/pdfHelper';
 
 interface DocItem {
   id: string;
@@ -98,7 +98,7 @@ export default function OSArchiveScreen() {
       await downloadAndSharePDF(
         () => timesheetAPI.downloadPDF(ts.id),
         nativeUrl,
-        `timesheet_${ts.os_number}.pdf`,
+        buildPdfFilename('TM', ts.os_number, ts.client, ts.service),
       );
     } catch { showMsg('Erro ao abrir PDF do Timesheet'); }
   };
@@ -110,7 +110,7 @@ export default function OSArchiveScreen() {
       await downloadAndSharePDF(
         () => reportAPI.downloadPDF(report.id),
         nativeUrl,
-        `relatorio_${report.os_number}.pdf`,
+        buildPdfFilename('REL', report.os_number, report.client, report.service),
       );
     } catch { showMsg('Erro ao abrir PDF do Relatório'); }
   };
@@ -122,7 +122,7 @@ export default function OSArchiveScreen() {
       await downloadAndSharePDF(
         () => timesheetAPI.downloadPDF(ts.id),
         nativeUrl,
-        `timesheet_${ts.os_number}_${ts.client.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+        buildPdfFilename('TM', ts.os_number, ts.client, ts.service),
       );
     } catch { showMsg('Erro ao baixar PDF'); }
   };
@@ -134,7 +134,7 @@ export default function OSArchiveScreen() {
       await downloadAndSharePDF(
         () => reportAPI.downloadPDF(report.id),
         nativeUrl,
-        `relatorio_${report.os_number}_${report.report_type || 'service'}.pdf`,
+        buildPdfFilename('REL', report.os_number, report.client, report.service),
       );
     } catch { showMsg('Erro ao baixar PDF'); }
   };

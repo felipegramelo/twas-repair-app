@@ -179,8 +179,14 @@ export default function CreateTimesheetScreen() {
   };
 
   const handleAddEntry = () => {
-    if (!entryDate || !selectedEmployee || !serviceStart || !serviceEnd) {
-      Alert.alert('Erro', 'Preencha data, funcionário, início e fim do serviço');
+    if (!entryDate || !selectedEmployee) {
+      Alert.alert('Erro', 'Preencha data e funcionário');
+      return;
+    }
+    const hasService = !!(serviceStart && serviceEnd);
+    const hasTravelHours = !!(hasTravel && travelStart && travelEnd);
+    if (!hasService && !hasTravelHours) {
+      Alert.alert('Erro', 'Informe ao menos hora de serviço OU hora de viagem');
       return;
     }
     if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) {
@@ -191,8 +197,8 @@ export default function CreateTimesheetScreen() {
       }
       return;
     }
-    // Validate travel vs service conflict
-    if (hasTravel && travelStart && travelEnd) {
+    // Validate travel vs service conflict (only if both are present)
+    if (hasService && hasTravelHours) {
       const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
       const ss = toMin(serviceStart), se = toMin(serviceEnd), ts = toMin(travelStart), te = toMin(travelEnd);
       if (ts < se && ss < te) {
@@ -206,10 +212,10 @@ export default function CreateTimesheetScreen() {
       employee_id: selectedEmployee.id,
       employee_name: selectedEmployee.name,
       employee_function: selectedEmployee.function || 'T',
-      service_start: serviceStart,
-      service_end: serviceEnd,
-      travel_start: hasTravel ? travelStart : '-',
-      travel_end: hasTravel ? travelEnd : '-',
+      service_start: serviceStart || '',
+      service_end: serviceEnd || '',
+      travel_start: hasTravelHours ? travelStart : '-',
+      travel_end: hasTravelHours ? travelEnd : '-',
     };
     if (editingEntryIndex !== null) {
       const newEntries = [...entries];
@@ -346,7 +352,7 @@ export default function CreateTimesheetScreen() {
                   <View style={styles.entryInfo}>
                     <Text style={styles.entryName}>{entry.employee_name}</Text>
                     <Text style={styles.entryDetail}>Data: {entry.date}</Text>
-                    <Text style={styles.entryDetail}>Serviço: {entry.service_start} - {entry.service_end}</Text>
+                    <Text style={styles.entryDetail}>Serviço: {entry.service_start || '-'} - {entry.service_end || '-'}</Text>
                     {entry.travel_start && entry.travel_start !== '0' && entry.travel_start !== '' ? <Text style={styles.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
                   </View>
                 </View>

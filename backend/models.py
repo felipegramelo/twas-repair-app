@@ -119,8 +119,8 @@ class TimesheetEntry(BaseModel):
     employee_id: str
     employee_name: str
     employee_function: str
-    service_start: str  # HH:MM
-    service_end: str  # HH:MM
+    service_start: Optional[str] = ""  # HH:MM (empty when only travel hours)
+    service_end: Optional[str] = ""  # HH:MM (empty when only travel hours)
     travel_start: Optional[str] = ""  # HH:MM
     travel_end: Optional[str] = ""  # HH:MM
 
@@ -146,7 +146,11 @@ def _travel_overlaps_service(service_start: str, service_end: str, travel_start:
 
 
 def _validate_timesheet_entries(entries):
-    """Validate travel vs service conflict for all entries."""
+    """Validate travel vs service conflict for all entries.
+
+    A day must have either service hours OR travel hours (or both).
+    If service hours are present, they must not overlap with travel.
+    """
     for i, entry in enumerate(entries):
         travel_s = entry.travel_start if hasattr(entry, 'travel_start') else entry.get("travel_start", "")
         travel_e = entry.travel_end if hasattr(entry, 'travel_end') else entry.get("travel_end", "")
@@ -154,7 +158,16 @@ def _validate_timesheet_entries(entries):
         serv_e = entry.service_end if hasattr(entry, 'service_end') else entry.get("service_end", "")
         emp_name = entry.employee_name if hasattr(entry, 'employee_name') else entry.get("employee_name", "")
 
-        if travel_s and travel_e and travel_s not in ("", "-", "0") and travel_e not in ("", "-", "0"):
+        has_service = serv_s and serv_e and serv_s not in ("", "-", "0") and serv_e not in ("", "-", "0")
+        has_travel = travel_s and travel_e and travel_s not in ("", "-", "0") and travel_e not in ("", "-", "0")
+
+        if not has_service and not has_travel:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{emp_name}: informe ao menos hora de serviço OU hora de viagem."
+            )
+
+        if has_service and has_travel:
             if _travel_overlaps_service(serv_s, serv_e, travel_s, travel_e):
                 raise HTTPException(
                     status_code=400,

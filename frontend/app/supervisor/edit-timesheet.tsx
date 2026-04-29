@@ -137,9 +137,12 @@ export default function EditTimesheetScreen() {
   const MAX_ENTRIES = 12;
 
   const handleAddEntry = () => {
-    if (!entryDate || !selectedEmployee || !serviceStart || !serviceEnd) { if (Platform.OS === 'web') window.alert('Preencha data, funcionário, início e fim'); else Alert.alert('Erro', 'Preencha data, funcionário, início e fim'); return; }
+    if (!entryDate || !selectedEmployee) { if (Platform.OS === 'web') window.alert('Preencha data e funcionário'); else Alert.alert('Erro', 'Preencha data e funcionário'); return; }
+    const hasService = !!(serviceStart && serviceEnd);
+    const hasTravelHours = !!(hasTravel && travelStart && travelEnd);
+    if (!hasService && !hasTravelHours) { if (Platform.OS === 'web') window.alert('Informe ao menos hora de serviço OU hora de viagem'); else Alert.alert('Erro', 'Informe ao menos hora de serviço OU hora de viagem'); return; }
     if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.'); else Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet. Crie um novo.'); return; }
-    if (hasTravel && travelStart && travelEnd) {
+    if (hasService && hasTravelHours) {
       const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
       const ss = toMin(serviceStart), se = toMin(serviceEnd), ts = toMin(travelStart), te = toMin(travelEnd);
       if (ts < se && ss < te) {
@@ -148,7 +151,7 @@ export default function EditTimesheetScreen() {
         return;
       }
     }
-    const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart, service_end: serviceEnd, travel_start: hasTravel ? travelStart : '-', travel_end: hasTravel ? travelEnd : '-' };
+    const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart || '', service_end: serviceEnd || '', travel_start: hasTravelHours ? travelStart : '-', travel_end: hasTravelHours ? travelEnd : '-' };
     if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u.sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); } else { setEntries([...entries, newEntry].sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); }
     setEmployeeModalVisible(false); resetEntryForm();
   };
@@ -228,7 +231,7 @@ export default function EditTimesheetScreen() {
                   <View style={s.entryInfo}>
                     <Text style={s.entryName}>{entry.employee_name}</Text>
                     <Text style={s.entryDetail}>Data: {entry.date}</Text>
-                    <Text style={s.entryDetail}>Serviço: {entry.service_start} - {entry.service_end}</Text>
+                    <Text style={s.entryDetail}>Serviço: {entry.service_start || '-'} - {entry.service_end || '-'}</Text>
                     {entry.travel_start && entry.travel_start !== '0' && entry.travel_start !== '' ? <Text style={s.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
                   </View>
                 </View>

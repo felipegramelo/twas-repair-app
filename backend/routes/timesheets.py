@@ -495,14 +495,18 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         
         for i in range(start_idx, end_idx):
             entry = ts["entries"][i]
+            svc_start = entry.get("service_start") or "-"
+            svc_end = entry.get("service_end") or "-"
+            travel_start = entry.get("travel_start") or "-"
+            travel_end = entry.get("travel_end") or "-"
             table_data.append([
                 entry["date"],
-                entry["service_start"],
-                entry["service_end"],
+                svc_start,
+                svc_end,
                 entry["employee_function"],
                 entry["employee_name"],
-                entry.get("travel_start", ""),
-                entry.get("travel_end", "")
+                travel_start,
+                travel_end,
             ])
         
         current_rows = len(table_data) - 1

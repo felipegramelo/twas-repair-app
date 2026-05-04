@@ -253,11 +253,12 @@ export default function BMScreen() {
       const pricesAsStrings = (existing.prices || []).map((p: any) => ({
         ...p,
         day_rate: typeof p.day_rate === 'number' ? formatBRNumber(p.day_rate) : (p.day_rate || ''),
+        day_discount_pct: p.day_discount_pct != null ? String(p.day_discount_pct).replace('.', ',') : '',
       }));
       setPriceForm({ client_name: existing.client_name, prices: pricesAsStrings });
     } else {
       setEditingPriceId(null);
-      setPriceForm({ client_name: '', prices: FUNCTION_OPTIONS.map(f => ({ function_code: f.code, function_name: f.name, day_rate: '' })) });
+      setPriceForm({ client_name: '', prices: FUNCTION_OPTIONS.map(f => ({ function_code: f.code, function_name: f.name, day_rate: '', day_discount_pct: '' })) });
     }
     setShowPriceForm(true);
   };
@@ -271,11 +272,15 @@ export default function BMScreen() {
         prices: (priceForm.prices || []).map((p: any) => {
           const day = parseBR(p.day_rate);
           const night = p.night_rate != null && p.night_rate !== '' ? parseBR(p.night_rate) : +(day * 1.2).toFixed(2);
+          let disc = parseBR(p.day_discount_pct);
+          if (disc < 0) disc = 0;
+          if (disc > 100) disc = 100;
           return {
             function_code: p.function_code,
             function_name: p.function_name || p.function_code,
             day_rate: day,
             night_rate: night,
+            day_discount_pct: disc,
           };
         }),
       };
@@ -894,10 +899,25 @@ export default function BMScreen() {
                       />
                     </View>
                     <View style={s.priceFormField}>
+                      <Text style={s.priceFormSublabel}>Desconto Diurno (%)</Text>
+                      <TextInput
+                        style={s.priceFormInput}
+                        value={String(p.day_discount_pct ?? '')}
+                        onChangeText={v => updatePriceRow(i, 'day_discount_pct', v)}
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                      />
+                    </View>
+                    <View style={s.priceFormField}>
                       <Text style={s.priceFormSublabel}>Noturno (+20%)</Text>
                       <Text style={[s.priceFormInput, { paddingVertical: 11, color: '#666', backgroundColor: '#f5f5f5' }]}>{formatCurrency(parseBR(p.day_rate) * 1.2)}</Text>
                     </View>
                   </View>
+                  {parseBR(p.day_discount_pct) > 0 && parseBR(p.day_rate) > 0 && (
+                    <Text style={{ fontSize: 12, color: '#0a7c2f', marginTop: 4, fontStyle: 'italic' }}>
+                      Diurno c/ desconto: {formatCurrency(parseBR(p.day_rate) * (1 - parseBR(p.day_discount_pct) / 100))}
+                    </Text>
+                  )}
                 </View>
               ))}
 

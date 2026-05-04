@@ -34,6 +34,7 @@ class ClientPriceEntry(BaseModel):
     function_name: str
     day_rate: float
     night_rate: float
+    day_discount_pct: float = 0  # Discount % applied only to day_rate (0-100)
 
 class ClientPriceTableCreate(BaseModel):
     client_name: str
@@ -161,11 +162,11 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
     if not so:
         raise HTTPException(status_code=404, detail="O.S. não encontrada")
 
-    schedule_type = so.get("schedule_type", "07-19")
-    if schedule_type == "06-18":
-        day_start, day_end = 6, 18
-    else:
-        day_start, day_end = 7, 19
+    # Day shift window — schedule_type field was removed from OS in earlier
+    # iteration, so we use a wide default that catches typical maritime shifts:
+    # day = start hour ∈ [5..13] (covers 06:30, 07:00, 08:00 starts)
+    # night = anything else (covers 19:00 starts and overnight shifts)
+    day_start, day_end = 5, 14
 
     # Onshore: base 8h, divisor 7 (subtract 1h lunch from 8h)
     # Offshore: base 12h, divisor 11 (subtract 1h lunch from 12h)
@@ -287,15 +288,25 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
         # Lookup rates from client price table
         day_rate = 0.0
         night_rate = 0.0
+        day_discount_pct = 0.0
         if price_table:
             for p in price_table.get("prices", []):
                 if p["function_code"] == func_code:
                     day_rate = p.get("day_rate", 0) or 0
                     night_rate = p.get("night_rate", 0) or round(day_rate * 1.2, 2)
+                    day_discount_pct = float(p.get("day_discount_pct", 0) or 0)
                     break
 
-        base_rate = day_rate if shift == "day" else night_rate
-        hour_rate = round(base_rate / hour_divisor, 2) if hour_divisor else 0
+        # Apply day discount only to day_rate (does NOT affect night_rate or extras).
+        # Hour rate (used for extras) is derived from the ORIGINAL day/night rate, no discount.
+        if shift == "day" and day_discount_pct > 0:
+            base_rate = round(day_rate * (1 - day_discount_pct / 100.0), 2)
+        else:
+            base_rate = day_rate if shift == "day" else night_rate
+
+        # Extras hour rate uses the ORIGINAL rate without discount
+        original_rate = day_rate if shift == "day" else night_rate
+        hour_rate = round(original_rate / hour_divisor, 2) if hour_divisor else 0
         display_name = func_name if shift == "day" else f"{func_name} (NOTURNO)"
 
         diaria_qtd = len(data["diaria_emp_dates"])
@@ -345,7 +356,6 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
         "client": client_name,
         "location": so.get("location", ""),
         "service": so.get("service", ""),
-        "schedule_type": schedule_type,
         "calc_mode": body.calc_mode,
         "base_hours": base_hours,
         "hour_divisor": hour_divisor,

@@ -303,6 +303,21 @@ export default function BMScreen() {
     }
   };
 
+  const handleDuplicatePrice = (pt: any) => {
+    const pricesAsStrings = (pt.prices || []).map((p: any) => ({
+      ...p,
+      day_rate: typeof p.day_rate === 'number' ? formatBRNumber(p.day_rate) : (p.day_rate || ''),
+      day_discount_pct: p.day_discount_pct != null ? String(p.day_discount_pct).replace('.', ',') : '',
+    }));
+    setEditingPriceId(null);  // null => new table
+    setPriceForm({
+      client_name: pt.client_name,
+      label: pt.label ? `${pt.label} - Cópia` : 'Cópia',
+      prices: pricesAsStrings,
+    });
+    setShowPriceForm(true);
+  };
+
   const handleDeletePrice = async (id: string) => {
     if (Platform.OS === 'web' && !window.confirm('Excluir esta tabela de preços?')) return;
     try { await clientPriceAPI.delete(id); loadData(); } catch { showMsg('Erro ao excluir'); }
@@ -455,6 +470,9 @@ export default function BMScreen() {
                 <View style={s.cardActions}>
                   <TouchableOpacity style={s.actionBtn} onPress={() => openPriceForm(pt)}>
                     <Ionicons name="create-outline" size={18} color="#000000" /><Text style={s.actionText}>Editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.actionBtn} onPress={() => handleDuplicatePrice(pt)} testID={`price-duplicate-${pt.id}`}>
+                    <Ionicons name="copy-outline" size={18} color="#000000" /><Text style={s.actionText}>Duplicar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[s.actionBtn, { borderColor: '#d32f2f' }]} onPress={() => handleDeletePrice(pt.id)}>
                     <Ionicons name="trash-outline" size={18} color="#d32f2f" /><Text style={[s.actionText, { color: '#d32f2f' }]}>Excluir</Text>

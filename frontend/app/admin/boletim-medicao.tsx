@@ -39,6 +39,7 @@ export default function BMScreen() {
   // Date filter state
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [selectedPriceTableId, setSelectedPriceTableId] = useState<string>('');
   const [calcMode, setCalcMode] = useState<'onshore' | 'offshore'>('onshore');
   const [showDatePicker, setShowDatePicker] = useState<null | 'inicio' | 'fim'>(null);
 
@@ -63,7 +64,7 @@ export default function BMScreen() {
 
   // Price table state
   const [showPriceForm, setShowPriceForm] = useState(false);
-  const [priceForm, setPriceForm] = useState({ client_name: '', prices: [] as any[] });
+  const [priceForm, setPriceForm] = useState({ client_name: '', label: '', prices: [] as any[] });
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
 
   // Holidays state
@@ -149,6 +150,7 @@ export default function BMScreen() {
         data_inicio: dataInicio,
         data_fim: dataFim,
         calc_mode: calcMode,
+        price_table_id: selectedPriceTableId || undefined,
       });
       setCalcResult(result);
       if (!result.has_price_table) showMsg('Atenção: Não há tabela de preços cadastrada para o cliente ' + result.client + '. Os valores estarão zerados.');
@@ -159,6 +161,7 @@ export default function BMScreen() {
   const handleEditBM = async (bm: any) => {
     setEditingBMId(bm.id);
     setSelectedOS(bm.os_id);
+    setSelectedPriceTableId(bm.price_table_id || '');
     const hasImpostos = (bm.impostos || 0) > 0;
     // Reverse-calculate percentage from stored impostos value
     const pct = hasImpostos && bm.subtotal > 0 ? String(Math.round((bm.impostos / bm.subtotal) * 10000) / 100) : '0';
@@ -201,6 +204,7 @@ export default function BMScreen() {
       po_number: bmForm.po_number,
       proposta: bmForm.proposta,
       cod: bmForm.cod,
+      price_table_id: selectedPriceTableId || '',
       items,
       subtotal: Math.round(subtotal * 100) / 100,
       impostos,
@@ -255,10 +259,10 @@ export default function BMScreen() {
         day_rate: typeof p.day_rate === 'number' ? formatBRNumber(p.day_rate) : (p.day_rate || ''),
         day_discount_pct: p.day_discount_pct != null ? String(p.day_discount_pct).replace('.', ',') : '',
       }));
-      setPriceForm({ client_name: existing.client_name, prices: pricesAsStrings });
+      setPriceForm({ client_name: existing.client_name, label: existing.label || '', prices: pricesAsStrings });
     } else {
       setEditingPriceId(null);
-      setPriceForm({ client_name: '', prices: FUNCTION_OPTIONS.map(f => ({ function_code: f.code, function_name: f.name, day_rate: '', day_discount_pct: '' })) });
+      setPriceForm({ client_name: '', label: '', prices: FUNCTION_OPTIONS.map(f => ({ function_code: f.code, function_name: f.name, day_rate: '', day_discount_pct: '' })) });
     }
     setShowPriceForm(true);
   };
@@ -269,6 +273,7 @@ export default function BMScreen() {
       // Ensure each price entry has both day_rate and night_rate (backend requires both)
       const normalized = {
         client_name: priceForm.client_name,
+        label: priceForm.label || '',
         prices: (priceForm.prices || []).map((p: any) => {
           const day = parseBR(p.day_rate);
           const night = p.night_rate != null && p.night_rate !== '' ? parseBR(p.night_rate) : +(day * 1.2).toFixed(2);
@@ -393,7 +398,7 @@ export default function BMScreen() {
       <ScrollView contentContainerStyle={s.scrollContent}>
         {tab === 'bm' && (
           <>
-            <TouchableOpacity style={s.addBtn} onPress={() => setShowCreate(true)} data-testid="create-bm-btn">
+            <TouchableOpacity style={s.addBtn} onPress={() => { setEditingBMId(null); setSelectedPriceTableId(''); setShowCreate(true); }} data-testid="create-bm-btn">
               <Ionicons name="add-circle" size={22} color="#fff" />
               <Text style={s.addBtnText}>Novo Boletim</Text>
             </TouchableOpacity>
@@ -438,7 +443,7 @@ export default function BMScreen() {
             ) : prices.map(pt => (
               <View key={pt.id} style={s.card} data-testid={`price-card-${pt.id}`}>
                 <View style={s.cardHeader}>
-                  <Text style={s.cardClient}>{pt.client_name}</Text>
+                  <Text style={s.cardClient}>{pt.client_name}{pt.label ? ` — ${pt.label}` : ''}</Text>
                 </View>
                 {(pt.prices || []).map((p: any, i: number) => (
                   <View key={i} style={s.priceRow}>
@@ -782,6 +787,42 @@ export default function BMScreen() {
                 ))}
               </View>
 
+              <Text style={s.sectionTitle}>Tabela de Preço</Text>
+              <Text style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
+                Por padrão usa a tabela do cliente da OS. Selecione outra para sobrescrever.
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                <TouchableOpacity
+                  testID="bm-price-table-auto"
+                  style={{
+                    paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8,
+                    backgroundColor: !selectedPriceTableId ? '#000' : '#f5f5f5',
+                    borderWidth: 1, borderColor: !selectedPriceTableId ? '#000' : '#e0e0e0',
+                  }}
+                  onPress={() => setSelectedPriceTableId('')}
+                >
+                  <Text style={{ color: !selectedPriceTableId ? '#fff' : '#333', fontWeight: '600' }}>
+                    Auto (cliente da OS)
+                  </Text>
+                </TouchableOpacity>
+                {prices.map((pt: any) => (
+                  <TouchableOpacity
+                    key={pt.id}
+                    testID={`bm-price-table-${pt.id}`}
+                    style={{
+                      paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8,
+                      backgroundColor: selectedPriceTableId === pt.id ? '#000' : '#f5f5f5',
+                      borderWidth: 1, borderColor: selectedPriceTableId === pt.id ? '#000' : '#e0e0e0',
+                    }}
+                    onPress={() => setSelectedPriceTableId(pt.id)}
+                  >
+                    <Text style={{ color: selectedPriceTableId === pt.id ? '#fff' : '#333', fontWeight: '600' }}>
+                      {pt.client_name}{pt.label ? ` — ${pt.label}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <TouchableOpacity style={s.calcBtn} onPress={handleCalculate} disabled={calcLoading}>
                 {calcLoading ? <ActivityIndicator color="#fff" /> : <><Ionicons name="calculator" size={18} color="#fff" /><Text style={s.calcBtnText}>Calcular</Text></>}
               </TouchableOpacity>
@@ -866,7 +907,7 @@ export default function BMScreen() {
                 </>
               )}
 
-              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); setEditingBMId(null); setAvailableTimesheets([]); setSelectedTimesheets([]); setDataInicio(''); setDataFim(''); }}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); setEditingBMId(null); setAvailableTimesheets([]); setSelectedTimesheets([]); setDataInicio(''); setDataFim(''); setSelectedPriceTableId(''); }}>
                 <Text style={s.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -883,6 +924,8 @@ export default function BMScreen() {
 
               <Text style={s.label}>Nome do Cliente</Text>
               <TextInput style={s.input} value={priceForm.client_name} onChangeText={v => setPriceForm({...priceForm, client_name: v})} placeholder="Nome exato do cliente" />
+              <Text style={s.label}>Identificação da Tabela (opcional)</Text>
+              <TextInput style={s.input} value={priceForm.label} onChangeText={v => setPriceForm({...priceForm, label: v})} placeholder="Ex: Padrão, Promocional 2026, Contrato A" />
 
               {priceForm.prices.map((p: any, i: number) => (
                 <View key={i} style={s.priceFormRow}>

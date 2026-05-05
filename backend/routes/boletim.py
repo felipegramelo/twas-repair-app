@@ -39,6 +39,7 @@ class ClientPriceEntry(BaseModel):
 class ClientPriceTableCreate(BaseModel):
     client_name: str
     prices: List[ClientPriceEntry]
+    label: str = ""  # Optional tag (e.g., "Padrão", "Promocional Q4") for multiple tables per client
 
 @router.get("/client-prices")
 async def get_client_prices(current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
@@ -125,6 +126,7 @@ class BMCalculateRequest(BaseModel):
     data_inicio: str = ""
     data_fim: str = ""
     calc_mode: str = "onshore"  # "onshore" (8h base, /7) or "offshore" (12h base, /11)
+    price_table_id: str = ""  # Optional: override auto-detected price table
 
 
 def _time_to_minutes_safe(s: str) -> int:
@@ -823,6 +825,3 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
             "Cache-Control": "no-cache, no-store, must-revalidate",
         }
     )
-
-
-

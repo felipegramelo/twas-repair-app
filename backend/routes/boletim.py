@@ -166,9 +166,9 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
 
     # Day shift window — schedule_type field was removed from OS in earlier
     # iteration, so we use a wide default that catches typical maritime shifts:
-    # day = start hour ∈ [5..13] (covers 06:30, 07:00, 08:00 starts)
-    # night = anything else (covers 19:00 starts and overnight shifts)
-    day_start, day_end = 5, 14
+    # day  = start hour ∈ [5..18]  (covers 06:30, 07:00, 13:00, 16:00 — including late-afternoon embark/service)
+    # night = anything else: 19:00–04:59 (covers 19:00-07:00 overnight shifts)
+    day_start, day_end = 5, 19
 
     # Onshore: base 8h, divisor 7 (subtract 1h lunch from 8h)
     # Offshore: base 12h, divisor 11 (subtract 1h lunch from 12h)

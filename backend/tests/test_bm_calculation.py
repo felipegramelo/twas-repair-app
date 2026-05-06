@@ -116,6 +116,27 @@ class TestBMShiftDetection:
         finally:
             _delete_ts(token, ts_id)
 
+    def test_late_afternoon_1600_is_day(self):
+        """REGRESSION: 16:00-18:30 (with travel before) must be DAY shift.
+
+        Real case from Blue OOS OS 19-2604-35 24/04/2026: travel 11:00-16:00
+        + service 16:00-18:30 = a daytime work period (embarque + last service hours),
+        not a night shift.
+        """
+        token = _login()
+        os_id, emp = _find_os_with_employees(token)
+        ts_id = _create_ts(token, os_id, emp, [
+            {"date": "24/04/2026", "service_start": "16:00", "service_end": "18:30",
+             "travel_start": "11:00", "travel_end": "16:00"}
+        ])
+        try:
+            result = _calc_bm(token, os_id, ts_id, "offshore")
+            shifts = [it["shift"] for it in result["items"] if it["category"] == "diaria"]
+            assert "day" in shifts, f"16:00 start must be DAY: {result['items']}"
+            assert "night" not in shifts, f"16:00 start must NOT be night: {result['items']}"
+        finally:
+            _delete_ts(token, ts_id)
+
 
 class TestBMDiscount:
     """day_discount_pct must apply only to day_rate diaria."""

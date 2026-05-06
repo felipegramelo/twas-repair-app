@@ -80,12 +80,3 @@ backend/
 ## Backlog (P1/P2)
 - [P2] Refatorar frontend/app/supervisor/edit-report.tsx (>1000 linhas) em componentes menores
 - [P2] Modo Offline com AsyncStorage + fila de sincronizacao
-
-## Workflow Admin/Supervisor (2026-05-06)
-**Filtro por status no GET admin:**
-- Admin GET /api/timesheets e /api/reports filtra `status != "draft"` automaticamente.
-- Supervisor cria timesheet/relatorio com `status: "draft"` por padrao.
-- Quando supervisor finaliza (envia para admin) -> `status: "finalized"` -> aparece para admin.
-- Quando admin reverte (devolve para correcao) -> `status: "draft"` -> some do admin, volta ao supervisor.
-- Migracao automatica no startup: timesheets/reports legados sem campo status assumem `"finalized"` (preserva visibilidade historica).
-- Arquivos tocados: `backend/routes/timesheets.py`, `backend/routes/reports.py`, `backend/server.py`.

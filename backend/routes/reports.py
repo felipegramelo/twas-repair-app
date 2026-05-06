@@ -131,11 +131,6 @@ async def get_reports(user: dict = Depends(get_current_user)):
             {"supervisor_id": user_id},
             {"shared_with": user_id}
         ]}
-    else:
-        # Admin only sees reports that have been submitted (status != "draft").
-        # When admin reverts a report, status returns to "draft" and it
-        # disappears from the admin list (back to the supervisor for correction).
-        query = {"status": {"$ne": "draft"}}
     reports = []
     cursor = db.reports.find(query).sort("created_at", -1)
     async for doc in cursor:

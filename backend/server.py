@@ -68,27 +68,6 @@ async def startup_event():
     except Exception as e:
         logging.error(f"Index creation failed: {e}")
 
-    # One-time migration: legacy timesheets/reports without status field
-    # are assumed to be already submitted (finalized). This keeps the admin
-    # list backwards-compatible after we started filtering out drafts.
-    try:
-        from database import db
-        ts_res = await db.timesheets.update_many(
-            {"$or": [{"status": {"$exists": False}}, {"status": ""}, {"status": None}]},
-            {"$set": {"status": "finalized"}}
-        )
-        rep_res = await db.reports.update_many(
-            {"$or": [{"status": {"$exists": False}}, {"status": ""}, {"status": None}]},
-            {"$set": {"status": "finalized"}}
-        )
-        if ts_res.modified_count or rep_res.modified_count:
-            logging.info(
-                f"Status migration: {ts_res.modified_count} timesheets and "
-                f"{rep_res.modified_count} reports set to 'finalized'"
-            )
-    except Exception as e:
-        logging.error(f"Status migration failed: {e}")
-
     # Seed admin user if not exists
     try:
         from database import db

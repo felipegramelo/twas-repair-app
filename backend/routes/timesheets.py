@@ -43,7 +43,6 @@ async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any
     ts_dict["service"] = so["service"]
     ts_dict["supervisor_id"] = current_user["_id"]
     ts_dict["supervisor_name"] = current_user["name"]
-    ts_dict["status"] = "draft"
     ts_dict["created_at"] = datetime.utcnow()
     ts_dict["updated_at"] = datetime.utcnow()
     
@@ -71,11 +70,6 @@ async def get_timesheets(current_user: Dict[str, Any] = Depends(get_current_user
             {"supervisor_id": user_id},
             {"shared_with": user_id}
         ]}
-    else:
-        # Admin only sees timesheets that have been submitted (status != "draft").
-        # When admin reverts a timesheet, status returns to "draft" and it
-        # disappears from the admin list (back to the supervisor for correction).
-        query = {"status": {"$ne": "draft"}}
     
     timesheets = await db.timesheets.find(query).sort("created_at", -1).to_list(500)
     result = []

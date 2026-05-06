@@ -101,8 +101,29 @@ class TestBMShiftDetection:
         finally:
             _delete_ts(token, ts_id)
 
-    def test_night_shift_1900_to_0700_is_night(self):
-        """19:00-07:00 must be NIGHT shift."""
+    def test_night_shift_1900_to_0800_is_night(self):
+        """19:00-08:00 (13h, started after 16:00) must be NIGHT shift.
+
+        Rule: NIGHT only when start_hour >= 16 AND total > 12h.
+        """
+        token = _login()
+        os_id, emp = _find_os_with_employees(token)
+        ts_id = _create_ts(token, os_id, emp, [
+            {"date": "05/05/2026", "service_start": "19:00", "service_end": "08:00"}
+        ])
+        try:
+            result = _calc_bm(token, os_id, ts_id, "offshore")
+            shifts = [it["shift"] for it in result["items"] if it["category"] == "diaria"]
+            assert "night" in shifts, f"19:00-08:00 (13h) must be night: {result['items']}"
+            assert "day" not in shifts, f"19:00-08:00 (13h) must NOT be day: {result['items']}"
+        finally:
+            _delete_ts(token, ts_id)
+
+    def test_exact_12h_overnight_is_day(self):
+        """19:00-07:00 (exactly 12h) must be DAY by client rule.
+
+        Rule says NIGHT only when total > 12h. Exact 12h does NOT qualify.
+        """
         token = _login()
         os_id, emp = _find_os_with_employees(token)
         ts_id = _create_ts(token, os_id, emp, [
@@ -111,8 +132,8 @@ class TestBMShiftDetection:
         try:
             result = _calc_bm(token, os_id, ts_id, "offshore")
             shifts = [it["shift"] for it in result["items"] if it["category"] == "diaria"]
-            assert "night" in shifts, f"19:00-07:00 must be night: {result['items']}"
-            assert "day" not in shifts, f"19:00-07:00 must NOT be day: {result['items']}"
+            assert "day" in shifts, f"19:00-07:00 (exactly 12h) must be DAY: {result['items']}"
+            assert "night" not in shifts, f"19:00-07:00 (exactly 12h) must NOT be night: {result['items']}"
         finally:
             _delete_ts(token, ts_id)
 

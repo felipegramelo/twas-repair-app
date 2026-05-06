@@ -164,11 +164,9 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
     if not so:
         raise HTTPException(status_code=404, detail="O.S. não encontrada")
 
-    # Day shift window — schedule_type field was removed from OS in earlier
-    # iteration, so we use a wide default that catches typical maritime shifts:
-    # day  = start hour ∈ [5..18]  (covers 06:30, 07:00, 13:00, 16:00 — including late-afternoon embark/service)
-    # night = anything else: 19:00–04:59 (covers 19:00-07:00 overnight shifts)
-    day_start, day_end = 5, 19
+    # Shift detection rule (defined by client):
+    # NIGHT shift only when BOTH: start_hour >= 16 AND total_minutes > 720 (12h)
+    # Otherwise DAY. Enforced inside the loop below.
 
     # Onshore: base 8h, divisor 7 (subtract 1h lunch from 8h)
     # Offshore: base 12h, divisor 11 (subtract 1h lunch from 12h)
@@ -234,14 +232,26 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
 
             all_dates.append(date)
 
-            # Determine shift: from service start hour, or from travel start hour if travel-only
+            # Determine reference start hour (service if present, else travel)
             ref_time = start_str if has_service else travel_s
             try:
                 start_hour = int(ref_time.split(":")[0])
             except Exception:
                 continue
-            is_day_shift = day_start <= start_hour < day_end
-            shift = "day" if is_day_shift else "night"
+
+            # Compute total worked minutes (service + travel) — needed for shift detection
+            service_min = _worked_minutes(start_str, end_str) if has_service else 0
+            travel_min = _worked_minutes(travel_s, travel_e) if has_travel else 0
+            total_min = service_min + travel_min
+
+            # Shift detection rule (defined by client):
+            # NIGHT shift only when BOTH conditions met:
+            #   1) Start hour >= 16:00
+            #   2) Total work time > 12h (720 min)
+            # Otherwise DAY (covers 06:30-18:30, 16:00-18:30 short embarques,
+            # 06:30-22:00 day shift with overtime, exact 12h overnight 19:00-07:00).
+            is_night_shift = (start_hour >= 16 and total_min > 720)
+            shift = "night" if is_night_shift else "day"
             key = f"{func}_{shift}"
 
             if key not in function_data:
@@ -256,11 +266,6 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
             # regardless of whether the day is service-only, travel-only, or both)
             emp_date = f"{entry.get('employee_id', '')}_{date}"
             function_data[key]["diaria_emp_dates"].add(emp_date)
-
-            # Compute total worked minutes (service + travel)
-            service_min = _worked_minutes(start_str, end_str) if has_service else 0
-            travel_min = _worked_minutes(travel_s, travel_e) if has_travel else 0
-            total_min = service_min + travel_min
 
             # Extra hours beyond base
             if total_min > base_minutes:

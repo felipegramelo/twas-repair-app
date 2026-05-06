@@ -42,6 +42,8 @@ export default function BMScreen() {
   const [selectedPriceTableId, setSelectedPriceTableId] = useState<string>('');
   const [showPriceTableModal, setShowPriceTableModal] = useState(false);
   const [priceTableSearch, setPriceTableSearch] = useState('');
+  const [showOSModal, setShowOSModal] = useState(false);
+  const [osSearch, setOsSearch] = useState('');
   const [calcMode, setCalcMode] = useState<'onshore' | 'offshore'>('onshore');
   const [showDatePicker, setShowDatePicker] = useState<null | 'inicio' | 'fim'>(null);
 
@@ -598,13 +600,29 @@ export default function BMScreen() {
               <Text style={s.modalTitle}>{editingBMId ? 'Editar Boletim de Medição' : 'Novo Boletim de Medição'}</Text>
 
               <Text style={s.label}>Ordem de Serviço</Text>
-              <View style={s.pickerWrap}>
-                {serviceOrders.map(so => (
-                  <TouchableOpacity key={so.id} style={[s.soOption, selectedOS === so.id && s.soOptionActive]} onPress={() => handleSelectOS(so.id)}>
-                    <Text style={[s.soOptionText, selectedOS === so.id && { color: '#fff' }]}>{so.os_number} - {so.client}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <TouchableOpacity
+                testID="bm-os-open"
+                style={{
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                  paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8,
+                  backgroundColor: '#fff', borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 12,
+                }}
+                onPress={() => { setOsSearch(''); setShowOSModal(true); }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: '#666' }}>
+                    {selectedOS ? 'OS escolhida' : 'OS'}
+                  </Text>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#000', marginTop: 2 }}>
+                    {(() => {
+                      if (!selectedOS) return 'Toque para selecionar...';
+                      const so: any = serviceOrders.find(o => o.id === selectedOS);
+                      return so ? `${so.os_number} - ${so.client}` : 'Toque para selecionar...';
+                    })()}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#666" />
+              </TouchableOpacity>
 
               {/* Timesheet selection */}
               {selectedOS && loadingTimesheets && (
@@ -923,6 +941,69 @@ export default function BMScreen() {
               <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); setEditingBMId(null); setAvailableTimesheets([]); setSelectedTimesheets([]); setDataInicio(''); setDataFim(''); setSelectedPriceTableId(''); }}>
                 <Text style={s.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* OS PICKER MODAL (BM context) */}
+      <Modal visible={showOSModal} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxHeight: '85%' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={s.modalTitle}>Escolher Ordem de Serviço</Text>
+              <TouchableOpacity onPress={() => setShowOSModal(false)} testID="os-modal-close">
+                <Ionicons name="close" size={26} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={s.input}
+              value={osSearch}
+              onChangeText={setOsSearch}
+              placeholder="Buscar por número, cliente ou serviço..."
+              testID="os-search"
+            />
+
+            <ScrollView style={{ marginTop: 8 }}>
+              {serviceOrders
+                .filter(so => {
+                  const q = osSearch.trim().toLowerCase();
+                  if (!q) return true;
+                  const txt = `${so.os_number || ''} ${so.client || ''} ${so.service || ''}`.toLowerCase();
+                  return txt.includes(q);
+                })
+                .map(so => (
+                  <TouchableOpacity
+                    key={so.id}
+                    testID={`os-option-${so.id}`}
+                    style={{
+                      paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8, marginBottom: 8,
+                      backgroundColor: selectedOS === so.id ? '#000' : '#f5f5f5',
+                      borderWidth: 1, borderColor: selectedOS === so.id ? '#000' : '#e0e0e0',
+                    }}
+                    onPress={() => { handleSelectOS(so.id); setShowOSModal(false); }}
+                  >
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: selectedOS === so.id ? '#fff' : '#000' }}>
+                      {so.os_number} - {so.client}
+                    </Text>
+                    {so.service ? (
+                      <Text style={{ fontSize: 12, color: selectedOS === so.id ? '#ddd' : '#666', marginTop: 2 }}>
+                        {so.service}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                ))}
+
+              {serviceOrders.filter(so => {
+                const q = osSearch.trim().toLowerCase();
+                if (!q) return true;
+                return `${so.os_number || ''} ${so.client || ''} ${so.service || ''}`.toLowerCase().includes(q);
+              }).length === 0 && (
+                <Text style={{ textAlign: 'center', color: '#999', marginTop: 16 }}>
+                  Nenhuma OS encontrada
+                </Text>
+              )}
             </ScrollView>
           </View>
         </View>

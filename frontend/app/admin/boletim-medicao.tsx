@@ -40,6 +40,8 @@ export default function BMScreen() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [selectedPriceTableId, setSelectedPriceTableId] = useState<string>('');
+  const [showPriceTableModal, setShowPriceTableModal] = useState(false);
+  const [priceTableSearch, setPriceTableSearch] = useState('');
   const [calcMode, setCalcMode] = useState<'onshore' | 'offshore'>('onshore');
   const [showDatePicker, setShowDatePicker] = useState<null | 'inicio' | 'fim'>(null);
 
@@ -807,39 +809,32 @@ export default function BMScreen() {
 
               <Text style={s.sectionTitle}>Tabela de Preço</Text>
               <Text style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
-                Por padrão usa a tabela do cliente da OS. Selecione outra para sobrescrever.
+                Por padrão usa a tabela do cliente da OS. Toque para escolher outra.
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                <TouchableOpacity
-                  testID="bm-price-table-auto"
-                  style={{
-                    paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8,
-                    backgroundColor: !selectedPriceTableId ? '#000' : '#f5f5f5',
-                    borderWidth: 1, borderColor: !selectedPriceTableId ? '#000' : '#e0e0e0',
-                  }}
-                  onPress={() => setSelectedPriceTableId('')}
-                >
-                  <Text style={{ color: !selectedPriceTableId ? '#fff' : '#333', fontWeight: '600' }}>
-                    Auto (cliente da OS)
+              <TouchableOpacity
+                testID="bm-price-table-open"
+                style={{
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                  paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8,
+                  backgroundColor: '#fff', borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 12,
+                }}
+                onPress={() => { setPriceTableSearch(''); setShowPriceTableModal(true); }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: '#666' }}>
+                    {selectedPriceTableId ? 'Tabela escolhida' : 'Tabela'}
                   </Text>
-                </TouchableOpacity>
-                {prices.map((pt: any) => (
-                  <TouchableOpacity
-                    key={pt.id}
-                    testID={`bm-price-table-${pt.id}`}
-                    style={{
-                      paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8,
-                      backgroundColor: selectedPriceTableId === pt.id ? '#000' : '#f5f5f5',
-                      borderWidth: 1, borderColor: selectedPriceTableId === pt.id ? '#000' : '#e0e0e0',
-                    }}
-                    onPress={() => setSelectedPriceTableId(pt.id)}
-                  >
-                    <Text style={{ color: selectedPriceTableId === pt.id ? '#fff' : '#333', fontWeight: '600' }}>
-                      {pt.client_name}{pt.label ? ` — ${pt.label}` : ''}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#000', marginTop: 2 }}>
+                    {(() => {
+                      if (!selectedPriceTableId) return 'Auto (cliente da OS)';
+                      const pt: any = prices.find((p: any) => p.id === selectedPriceTableId);
+                      if (!pt) return 'Auto (cliente da OS)';
+                      return `${pt.client_name}${pt.label ? ` — ${pt.label}` : ''}`;
+                    })()}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#666" />
+              </TouchableOpacity>
 
               <TouchableOpacity style={s.calcBtn} onPress={handleCalculate} disabled={calcLoading}>
                 {calcLoading ? <ActivityIndicator color="#fff" /> : <><Ionicons name="calculator" size={18} color="#fff" /><Text style={s.calcBtnText}>Calcular</Text></>}
@@ -933,7 +928,87 @@ export default function BMScreen() {
         </View>
       </Modal>
 
-      {/* PRICE TABLE MODAL */}
+      {/* PRICE TABLE PICKER MODAL (BM context) */}
+      <Modal visible={showPriceTableModal} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxHeight: '85%' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={s.modalTitle}>Escolher Tabela de Preço</Text>
+              <TouchableOpacity onPress={() => setShowPriceTableModal(false)} testID="price-table-modal-close">
+                <Ionicons name="close" size={26} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={s.input}
+              value={priceTableSearch}
+              onChangeText={setPriceTableSearch}
+              placeholder="Buscar por cliente ou identificação..."
+              testID="price-table-search"
+            />
+
+            <ScrollView style={{ marginTop: 8 }}>
+              {/* Auto option */}
+              <TouchableOpacity
+                testID="price-table-option-auto"
+                style={{
+                  paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8, marginBottom: 8,
+                  backgroundColor: !selectedPriceTableId ? '#000' : '#f5f5f5',
+                  borderWidth: 1, borderColor: !selectedPriceTableId ? '#000' : '#e0e0e0',
+                }}
+                onPress={() => { setSelectedPriceTableId(''); setShowPriceTableModal(false); }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '700', color: !selectedPriceTableId ? '#fff' : '#000' }}>
+                  Auto (cliente da OS)
+                </Text>
+                <Text style={{ fontSize: 12, color: !selectedPriceTableId ? '#ddd' : '#666', marginTop: 2 }}>
+                  Detecta automaticamente pelo nome do cliente da OS selecionada
+                </Text>
+              </TouchableOpacity>
+
+              {/* Filtered tables */}
+              {prices
+                .filter((pt: any) => {
+                  const q = priceTableSearch.trim().toLowerCase();
+                  if (!q) return true;
+                  const txt = `${pt.client_name || ''} ${pt.label || ''}`.toLowerCase();
+                  return txt.includes(q);
+                })
+                .map((pt: any) => (
+                  <TouchableOpacity
+                    key={pt.id}
+                    testID={`price-table-option-${pt.id}`}
+                    style={{
+                      paddingVertical: 14, paddingHorizontal: 14, borderRadius: 8, marginBottom: 8,
+                      backgroundColor: selectedPriceTableId === pt.id ? '#000' : '#f5f5f5',
+                      borderWidth: 1, borderColor: selectedPriceTableId === pt.id ? '#000' : '#e0e0e0',
+                    }}
+                    onPress={() => { setSelectedPriceTableId(pt.id); setShowPriceTableModal(false); }}
+                  >
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: selectedPriceTableId === pt.id ? '#fff' : '#000' }}>
+                      {pt.client_name}{pt.label ? ` — ${pt.label}` : ''}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: selectedPriceTableId === pt.id ? '#ddd' : '#666', marginTop: 2 }}>
+                      {(pt.prices || []).length} função(ões) cadastrada(s)
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+
+              {prices.filter((pt: any) => {
+                const q = priceTableSearch.trim().toLowerCase();
+                if (!q) return true;
+                return `${pt.client_name || ''} ${pt.label || ''}`.toLowerCase().includes(q);
+              }).length === 0 && (
+                <Text style={{ textAlign: 'center', color: '#999', marginTop: 16 }}>
+                  Nenhuma tabela encontrada
+                </Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PRICE TABLE FORM MODAL */}
       <Modal visible={showPriceForm} animationType="slide" transparent>
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>

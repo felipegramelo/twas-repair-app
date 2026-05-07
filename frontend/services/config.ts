@@ -14,7 +14,29 @@
 // Hardcoded production backend (Railway). Single source of truth for builds.
 const PRODUCTION_BACKEND_URL = 'https://twas-repair-app-production.up.railway.app';
 
+// Emergent preview backend (local container) — used ONLY inside the preview URL
+// so that new features/changes not yet deployed to Railway can be tested here.
+// Built mobile/web bundles (EAS, Vercel) keep using PRODUCTION_BACKEND_URL.
+const EMERGENT_PREVIEW_BACKEND = process.env.EXPO_PUBLIC_BACKEND_URL;
+
 const override = process.env.EXPO_PUBLIC_BACKEND_URL_OVERRIDE;
 
-export const BACKEND_URL = (override && override.trim()) || PRODUCTION_BACKEND_URL;
+// Runtime detection: when running inside the Emergent preview (served under
+// *.preview.emergentagent.com), use the preview backend so the dev can test
+// pending features. Mobile/web production builds don't match this hostname
+// and therefore continue hitting Railway.
+function _detectBackendUrl(): string {
+  if (override && override.trim()) return override;
+  try {
+    if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+      const host = window.location.hostname;
+      if (host.endsWith('.preview.emergentagent.com') && EMERGENT_PREVIEW_BACKEND) {
+        return EMERGENT_PREVIEW_BACKEND;
+      }
+    }
+  } catch {}
+  return PRODUCTION_BACKEND_URL;
+}
+
+export const BACKEND_URL = _detectBackendUrl();
 export const API_URL = `${BACKEND_URL}/api`;

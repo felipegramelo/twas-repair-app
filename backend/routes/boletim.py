@@ -76,6 +76,52 @@ async def delete_client_price(price_id: str, current_user: Dict[str, Any] = Depe
         raise HTTPException(status_code=404, detail="Tabela não encontrada")
     return {"message": "Excluído com sucesso"}
 
+# ==================== LOGISTICS PRICE TABLE ENDPOINTS ====================
+
+class LogisticsRouteEntry(BaseModel):
+    description: str
+    price: float  # Price per collaborator
+
+class LogisticsPriceTableCreate(BaseModel):
+    client_name: str
+    label: str = ""
+    routes: List[LogisticsRouteEntry]
+
+@router.get("/logistics-prices")
+async def get_logistics_prices(current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    tables = await db.logistics_prices.find().sort("client_name", 1).to_list(200)
+    for t in tables:
+        t["id"] = str(t.pop("_id"))
+        t.pop("_id", None)
+    return tables
+
+@router.post("/logistics-prices")
+async def create_logistics_price(data: LogisticsPriceTableCreate, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    doc = data.model_dump()
+    doc["created_at"] = datetime.utcnow()
+    result = await db.logistics_prices.insert_one(doc)
+    doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
+    doc["created_at"] = doc["created_at"].isoformat()
+    return doc
+
+@router.put("/logistics-prices/{price_id}")
+async def update_logistics_price(price_id: str, data: LogisticsPriceTableCreate, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    result = await db.logistics_prices.update_one(
+        {"_id": ObjectId(price_id)},
+        {"$set": data.model_dump()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Tabela de logística não encontrada")
+    return {"message": "Atualizado com sucesso"}
+
+@router.delete("/logistics-prices/{price_id}")
+async def delete_logistics_price(price_id: str, current_user: Dict[str, Any] = Depends(get_bm_admin_user)):
+    result = await db.logistics_prices.delete_one({"_id": ObjectId(price_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Tabela de logística não encontrada")
+    return {"message": "Excluído com sucesso"}
+
 # ==================== BM CALCULATION ====================
 
 FUNCTION_NAMES = {
@@ -385,6 +431,8 @@ class BMCreate(BaseModel):
     proposta: str = ""
     cod: str = ""
     items: List[dict]
+    logistics_items: List[dict] = []
+    logistics_table_id: str = ""
     subtotal: float
     impostos: float = 0.0
     valor_total: float
@@ -780,7 +828,26 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
             Paragraph(format_currency(item.get("valor_total", 0)), td_right),
         ])
 
-    empty_rows_needed = max(0, 8 - len(items))
+    # Logistics items appear after regular items, before Subtotal
+    logistics_items = bm.get("logistics_items", []) or []
+    for lidx, litem in enumerate(logistics_items):
+        desc = litem.get("description", "")
+        unit_price = float(litem.get("unit_price", 0) or 0)
+        qty = int(litem.get("quantity", 0) or 0)
+        total = float(litem.get("total", unit_price * qty) or 0)
+        table_data.append([
+            Paragraph("", td_style),
+            Paragraph("", td_style),
+            Paragraph(str(len(items) + lidx + 1), td_style),
+            Paragraph(litem.get("cod", ""), td_style),
+            Paragraph(desc, td_left),
+            Paragraph(format_currency(unit_price), td_right),
+            Paragraph(str(qty), td_style),
+            Paragraph(format_currency(total), td_right),
+        ])
+
+    total_data_rows = len(items) + len(logistics_items)
+    empty_rows_needed = max(0, 8 - total_data_rows)
     for _ in range(empty_rows_needed):
         table_data.append([Paragraph("", td_style)] * 7 + [Paragraph("", td_right)])
 
@@ -790,7 +857,7 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     table_data.append(["", "", "", "", Paragraph("<b>Valor Total</b>", bold_right), "", "", Paragraph(f"<b>{format_currency(bm.get('valor_total', 0))}</b>", bold_right)])
 
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
-    num_data_rows = len(items) + empty_rows_needed
+    num_data_rows = total_data_rows + empty_rows_needed
     table_style_cmds = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E8EAF6')),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),

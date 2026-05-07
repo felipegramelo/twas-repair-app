@@ -208,6 +208,26 @@ export const clientPriceAPI = {
   },
 };
 
+// Logistics Price Table API
+export const logisticsPriceAPI = {
+  getAll: async () => {
+    const response = await api.get('/logistics-prices');
+    return response.data;
+  },
+  create: async (data: any) => {
+    const response = await api.post('/logistics-prices', data);
+    return response.data;
+  },
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/logistics-prices/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/logistics-prices/${id}`);
+    return response.data;
+  },
+};
+
 // Holidays API (regional + national listing)
 export const holidaysAPI = {
   list: async (year?: number) => {

@@ -7,7 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { bmAPI, clientPriceAPI, holidaysAPI } from '../../services/api';
+import { bmAPI, clientPriceAPI, holidaysAPI, logisticsPriceAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
@@ -19,9 +19,10 @@ const showMsg = (msg: string) => {
 
 export default function BMScreen() {
   const router = useRouter();
-  const [tab, setTab] = useState<'bm' | 'prices' | 'holidays'>('bm');
+  const [tab, setTab] = useState<'bm' | 'prices' | 'logistics' | 'holidays'>('bm');
   const [bms, setBms] = useState<any[]>([]);
   const [prices, setPrices] = useState<any[]>([]);
+  const [logistics, setLogistics] = useState<any[]>([]);
   const [serviceOrders, setServiceOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -71,6 +72,18 @@ export default function BMScreen() {
   const [priceForm, setPriceForm] = useState({ client_name: '', label: '', prices: [] as any[] });
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
 
+  // Logistics table state
+  const [showLogisticsForm, setShowLogisticsForm] = useState(false);
+  const [logisticsForm, setLogisticsForm] = useState({ client_name: '', label: '', routes: [] as any[] });
+  const [editingLogisticsId, setEditingLogisticsId] = useState<string | null>(null);
+
+  // Logistics selection in BM form
+  const [bmLogisticsItems, setBmLogisticsItems] = useState<any[]>([]);  // { description, unit_price, quantity, total, table_id? }
+  const [showLogisticsPickerModal, setShowLogisticsPickerModal] = useState(false);
+  const [logisticsPickerTableId, setLogisticsPickerTableId] = useState<string>('');
+  const [logisticsPickerRouteIdx, setLogisticsPickerRouteIdx] = useState<number>(-1);
+  const [logisticsPickerQty, setLogisticsPickerQty] = useState<string>('1');
+
   // Holidays state
   const [holidays, setHolidays] = useState<any[]>([]);
   const [holidaysLoaded, setHolidaysLoaded] = useState(false);
@@ -83,11 +96,12 @@ export default function BMScreen() {
 
   const loadData = async () => {
     try {
-      const [bmData, priceData, soData] = await Promise.all([
-        bmAPI.list(), clientPriceAPI.getAll(), api.get('/service-orders').then(r => r.data),
+      const [bmData, priceData, logisticsData, soData] = await Promise.all([
+        bmAPI.list(), clientPriceAPI.getAll(), logisticsPriceAPI.getAll(), api.get('/service-orders').then(r => r.data),
       ]);
       setBms(bmData);
       setPrices(priceData);
+      setLogistics(logisticsData);
       setServiceOrders(soData);
     } catch { showMsg('Erro ao carregar dados'); }
     finally { setLoading(false); }
@@ -179,6 +193,8 @@ export default function BMScreen() {
       impostoPct: pct,
     });
     setCalcResult({ items: bm.items, subtotal: bm.subtotal, has_price_table: true });
+    // Load saved logistics items
+    setBmLogisticsItems(bm.logistics_items || []);
     // Load timesheets for the OS
     setLoadingTimesheets(true);
     try {
@@ -193,7 +209,9 @@ export default function BMScreen() {
   const handleCreateBM = async () => {
     if (!calcResult) return showMsg('Calcule primeiro os itens');
     const items = calcResult.items;
-    const subtotal = items.reduce((s: number, i: any) => s + i.valor_total, 0);
+    const logisticsSubtotal = bmLogisticsItems.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
+    const itemsSubtotal = items.reduce((s: number, i: any) => s + i.valor_total, 0);
+    const subtotal = itemsSubtotal + logisticsSubtotal;
     const impostoPct = bmForm.incluirImpostos ? (parseFloat(bmForm.impostoPct) || 0) : 0;
     const impostos = Math.round(subtotal * impostoPct / 100 * 100) / 100;
     // Generate periodo from dataInicio/dataFim or calcResult dates
@@ -210,6 +228,7 @@ export default function BMScreen() {
       cod: bmForm.cod,
       price_table_id: selectedPriceTableId || '',
       items,
+      logistics_items: bmLogisticsItems,
       subtotal: Math.round(subtotal * 100) / 100,
       impostos,
       valor_total: Math.round((subtotal + impostos) * 100) / 100,
@@ -230,6 +249,7 @@ export default function BMScreen() {
       setSelectedTimesheets([]);
       setDataInicio('');
       setDataFim('');
+      setBmLogisticsItems([]);
       setBmForm({ data: new Date().toLocaleDateString('pt-BR'), rev: '0', po_number: '', proposta: '', cod: '', incluirImpostos: false, impostoPct: '0' });
       loadData();
     } catch { showMsg(editingBMId ? 'Erro ao atualizar BM' : 'Erro ao criar BM'); }
@@ -327,6 +347,119 @@ export default function BMScreen() {
     try { await clientPriceAPI.delete(id); loadData(); } catch { showMsg('Erro ao excluir'); }
   };
 
+  // ===== Logistics table handlers =====
+  const openLogisticsForm = (existing?: any) => {
+    if (existing) {
+      setEditingLogisticsId(existing.id);
+      const routesAsStrings = (existing.routes || []).map((r: any) => ({
+        description: r.description || '',
+        price: typeof r.price === 'number' ? formatBRNumber(r.price) : (r.price || ''),
+      }));
+      setLogisticsForm({ client_name: existing.client_name, label: existing.label || '', routes: routesAsStrings });
+    } else {
+      setEditingLogisticsId(null);
+      setLogisticsForm({ client_name: '', label: '', routes: [{ description: '', price: '' }] });
+    }
+    setShowLogisticsForm(true);
+  };
+
+  const handleSaveLogistics = async () => {
+    if (!logisticsForm.client_name) return showMsg('Informe o nome do cliente');
+    if (!logisticsForm.routes || logisticsForm.routes.length === 0) return showMsg('Adicione pelo menos um trecho');
+    try {
+      const normalized = {
+        client_name: logisticsForm.client_name,
+        label: logisticsForm.label || '',
+        routes: (logisticsForm.routes || [])
+          .filter((r: any) => (r.description || '').trim())
+          .map((r: any) => ({
+            description: r.description.trim(),
+            price: parseBR(r.price),
+          })),
+      };
+      if (editingLogisticsId) {
+        await logisticsPriceAPI.update(editingLogisticsId, normalized);
+      } else {
+        await logisticsPriceAPI.create(normalized);
+      }
+      showMsg('Tabela de logística salva!');
+      setShowLogisticsForm(false);
+      loadData();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'Erro ao salvar tabela';
+      showMsg(typeof detail === 'string' ? detail : 'Erro ao salvar tabela');
+    }
+  };
+
+  const handleDuplicateLogistics = (lt: any) => {
+    const routesAsStrings = (lt.routes || []).map((r: any) => ({
+      description: r.description || '',
+      price: typeof r.price === 'number' ? formatBRNumber(r.price) : (r.price || ''),
+    }));
+    setEditingLogisticsId(null);
+    setLogisticsForm({
+      client_name: lt.client_name,
+      label: lt.label ? `${lt.label} - Cópia` : 'Cópia',
+      routes: routesAsStrings,
+    });
+    setShowLogisticsForm(true);
+  };
+
+  const handleDeleteLogistics = async (id: string) => {
+    if (Platform.OS === 'web' && !window.confirm('Excluir esta tabela de logística?')) return;
+    try { await logisticsPriceAPI.delete(id); loadData(); } catch { showMsg('Erro ao excluir'); }
+  };
+
+  const updateLogisticsRoute = (idx: number, field: 'description' | 'price', value: string) => {
+    const updated = [...logisticsForm.routes];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setLogisticsForm({ ...logisticsForm, routes: updated });
+  };
+
+  const addLogisticsRoute = () => {
+    setLogisticsForm({ ...logisticsForm, routes: [...logisticsForm.routes, { description: '', price: '' }] });
+  };
+
+  const removeLogisticsRoute = (idx: number) => {
+    setLogisticsForm({ ...logisticsForm, routes: logisticsForm.routes.filter((_, i) => i !== idx) });
+  };
+
+  // ===== BM logistics picker =====
+  const openLogisticsPicker = () => {
+    // Pre-select table matching OS client when possible
+    const so = serviceOrders.find((s: any) => s.id === selectedOS);
+    const matching = so ? logistics.find((lt: any) => (lt.client_name || '').trim().toLowerCase() === (so.client || '').trim().toLowerCase()) : null;
+    setLogisticsPickerTableId(matching?.id || (logistics[0]?.id || ''));
+    setLogisticsPickerRouteIdx(-1);
+    setLogisticsPickerQty('1');
+    setShowLogisticsPickerModal(true);
+  };
+
+  const confirmAddLogistics = () => {
+    if (!logisticsPickerTableId) return showMsg('Selecione uma tabela');
+    if (logisticsPickerRouteIdx < 0) return showMsg('Selecione um trecho');
+    const qty = parseInt(logisticsPickerQty, 10) || 0;
+    if (qty <= 0) return showMsg('Quantidade deve ser maior que zero');
+    const table = logistics.find((lt: any) => lt.id === logisticsPickerTableId);
+    if (!table) return;
+    const route = (table.routes || [])[logisticsPickerRouteIdx];
+    if (!route) return;
+    const unit_price = Number(route.price) || 0;
+    const total = Math.round(unit_price * qty * 100) / 100;
+    setBmLogisticsItems(prev => [...prev, {
+      description: route.description,
+      unit_price,
+      quantity: qty,
+      total,
+      table_id: logisticsPickerTableId,
+    }]);
+    setShowLogisticsPickerModal(false);
+  };
+
+  const removeBmLogisticsItem = (idx: number) => {
+    setBmLogisticsItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
   // ===== Holidays handlers =====
   const loadHolidays = async (year: number) => {
     try {
@@ -409,6 +542,9 @@ export default function BMScreen() {
         <TouchableOpacity style={[s.tab, tab === 'prices' && s.tabActive]} onPress={() => setTab('prices')} data-testid="tab-prices">
           <Text style={[s.tabText, tab === 'prices' && s.tabTextActive]}>Tabela de Preços</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[s.tab, tab === 'logistics' && s.tabActive]} onPress={() => setTab('logistics')} testID="tab-logistics">
+          <Text style={[s.tabText, tab === 'logistics' && s.tabTextActive]}>Logística</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[s.tab, tab === 'holidays' && s.tabActive]} onPress={() => { setTab('holidays'); loadHolidays(holidayYear); }} testID="tab-holidays">
           <Text style={[s.tabText, tab === 'holidays' && s.tabTextActive]}>Feriados</Text>
         </TouchableOpacity>
@@ -417,7 +553,7 @@ export default function BMScreen() {
       <ScrollView contentContainerStyle={s.scrollContent}>
         {tab === 'bm' && (
           <>
-            <TouchableOpacity style={s.addBtn} onPress={() => { setEditingBMId(null); setSelectedPriceTableId(''); setShowCreate(true); }} data-testid="create-bm-btn">
+            <TouchableOpacity style={s.addBtn} onPress={() => { setEditingBMId(null); setSelectedPriceTableId(''); setBmLogisticsItems([]); setShowCreate(true); }} data-testid="create-bm-btn">
               <Ionicons name="add-circle" size={22} color="#fff" />
               <Text style={s.addBtnText}>Novo Boletim</Text>
             </TouchableOpacity>
@@ -479,6 +615,46 @@ export default function BMScreen() {
                     <Ionicons name="copy-outline" size={18} color="#000000" /><Text style={s.actionText}>Duplicar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[s.actionBtn, { borderColor: '#d32f2f' }]} onPress={() => handleDeletePrice(pt.id)}>
+                    <Ionicons name="trash-outline" size={18} color="#d32f2f" /><Text style={[s.actionText, { color: '#d32f2f' }]}>Excluir</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {tab === 'logistics' && (
+          <>
+            <TouchableOpacity style={s.addBtn} onPress={() => openLogisticsForm()} testID="create-logistics-btn">
+              <Ionicons name="add-circle" size={22} color="#fff" />
+              <Text style={s.addBtnText}>Nova Tabela de Logística</Text>
+            </TouchableOpacity>
+
+            {logistics.length === 0 ? (
+              <View style={s.empty}><Ionicons name="airplane-outline" size={64} color="#ccc" /><Text style={s.emptyText}>Nenhuma tabela de logística cadastrada</Text></View>
+            ) : logistics.map((lt: any) => (
+              <View key={lt.id} style={s.card} testID={`logistics-card-${lt.id}`}>
+                <View style={s.cardHeader}>
+                  <Text style={s.cardClient}>{lt.client_name}{lt.label ? ` — ${lt.label}` : ''}</Text>
+                </View>
+                <Text style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>{(lt.routes || []).length} trecho(s)</Text>
+                {(lt.routes || []).slice(0, 3).map((r: any, i: number) => (
+                  <View key={i} style={s.priceRow}>
+                    <Text style={[s.priceFunc, { flex: 3 }]} numberOfLines={1}>{r.description}</Text>
+                    <Text style={s.priceVal}>{formatCurrency(r.price)}</Text>
+                  </View>
+                ))}
+                {(lt.routes || []).length > 3 && (
+                  <Text style={{ fontSize: 11, color: '#999', marginTop: 4, fontStyle: 'italic' }}>+ {(lt.routes || []).length - 3} outro(s)</Text>
+                )}
+                <View style={s.cardActions}>
+                  <TouchableOpacity style={s.actionBtn} onPress={() => openLogisticsForm(lt)} testID={`logistics-edit-${lt.id}`}>
+                    <Ionicons name="create-outline" size={18} color="#000000" /><Text style={s.actionText}>Editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.actionBtn} onPress={() => handleDuplicateLogistics(lt)} testID={`logistics-duplicate-${lt.id}`}>
+                    <Ionicons name="copy-outline" size={18} color="#000000" /><Text style={s.actionText}>Duplicar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.actionBtn, { borderColor: '#d32f2f' }]} onPress={() => handleDeleteLogistics(lt.id)} testID={`logistics-delete-${lt.id}`}>
                     <Ionicons name="trash-outline" size={18} color="#d32f2f" /><Text style={[s.actionText, { color: '#d32f2f' }]}>Excluir</Text>
                   </TouchableOpacity>
                 </View>
@@ -885,7 +1061,48 @@ export default function BMScreen() {
                       </View>
                     </View>
                   ))}
-                  <Text style={s.calcSubtotal}>Subtotal: {formatCurrency(calcResult.subtotal)}</Text>
+                  <Text style={s.calcSubtotal}>Subtotal Itens: {formatCurrency(calcResult.subtotal)}</Text>
+
+                  {/* ===== Logística ===== */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }}>
+                    <Text style={s.sectionTitle}>Logística ({bmLogisticsItems.length})</Text>
+                    <TouchableOpacity
+                      onPress={openLogisticsPicker}
+                      disabled={logistics.length === 0}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 6,
+                        paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                        backgroundColor: logistics.length === 0 ? '#ccc' : '#000',
+                      }}
+                      testID="bm-add-logistics-btn"
+                    >
+                      <Ionicons name="add-circle" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Adicionar</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {logistics.length === 0 && (
+                    <Text style={{ fontSize: 12, color: '#999', fontStyle: 'italic' }}>
+                      Nenhuma tabela de logística cadastrada. Crie uma na aba "Logística".
+                    </Text>
+                  )}
+                  {bmLogisticsItems.map((li: any, i: number) => (
+                    <View key={i} style={[s.calcItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} testID={`bm-logistics-row-${i}`}>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={s.calcFunc} numberOfLines={2}>{li.description}</Text>
+                        <Text style={s.calcDetail}>
+                          Qtd: {li.quantity} × {formatCurrency(li.unit_price)} = {formatCurrency(li.total)}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => removeBmLogisticsItem(i)} testID={`bm-logistics-remove-${i}`}>
+                        <Ionicons name="close-circle" size={22} color="#d32f2f" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {bmLogisticsItems.length > 0 && (
+                    <Text style={s.calcSubtotal}>
+                      Subtotal Logística: {formatCurrency(bmLogisticsItems.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0))}
+                    </Text>
+                  )}
 
                   <Text style={s.label}>Data do Boletim</Text>
                   <TextInput style={s.input} value={bmForm.data} onChangeText={v => setBmForm({...bmForm, data: v})} placeholder="DD/MM/AAAA" />
@@ -913,23 +1130,31 @@ export default function BMScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  {bmForm.incluirImpostos && (
-                    <>
-                      <Text style={s.label}>Porcentagem de Impostos (%)</Text>
-                      <TextInput
-                        style={s.input}
-                        value={bmForm.impostoPct}
-                        onChangeText={v => setBmForm({...bmForm, impostoPct: v})}
-                        keyboardType="numeric"
-                        placeholder="Ex: 15"
-                      />
-                      <Text style={s.impostoCalcText}>
-                        Impostos: {formatCurrency(calcResult.subtotal * (parseFloat(bmForm.impostoPct) || 0) / 100)}
-                      </Text>
-                      <Text style={s.calcSubtotal}>
-                        Valor Total: {formatCurrency(calcResult.subtotal + calcResult.subtotal * (parseFloat(bmForm.impostoPct) || 0) / 100)}
-                      </Text>
-                    </>
+                  {bmForm.incluirImpostos && (() => {
+                    const itemsSub = calcResult.subtotal || 0;
+                    const logSub = bmLogisticsItems.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
+                    const totalSub = itemsSub + logSub;
+                    const pct = parseFloat(bmForm.impostoPct) || 0;
+                    const imp = totalSub * pct / 100;
+                    return (
+                      <>
+                        <Text style={s.label}>Porcentagem de Impostos (%)</Text>
+                        <TextInput
+                          style={s.input}
+                          value={bmForm.impostoPct}
+                          onChangeText={v => setBmForm({...bmForm, impostoPct: v})}
+                          keyboardType="numeric"
+                          placeholder="Ex: 15"
+                        />
+                        <Text style={s.impostoCalcText}>Impostos: {formatCurrency(imp)}</Text>
+                        <Text style={s.calcSubtotal}>Valor Total: {formatCurrency(totalSub + imp)}</Text>
+                      </>
+                    );
+                  })()}
+                  {!bmForm.incluirImpostos && bmLogisticsItems.length > 0 && (
+                    <Text style={s.calcSubtotal}>
+                      Valor Total: {formatCurrency(calcResult.subtotal + bmLogisticsItems.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0))}
+                    </Text>
                   )}
 
                   <TouchableOpacity style={s.saveBtn} onPress={handleCreateBM}>
@@ -938,7 +1163,7 @@ export default function BMScreen() {
                 </>
               )}
 
-              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); setEditingBMId(null); setAvailableTimesheets([]); setSelectedTimesheets([]); setDataInicio(''); setDataFim(''); setSelectedPriceTableId(''); }}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => { setShowCreate(false); setCalcResult(null); setEditingBMId(null); setAvailableTimesheets([]); setSelectedTimesheets([]); setDataInicio(''); setDataFim(''); setSelectedPriceTableId(''); setBmLogisticsItems([]); }}>
                 <Text style={s.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -1090,8 +1315,7 @@ export default function BMScreen() {
       </Modal>
 
       {/* PRICE TABLE FORM MODAL */}
-      <Modal visible={showPriceForm} animationType="slide" transparent>
-        <View style={s.modalOverlay}>
+      <Modal visible={showPriceForm} animationType="slide" transparent>        <View style={s.modalOverlay}>
           <View style={s.modalContent}>
             <ScrollView>
               <Text style={s.modalTitle}>{editingPriceId ? 'Editar' : 'Nova'} Tabela de Preços</Text>
@@ -1142,6 +1366,164 @@ export default function BMScreen() {
                 <Text style={s.saveBtnText}>Salvar Tabela</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.cancelBtn} onPress={() => setShowPriceForm(false)}>
+                <Text style={s.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* LOGISTICS TABLE FORM MODAL */}
+      <Modal visible={showLogisticsForm} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <View style={s.modalContent}>
+            <ScrollView>
+              <Text style={s.modalTitle}>{editingLogisticsId ? 'Editar' : 'Nova'} Tabela de Logística</Text>
+
+              <Text style={s.label}>Nome do Cliente</Text>
+              <TextInput style={s.input} value={logisticsForm.client_name} onChangeText={v => setLogisticsForm({...logisticsForm, client_name: v})} placeholder="Nome exato do cliente" testID="logistics-form-client" />
+              <Text style={s.label}>Identificação da Tabela (opcional)</Text>
+              <TextInput style={s.input} value={logisticsForm.label} onChangeText={v => setLogisticsForm({...logisticsForm, label: v})} placeholder="Ex: Padrão, SGO-RJ, Contrato A" testID="logistics-form-label" />
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+                <Text style={[s.sectionTitle, { marginTop: 0 }]}>Trechos ({logisticsForm.routes.length})</Text>
+                <TouchableOpacity
+                  onPress={addLogisticsRoute}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#000' }}
+                  testID="logistics-form-add-route"
+                >
+                  <Ionicons name="add" size={16} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Adicionar Trecho</Text>
+                </TouchableOpacity>
+              </View>
+
+              {logisticsForm.routes.map((r: any, i: number) => (
+                <View key={i} style={s.priceFormRow}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={s.priceFormLabel}>Trecho {i + 1}</Text>
+                    <TouchableOpacity onPress={() => removeLogisticsRoute(i)} testID={`logistics-form-remove-${i}`}>
+                      <Ionicons name="trash-outline" size={18} color="#d32f2f" />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={s.priceFormSublabel}>Descrição</Text>
+                  <TextInput
+                    style={[s.priceFormInput, { marginBottom: 8 }]}
+                    value={r.description}
+                    onChangeText={v => updateLogisticsRoute(i, 'description', v)}
+                    placeholder="Ex: Mobilização – SGO, RJ x Macaé x SGO, RJ"
+                    testID={`logistics-form-desc-${i}`}
+                  />
+                  <Text style={s.priceFormSublabel}>Valor por Colaborador (R$)</Text>
+                  <TextInput
+                    style={s.priceFormInput}
+                    value={String(r.price ?? '')}
+                    onChangeText={v => updateLogisticsRoute(i, 'price', v)}
+                    keyboardType="decimal-pad"
+                    placeholder="Ex: 1.885,48"
+                    testID={`logistics-form-price-${i}`}
+                  />
+                </View>
+              ))}
+
+              <TouchableOpacity style={s.saveBtn} onPress={handleSaveLogistics} testID="logistics-form-save">
+                <Text style={s.saveBtnText}>Salvar Tabela</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => setShowLogisticsForm(false)}>
+                <Text style={s.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* LOGISTICS PICKER MODAL (in BM form) */}
+      <Modal visible={showLogisticsPickerModal} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxHeight: '90%' }]}>
+            <ScrollView>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={s.modalTitle}>Adicionar Logística</Text>
+                <TouchableOpacity onPress={() => setShowLogisticsPickerModal(false)} testID="logistics-picker-close">
+                  <Ionicons name="close" size={26} color="#000" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={s.label}>Tabela de Logística</Text>
+              {logistics.length === 0 && (
+                <Text style={{ color: '#999', fontSize: 13, fontStyle: 'italic' }}>Nenhuma tabela cadastrada</Text>
+              )}
+              {logistics.map((lt: any) => (
+                <TouchableOpacity
+                  key={lt.id}
+                  onPress={() => { setLogisticsPickerTableId(lt.id); setLogisticsPickerRouteIdx(-1); }}
+                  testID={`logistics-picker-table-${lt.id}`}
+                  style={{
+                    paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, marginBottom: 6,
+                    backgroundColor: logisticsPickerTableId === lt.id ? '#000' : '#f5f5f5',
+                    borderWidth: 1, borderColor: logisticsPickerTableId === lt.id ? '#000' : '#e0e0e0',
+                  }}
+                >
+                  <Text style={{ color: logisticsPickerTableId === lt.id ? '#fff' : '#000', fontWeight: '600', fontSize: 14 }}>
+                    {lt.client_name}{lt.label ? ` — ${lt.label}` : ''}
+                  </Text>
+                  <Text style={{ color: logisticsPickerTableId === lt.id ? '#ddd' : '#666', fontSize: 11, marginTop: 2 }}>
+                    {(lt.routes || []).length} trecho(s)
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              {logisticsPickerTableId ? (
+                <>
+                  <Text style={s.label}>Trecho</Text>
+                  {((logistics.find((lt: any) => lt.id === logisticsPickerTableId) || {}).routes || []).map((r: any, i: number) => (
+                    <TouchableOpacity
+                      key={i}
+                      onPress={() => setLogisticsPickerRouteIdx(i)}
+                      testID={`logistics-picker-route-${i}`}
+                      style={{
+                        paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, marginBottom: 6,
+                        backgroundColor: logisticsPickerRouteIdx === i ? '#000' : '#f5f5f5',
+                        borderWidth: 1, borderColor: logisticsPickerRouteIdx === i ? '#000' : '#e0e0e0',
+                      }}
+                    >
+                      <Text style={{ color: logisticsPickerRouteIdx === i ? '#fff' : '#000', fontWeight: '600', fontSize: 13 }}>
+                        {r.description}
+                      </Text>
+                      <Text style={{ color: logisticsPickerRouteIdx === i ? '#ddd' : '#666', fontSize: 12, marginTop: 2 }}>
+                        {formatCurrency(r.price)} / colaborador
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              ) : null}
+
+              {logisticsPickerRouteIdx >= 0 && (() => {
+                const table = logistics.find((lt: any) => lt.id === logisticsPickerTableId);
+                const route = table?.routes?.[logisticsPickerRouteIdx];
+                const unit = Number(route?.price) || 0;
+                const qty = parseInt(logisticsPickerQty, 10) || 0;
+                return (
+                  <>
+                    <Text style={s.label}>Quantidade de Colaboradores</Text>
+                    <TextInput
+                      style={s.input}
+                      value={logisticsPickerQty}
+                      onChangeText={setLogisticsPickerQty}
+                      keyboardType="numeric"
+                      placeholder="1"
+                      testID="logistics-picker-qty"
+                    />
+                    <Text style={s.calcSubtotal}>
+                      Total: {formatCurrency(unit * qty)}
+                    </Text>
+                  </>
+                );
+              })()}
+
+              <TouchableOpacity style={s.saveBtn} onPress={confirmAddLogistics} testID="logistics-picker-confirm">
+                <Text style={s.saveBtnText}>Adicionar ao Boletim</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => setShowLogisticsPickerModal(false)}>
                 <Text style={s.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
             </ScrollView>

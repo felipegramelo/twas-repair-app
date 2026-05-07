@@ -80,3 +80,23 @@ backend/
 ## Backlog (P1/P2)
 - [P2] Refatorar frontend/app/supervisor/edit-report.tsx (>1000 linhas) em componentes menores
 - [P2] Modo Offline com AsyncStorage + fila de sincronizacao
+
+## Logistica no Boletim de Medicao (2026-05-07)
+**Nova aba "Logistica"** ao lado de Tabela de Precos e Feriados:
+- CRUD por cliente de tabelas de logistica (cada tabela tem varios trechos com descricao + valor por colaborador)
+- Endpoints backend: `GET/POST/PUT/DELETE /api/logistics-prices` (`backend/routes/boletim.py`)
+- Persistencia: colecao `logistics_prices` no MongoDB
+- Botao "Duplicar" disponivel por tabela
+
+**Integracao no formulario de BM:**
+- Secao "Logistica" aparece apos os Itens Calculados
+- Botao "Adicionar" abre modal que permite selecionar tabela -> trecho -> quantidade de colaboradores
+- Total por trecho = valor_por_colaborador x quantidade
+- Multiplos trechos podem ser adicionados (ex: mobilizacao + desmobilizacao)
+- Itens de logistica ficam persistidos no BM (campo `logistics_items`) e reaparecem ao editar
+- Subtotal e Valor Total recalculam automaticamente incluindo logistica
+
+**PDF do Boletim:**
+- Trechos de logistica aparecem como linhas adicionais no final da tabela principal (antes de Subtotal)
+- Formato: `[descricao] | Evento | valor_und | qtd | total`
+- Subtotal, Impostos e Valor Total continuam no rodape mostrando o acumulado final

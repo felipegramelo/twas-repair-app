@@ -192,18 +192,55 @@ export default function BMScreen() {
       incluirImpostos: hasImpostos,
       impostoPct: pct,
     });
+    // Show saved values immediately so the user sees something while recalculating
     setCalcResult({ items: bm.items, subtotal: bm.subtotal, has_price_table: true });
     // Load saved logistics items
     setBmLogisticsItems(bm.logistics_items || []);
-    // Load timesheets for the OS
+
+    // Extract dataInicio/dataFim from stored "periodo" (format: "DD/MM/AAAA a DD/MM/AAAA")
+    let inicio = '';
+    let fim = '';
+    const periodoMatch = (bm.periodo || '').match(/(\d{2}\/\d{2}\/\d{4})\s*a\s*(\d{2}\/\d{2}\/\d{4})/);
+    if (periodoMatch) {
+      inicio = periodoMatch[1];
+      fim = periodoMatch[2];
+    }
+    setDataInicio(inicio);
+    setDataFim(fim);
+
+    setShowCreate(true);
+
+    // Load timesheets for the OS, then auto-recalculate so the user always sees
+    // an up-to-date calculation (which may differ from the saved items if the
+    // calculation rules have changed since the BM was created).
     setLoadingTimesheets(true);
     try {
       const ts = await bmAPI.getTimesheets(bm.os_id);
       setAvailableTimesheets(ts);
-      setSelectedTimesheets(ts.map((t: any) => t.id));
+      const tsIds = ts.map((t: any) => t.id);
+      setSelectedTimesheets(tsIds);
+
+      // Auto-recalculate in background (non-blocking — user can stop and adjust)
+      if (tsIds.length > 0) {
+        try {
+          setCalcLoading(true);
+          const calcMode = 'onshore'; // default; user can toggle
+          const result = await bmAPI.calculate(bm.os_id, {
+            timesheet_ids: tsIds,
+            data_inicio: inicio,
+            data_fim: fim,
+            calc_mode: calcMode,
+            price_table_id: bm.price_table_id || undefined,
+          });
+          setCalcResult(result);
+        } catch {
+          // Keep the saved calcResult as fallback — no error popup to avoid noise
+        } finally {
+          setCalcLoading(false);
+        }
+      }
     } catch {}
     finally { setLoadingTimesheets(false); }
-    setShowCreate(true);
   };
 
   const handleCreateBM = async () => {

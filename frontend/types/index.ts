@@ -38,6 +38,14 @@ export interface ProposalPriceRow {
   total?: number;
 }
 
+export interface ProposalLogisticsRow {
+  id: string;
+  description?: string;
+  unit_price?: number;
+  quantity?: number;
+  total?: number;
+}
+
 export interface Proposal {
   id: string;
   numero_proposta: string;
@@ -54,6 +62,8 @@ export interface Proposal {
   show_price_table?: boolean;
   price_table_layout?: 'rates' | 'custom';
   price_table_rows?: ProposalPriceRow[];
+  show_logistics_table?: boolean;
+  logistics_rows?: ProposalLogisticsRow[];
   status?: string;
   po_number?: string;
   os_id?: string;

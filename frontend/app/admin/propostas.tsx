@@ -8,10 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sharing from 'expo-sharing';
-import { proposalAPI, clientPriceAPI } from '../../services/api';
+import { proposalAPI, clientPriceAPI, logisticsPriceAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
-import { Proposal, ProposalItem, ProposalSubsection, ProposalPriceRow } from '../../types';
+import { Proposal, ProposalItem, ProposalSubsection, ProposalPriceRow, ProposalLogisticsRow } from '../../types';
 
 const MONTHS = [
   { value: 0, label: 'Todos' }, { value: 1, label: 'Jan' }, { value: 2, label: 'Fev' }, { value: 3, label: 'Mar' },
@@ -91,6 +91,12 @@ export default function PropostasScreen() {
   const [showPriceTableImportModal, setShowPriceTableImportModal] = useState(false);
   const [availablePriceTables, setAvailablePriceTables] = useState<any[]>([]);
 
+  // Optional Logistics Table on Proposal
+  const [showLogTable, setShowLogTable] = useState(false);
+  const [logTableRows, setLogTableRows] = useState<ProposalLogisticsRow[]>([]);
+  const [showLogImportModal, setShowLogImportModal] = useState(false);
+  const [availableLogTables, setAvailableLogTables] = useState<any[]>([]);
+
   useEffect(() => { loadProposals(); loadToken(); }, [filterMonth, filterYear]);
 
   const loadToken = async () => {
@@ -122,6 +128,7 @@ export default function PropostasScreen() {
     setTermosGerais(DEFAULT_TERMOS); setShowTermos(true); setPhotos([]);
     setExpandedSection(null);
     setShowPriceTable(false); setPriceTableLayout('rates'); setPriceTableRows([]);
+    setShowLogTable(false); setLogTableRows([]);
   };
 
   const openAddModal = () => { resetForm(); setModalVisible(true); };
@@ -142,6 +149,8 @@ export default function PropostasScreen() {
     setShowPriceTable(!!proposal.show_price_table);
     setPriceTableLayout((proposal.price_table_layout as 'rates' | 'custom') || 'rates');
     setPriceTableRows(proposal.price_table_rows || []);
+    setShowLogTable(!!proposal.show_logistics_table);
+    setLogTableRows(proposal.logistics_rows || []);
     try {
       const p = await proposalAPI.getPhotos(proposal.id);
       setPhotos(p);
@@ -253,6 +262,57 @@ export default function PropostasScreen() {
     setShowPriceTable(true);
   };
 
+  // === Logistics Table on Proposal ===
+  const newLogRow = (): ProposalLogisticsRow => ({
+    id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+    description: '', unit_price: 0, quantity: 0, total: 0,
+  });
+
+  const addLogRow = () => setLogTableRows([...logTableRows, newLogRow()]);
+
+  const updateLogRow = (idx: number, field: keyof ProposalLogisticsRow, value: string | number) => {
+    const updated = [...logTableRows];
+    let next: any = value;
+    const numericFields: (keyof ProposalLogisticsRow)[] = ['unit_price', 'quantity', 'total'];
+    if (numericFields.includes(field) && typeof value === 'string') {
+      const cleaned = value.replace(/\./g, '').replace(',', '.');
+      next = parseFloat(cleaned);
+      if (isNaN(next)) next = 0;
+    }
+    (updated[idx] as any)[field] = next;
+    if (field === 'unit_price' || field === 'quantity') {
+      const u = Number(updated[idx].unit_price) || 0;
+      const q = Number(updated[idx].quantity) || 0;
+      updated[idx].total = Math.round(u * q * 100) / 100;
+    }
+    setLogTableRows(updated);
+  };
+
+  const removeLogRow = (idx: number) => setLogTableRows(logTableRows.filter((_, i) => i !== idx));
+
+  const openImportLogTable = async () => {
+    try {
+      const data = await logisticsPriceAPI.getAll();
+      setAvailableLogTables(data || []);
+      setShowLogImportModal(true);
+    } catch {
+      showMsg('Erro ao carregar tabelas de logística');
+    }
+  };
+
+  const handleImportLogTable = (table: any) => {
+    const imported: ProposalLogisticsRow[] = (table.routes || []).map((r: any) => ({
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      description: r.description || '',
+      unit_price: Number(r.price) || 0,
+      quantity: 1,
+      total: Number(r.price) || 0,
+    }));
+    setLogTableRows(imported);
+    setShowLogImportModal(false);
+    setShowLogTable(true);
+  };
+
   // === Photo Upload ===
   const triggerUpload = (sectionKey: string, sectionIndex: number) => {
     currentUploadKey.current = sectionKey;
@@ -324,6 +384,14 @@ export default function PropostasScreen() {
           unit: r.unit || '',
           quantity: Number(r.quantity) || 0,
           unit_value: Number(r.unit_value) || 0,
+          total: Number(r.total) || 0,
+        })),
+        show_logistics_table: showLogTable,
+        logistics_rows: logTableRows.map(r => ({
+          id: r.id || Date.now().toString() + Math.random().toString(36).slice(2, 6),
+          description: r.description || '',
+          unit_price: Number(r.unit_price) || 0,
+          quantity: Number(r.quantity) || 0,
           total: Number(r.total) || 0,
         })),
       };
@@ -888,6 +956,97 @@ export default function PropostasScreen() {
                 )}
               </View>
 
+              {/* === TABELA DE LOGÍSTICA (OPCIONAL) === */}
+              <View style={{ marginTop: 16, padding: 12, backgroundColor: '#fafafa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' }}>
+                <TouchableOpacity
+                  onPress={() => setShowLogTable(!showLogTable)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                  testID="proposal-toggle-log-table"
+                >
+                  <View style={{
+                    width: 22, height: 22, borderRadius: 4, borderWidth: 2,
+                    borderColor: showLogTable ? '#000' : '#999',
+                    backgroundColor: showLogTable ? '#000' : 'transparent',
+                    justifyContent: 'center', alignItems: 'center',
+                  }}>
+                    {showLogTable && <Ionicons name="checkmark" size={16} color="#fff" />}
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#000', flex: 1 }}>
+                    Incluir tabela de logística na proposta
+                  </Text>
+                </TouchableOpacity>
+
+                {showLogTable && (
+                  <View style={{ marginTop: 14 }}>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                      <TouchableOpacity
+                        onPress={openImportLogTable}
+                        style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#000', backgroundColor: '#fff' }}
+                        testID="log-import-existing"
+                      >
+                        <Ionicons name="download-outline" size={16} color="#000" />
+                        <Text style={{ color: '#000', fontWeight: '600', fontSize: 12 }}>Importar tabela existente</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={addLogRow}
+                        style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, backgroundColor: '#000' }}
+                        testID="log-add-row"
+                      >
+                        <Ionicons name="add" size={16} color="#fff" />
+                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>Adicionar trecho</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {logTableRows.length === 0 ? (
+                      <Text style={{ fontSize: 12, color: '#999', fontStyle: 'italic', textAlign: 'center', paddingVertical: 12 }}>
+                        Nenhum trecho. Importe uma tabela existente ou adicione manualmente.
+                      </Text>
+                    ) : (
+                      logTableRows.map((r, i) => (
+                        <View key={r.id} style={{ marginBottom: 10, padding: 10, backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '600', color: '#666' }}>Trecho {i + 1}</Text>
+                            <TouchableOpacity onPress={() => removeLogRow(i)} testID={`log-remove-${i}`}>
+                              <Ionicons name="trash-outline" size={18} color="#d32f2f" />
+                            </TouchableOpacity>
+                          </View>
+                          <TextInput
+                            style={s.input}
+                            placeholder="Descrição (ex: Mobilização – SGO, RJ x Macaé x SGO, RJ)"
+                            value={r.description || ''}
+                            onChangeText={v => updateLogRow(i, 'description', v)}
+                            testID={`log-desc-${i}`}
+                          />
+                          <View style={{ flexDirection: 'row', gap: 6 }}>
+                            <TextInput
+                              style={[s.input, { flex: 1 }]}
+                              placeholder="Valor / Colab. (R$)"
+                              value={String(r.unit_price || '')}
+                              onChangeText={v => updateLogRow(i, 'unit_price', v)}
+                              keyboardType="decimal-pad"
+                              testID={`log-unit-${i}`}
+                            />
+                            <TextInput
+                              style={[s.input, { flex: 1 }]}
+                              placeholder="Qtd Colab."
+                              value={String(r.quantity || '')}
+                              onChangeText={v => updateLogRow(i, 'quantity', v)}
+                              keyboardType="numeric"
+                              testID={`log-qty-${i}`}
+                            />
+                            <View style={[s.input, { flex: 1, justifyContent: 'center' }]}>
+                              <Text style={{ color: '#000', fontWeight: '700' }}>
+                                Total: {formatCurrency(Number(r.total) || 0)}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </View>
+                )}
+              </View>
+
               {/* === TERMOS GERAIS === */}
               <TouchableOpacity style={s.termosToggle} onPress={() => setShowTermos(!showTermos)} data-testid="termos-toggle">
                 <View style={[s.sectionNumBadge, { backgroundColor: '#546E7A' }]}><Text style={s.sectionNumText}>{termosNumber}</Text></View>
@@ -948,6 +1107,40 @@ export default function PropostasScreen() {
                   >
                     <Text style={{ fontWeight: '700', fontSize: 14, color: '#000' }}>{t.client_name}{t.label ? ` — ${t.label}` : ''}</Text>
                     <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{(t.prices || []).length} função(ões)</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Import Existing Logistics Table Modal */}
+      <Modal visible={showLogImportModal} animationType="fade" transparent onRequestClose={() => setShowLogImportModal(false)}>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxWidth: 500, alignSelf: 'center', maxHeight: '85%' }]}>
+            <ScrollView>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={s.modalTitle}>Importar Tabela de Logística</Text>
+                <TouchableOpacity onPress={() => setShowLogImportModal(false)} testID="log-import-close">
+                  <Ionicons name="close" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
+              <Text style={s.hintText}>Selecione uma tabela de logística cadastrada para preencher os trechos automaticamente.</Text>
+              {availableLogTables.length === 0 ? (
+                <Text style={{ color: '#999', fontStyle: 'italic', textAlign: 'center', paddingVertical: 24 }}>
+                  Nenhuma tabela cadastrada. Cadastre em "Boletim de Medição → Logística".
+                </Text>
+              ) : (
+                availableLogTables.map((t: any) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    onPress={() => handleImportLogTable(t)}
+                    style={{ marginVertical: 4, padding: 12, borderRadius: 8, backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#e0e0e0' }}
+                    testID={`log-import-pick-${t.id}`}
+                  >
+                    <Text style={{ fontWeight: '700', fontSize: 14, color: '#000' }}>{t.client_name}{t.label ? ` — ${t.label}` : ''}</Text>
+                    <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{(t.routes || []).length} trecho(s)</Text>
                   </TouchableOpacity>
                 ))
               )}

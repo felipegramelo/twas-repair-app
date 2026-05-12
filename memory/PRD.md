@@ -81,6 +81,17 @@ backend/
 - [P2] Refatorar frontend/app/supervisor/edit-report.tsx (>1000 linhas) em componentes menores
 - [P2] Modo Offline com AsyncStorage + fila de sincronizacao
 
+## Tabela de Logística Opcional na Proposta (2026-05-12)
+**Checkbox "Incluir tabela de logística"** no formulário da Proposta:
+- Layout fixo: Descrição + Valor/Colaborador + Qtd + Total (auto-calculado)
+- Botão "Importar tabela existente" busca tabelas de logística do BM (por cliente)
+- Botão "Adicionar trecho" para digitar manualmente
+- Cada trecho editável e removível individualmente
+- Persistência: campos `show_logistics_table`, `logistics_rows` no documento da proposta
+- PDF: nova seção "TABELA DE LOGÍSTICA" com rodapé "TOTAL LOGÍSTICA"
+- Pode ser combinado com a tabela de preços (ambos aparecem se marcados)
+- Arquivos tocados: `backend/routes/proposals.py`, `frontend/app/admin/propostas.tsx`, `frontend/types/index.ts`
+
 ## Tabela de Preços Opcional na Proposta (2026-05-12)
 **Checkbox "Incluir tabela de preços"** no formulário da Proposta:
 - Quando marcada, o admin pode escolher um dos dois formatos:

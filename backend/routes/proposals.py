@@ -60,6 +60,17 @@ class ProposalPriceRowModel(BaseModel):
     unit_value: Optional[float] = 0.0
     total: Optional[float] = 0.0
 
+class ProposalLogisticsRowModel(BaseModel):
+    """One logistics route row attached to a proposal.
+
+    Layout: description + unit_price (per collaborator) + quantity + total.
+    """
+    id: str = ""
+    description: str = ""
+    unit_price: Optional[float] = 0.0
+    quantity: Optional[int] = 0
+    total: Optional[float] = 0.0
+
 class ProposalCreate(BaseModel):
     empresa: str
     contato: str
@@ -75,6 +86,9 @@ class ProposalCreate(BaseModel):
     show_price_table: bool = False
     price_table_layout: str = "rates"  # "rates" or "custom"
     price_table_rows: List[ProposalPriceRowModel] = []
+    # Optional logistics table attached to the proposal
+    show_logistics_table: bool = False
+    logistics_rows: List[ProposalLogisticsRowModel] = []
 
 class ProposalUpdate(BaseModel):
     empresa: Optional[str] = None
@@ -90,6 +104,8 @@ class ProposalUpdate(BaseModel):
     show_price_table: Optional[bool] = None
     price_table_layout: Optional[str] = None
     price_table_rows: Optional[List[ProposalPriceRowModel]] = None
+    show_logistics_table: Optional[bool] = None
+    logistics_rows: Optional[List[ProposalLogisticsRowModel]] = None
 
 async def generate_proposal_number() -> str:
     """Generate auto-numbering: YYMM - Seq (seq is global for the year, resets on new year)."""
@@ -142,6 +158,8 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "show_price_table": data.show_price_table,
         "price_table_layout": data.price_table_layout or "rates",
         "price_table_rows": [r.model_dump() for r in (data.price_table_rows or [])],
+        "show_logistics_table": data.show_logistics_table,
+        "logistics_rows": [r.model_dump() for r in (data.logistics_rows or [])],
         "status": "pendente",
         "po_number": "",
         "os_id": "",
@@ -167,6 +185,8 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "show_price_table": data.show_price_table,
         "price_table_layout": data.price_table_layout or "rates",
         "price_table_rows": [r.model_dump() for r in (data.price_table_rows or [])],
+        "show_logistics_table": data.show_logistics_table,
+        "logistics_rows": [r.model_dump() for r in (data.logistics_rows or [])],
         "status": "pendente",
         "po_number": "",
         "os_id": "",
@@ -193,6 +213,8 @@ def serialize_proposal(p):
         "show_price_table": p.get("show_price_table", False),
         "price_table_layout": p.get("price_table_layout", "rates"),
         "price_table_rows": p.get("price_table_rows", []),
+        "show_logistics_table": p.get("show_logistics_table", False),
+        "logistics_rows": p.get("logistics_rows", []),
         "status": p.get("status", "pendente"),
         "po_number": p.get("po_number", ""),
         "os_id": p.get("os_id", ""),
@@ -280,6 +302,10 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: 
         update_dict["price_table_layout"] = data.price_table_layout
     if data.price_table_rows is not None:
         update_dict["price_table_rows"] = [r.model_dump() for r in data.price_table_rows]
+    if data.show_logistics_table is not None:
+        update_dict["show_logistics_table"] = data.show_logistics_table
+    if data.logistics_rows is not None:
+        update_dict["logistics_rows"] = [r.model_dump() for r in data.logistics_rows]
     await db.propostas.update_one({"_id": ObjectId(proposal_id)}, {"$set": update_dict})
     updated = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
     return serialize_proposal(updated)
@@ -894,6 +920,65 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F8F8')]),
             ]))
             elements.append(pt_table)
+        section_num += 1
+
+    # === OPTIONAL LOGISTICS TABLE ===
+    show_lt = proposal.get("show_logistics_table", False)
+    lt_rows = proposal.get("logistics_rows", []) or []
+    if show_lt and lt_rows:
+        elements.append(Spacer(1, 0.5 * cm))
+        elements.append(Paragraph(f"<b>{section_num}. TABELA DE LOG\u00cdSTICA</b>", section_style))
+        td_cell = ParagraphStyle('LTCell', fontSize=8, leading=10, alignment=TA_LEFT, textColor=colors.black)
+        td_right = ParagraphStyle('LTRight', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=colors.black)
+        td_center = ParagraphStyle('LTCenter', fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.black)
+        th_style = ParagraphStyle('LTH', fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.white, fontName='Helvetica-Bold')
+
+        lt_data = [[
+            Paragraph("Descri\u00e7\u00e3o", th_style),
+            Paragraph("Valor / Colab.", th_style),
+            Paragraph("Qtd Colab.", th_style),
+            Paragraph("Total", th_style),
+        ]]
+        lt_grand = 0.0
+        for r in lt_rows:
+            desc = r.get("description", "")
+            unit_price = float(r.get("unit_price", 0) or 0)
+            qty = int(r.get("quantity", 0) or 0)
+            total = r.get("total")
+            if total is None or total == 0:
+                total = unit_price * qty
+            total = float(total or 0)
+            lt_grand += total
+            lt_data.append([
+                Paragraph(html_mod.escape(desc), td_cell),
+                Paragraph(format_currency(unit_price), td_right),
+                Paragraph(str(qty), td_center),
+                Paragraph(format_currency(total), td_right),
+            ])
+        col_w_lt = [content_width * 0.50, content_width * 0.20, content_width * 0.12, content_width * 0.18]
+        lt_table = Table(lt_data, colWidths=col_w_lt, repeatRows=1)
+        lt_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#777777')),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F8F8')]),
+        ]))
+        elements.append(lt_table)
+        elements.append(Spacer(1, 0.2 * cm))
+        lt_total_table = Table([[
+            Paragraph("<b>TOTAL LOG\u00cdSTICA</b>", ParagraphStyle('LTTotalLabel', fontSize=9, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+            Paragraph(f"<b>{format_currency(lt_grand)}</b>", ParagraphStyle('LTTotalVal', fontSize=9, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+        ]], colWidths=[content_width * 0.82, content_width * 0.18])
+        lt_total_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#1a237e')),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#E8EAF6')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(lt_total_table)
         section_num += 1
 
     # === TERMOS GERAIS ===

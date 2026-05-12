@@ -81,6 +81,19 @@ backend/
 - [P2] Refatorar frontend/app/supervisor/edit-report.tsx (>1000 linhas) em componentes menores
 - [P2] Modo Offline com AsyncStorage + fila de sincronizacao
 
+## Tabela de Preços Opcional na Proposta (2026-05-12)
+**Checkbox "Incluir tabela de preços"** no formulário da Proposta:
+- Quando marcada, o admin pode escolher um dos dois formatos:
+  - **rates**: Função/Cargo + Day Rate + Night Rate (igual à tabela de preços do BM)
+  - **custom**: Descrição + Unidade + Quantidade + Valor Unitário + Total (auto-calculado)
+- Botão "Importar tabela existente" permite trazer linhas de uma tabela já cadastrada em BM (apenas formato rates)
+- Botão "Adicionar linha" para digitar manualmente
+- Cada linha pode ser editada ou removida
+- Persistência: campos `show_price_table`, `price_table_layout`, `price_table_rows` no documento da proposta
+- PDF da proposta: nova seção "TABELA DE PREÇOS" aparece após o "VALOR TOTAL" e antes dos Termos, apenas quando o checkbox estiver marcado
+- Layout custom no PDF exibe linha extra "TOTAL TABELA" com a soma dos totais
+- Arquivos tocados: `backend/routes/proposals.py`, `frontend/app/admin/propostas.tsx`, `frontend/types/index.ts`
+
 ## Logistica no Boletim de Medicao (2026-05-07)
 **Nova aba "Logistica"** ao lado de Tabela de Precos e Feriados:
 - CRUD por cliente de tabelas de logistica (cada tabela tem varios trechos com descricao + valor por colaborador)

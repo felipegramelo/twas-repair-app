@@ -24,6 +24,20 @@ export interface ProposalItem {
   subsections?: ProposalSubsection[];
 }
 
+export interface ProposalPriceRow {
+  id: string;
+  // rates layout
+  function_name?: string;
+  day_rate?: number;
+  night_rate?: number;
+  // custom layout
+  description?: string;
+  unit?: string;
+  quantity?: number;
+  unit_value?: number;
+  total?: number;
+}
+
 export interface Proposal {
   id: string;
   numero_proposta: string;
@@ -37,6 +51,9 @@ export interface Proposal {
   itens: ProposalItem[];
   termos_gerais?: string;
   observacoes?: string;
+  show_price_table?: boolean;
+  price_table_layout?: 'rates' | 'custom';
+  price_table_rows?: ProposalPriceRow[];
   status?: string;
   po_number?: string;
   os_id?: string;

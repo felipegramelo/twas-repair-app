@@ -41,6 +41,25 @@ class ProposalItemModel(BaseModel):
     images: Optional[List[str]] = []
     subsections: Optional[List[ProposalSubsectionModel]] = []
 
+class ProposalPriceRowModel(BaseModel):
+    """One row in the optional price table attached to a proposal.
+
+    Supports two layouts (controlled by `price_table_layout` on the proposal):
+      - "rates":  uses function_name + day_rate + night_rate
+      - "custom": uses description + unit + quantity + unit_value + total
+    """
+    id: str = ""
+    # rates layout
+    function_name: str = ""
+    day_rate: Optional[float] = 0.0
+    night_rate: Optional[float] = 0.0
+    # custom layout
+    description: str = ""
+    unit: str = ""
+    quantity: Optional[float] = 0.0
+    unit_value: Optional[float] = 0.0
+    total: Optional[float] = 0.0
+
 class ProposalCreate(BaseModel):
     empresa: str
     contato: str
@@ -52,6 +71,10 @@ class ProposalCreate(BaseModel):
     itens: List[ProposalItemModel] = []
     termos_gerais: str = ""
     observacoes: str = ""
+    # Optional price table attached to the proposal
+    show_price_table: bool = False
+    price_table_layout: str = "rates"  # "rates" or "custom"
+    price_table_rows: List[ProposalPriceRowModel] = []
 
 class ProposalUpdate(BaseModel):
     empresa: Optional[str] = None
@@ -64,6 +87,9 @@ class ProposalUpdate(BaseModel):
     itens: Optional[List[ProposalItemModel]] = None
     termos_gerais: Optional[str] = None
     observacoes: Optional[str] = None
+    show_price_table: Optional[bool] = None
+    price_table_layout: Optional[str] = None
+    price_table_rows: Optional[List[ProposalPriceRowModel]] = None
 
 async def generate_proposal_number() -> str:
     """Generate auto-numbering: YYMM - Seq (seq is global for the year, resets on new year)."""
@@ -113,6 +139,9 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "itens": itens,
         "termos_gerais": data.termos_gerais,
         "observacoes": data.observacoes,
+        "show_price_table": data.show_price_table,
+        "price_table_layout": data.price_table_layout or "rates",
+        "price_table_rows": [r.model_dump() for r in (data.price_table_rows or [])],
         "status": "pendente",
         "po_number": "",
         "os_id": "",
@@ -135,6 +164,9 @@ async def create_proposal(data: ProposalCreate, current_user: Dict[str, Any] = D
         "itens": itens,
         "termos_gerais": data.termos_gerais,
         "observacoes": data.observacoes,
+        "show_price_table": data.show_price_table,
+        "price_table_layout": data.price_table_layout or "rates",
+        "price_table_rows": [r.model_dump() for r in (data.price_table_rows or [])],
         "status": "pendente",
         "po_number": "",
         "os_id": "",
@@ -158,6 +190,9 @@ def serialize_proposal(p):
         "itens": p.get("itens", []),
         "termos_gerais": p.get("termos_gerais", ""),
         "observacoes": p.get("observacoes", ""),
+        "show_price_table": p.get("show_price_table", False),
+        "price_table_layout": p.get("price_table_layout", "rates"),
+        "price_table_rows": p.get("price_table_rows", []),
         "status": p.get("status", "pendente"),
         "po_number": p.get("po_number", ""),
         "os_id": p.get("os_id", ""),
@@ -239,6 +274,12 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, current_user: 
                 "subsections": subs,
             })
         update_dict["itens"] = itens
+    if data.show_price_table is not None:
+        update_dict["show_price_table"] = data.show_price_table
+    if data.price_table_layout is not None:
+        update_dict["price_table_layout"] = data.price_table_layout
+    if data.price_table_rows is not None:
+        update_dict["price_table_rows"] = [r.model_dump() for r in data.price_table_rows]
     await db.propostas.update_one({"_id": ObjectId(proposal_id)}, {"$set": update_dict})
     updated = await db.propostas.find_one({"_id": ObjectId(proposal_id)})
     return serialize_proposal(updated)
@@ -756,6 +797,104 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
             ('RIGHTPADDING', (0, 0), (-1, -1), 8),
         ]))
         elements.append(total_table)
+
+    # === OPTIONAL PRICE TABLE (when admin checked "Incluir tabela de preços") ===
+    show_pt = proposal.get("show_price_table", False)
+    pt_rows = proposal.get("price_table_rows", []) or []
+    pt_layout = (proposal.get("price_table_layout") or "rates").lower()
+    if show_pt and pt_rows:
+        elements.append(Spacer(1, 0.5 * cm))
+        elements.append(Paragraph(f"<b>{section_num}. TABELA DE PRE\u00c7OS</b>", section_style))
+        td_cell = ParagraphStyle('PTCell', fontSize=8, leading=10, alignment=TA_LEFT, textColor=colors.black)
+        td_right = ParagraphStyle('PTRight', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=colors.black)
+        td_center = ParagraphStyle('PTCenter', fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.black)
+        th_style = ParagraphStyle('PTH', fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.white, fontName='Helvetica-Bold')
+
+        if pt_layout == "custom":
+            pt_data = [[
+                Paragraph("Descri\u00e7\u00e3o", th_style),
+                Paragraph("Unidade", th_style),
+                Paragraph("Qtd", th_style),
+                Paragraph("Valor Und.", th_style),
+                Paragraph("Total", th_style),
+            ]]
+            grand_total = 0.0
+            for r in pt_rows:
+                desc = r.get("description", "") or r.get("function_name", "")
+                unit = r.get("unit", "")
+                qty = float(r.get("quantity", 0) or 0)
+                unit_val = float(r.get("unit_value", 0) or 0)
+                total = r.get("total")
+                if total is None or total == 0:
+                    total = qty * unit_val
+                total = float(total or 0)
+                grand_total += total
+                qty_str = (f"{qty:.2f}").rstrip("0").rstrip(".") if qty else "0"
+                pt_data.append([
+                    Paragraph(html_mod.escape(desc), td_cell),
+                    Paragraph(html_mod.escape(unit), td_center),
+                    Paragraph(qty_str, td_center),
+                    Paragraph(format_currency(unit_val), td_right),
+                    Paragraph(format_currency(total), td_right),
+                ])
+            col_w = [
+                content_width * 0.42,
+                content_width * 0.12,
+                content_width * 0.10,
+                content_width * 0.18,
+                content_width * 0.18,
+            ]
+            pt_table = Table(pt_data, colWidths=col_w, repeatRows=1)
+            pt_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#777777')),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F8F8')]),
+            ]))
+            elements.append(pt_table)
+            elements.append(Spacer(1, 0.2 * cm))
+            total_pt_table = Table([[
+                Paragraph("<b>TOTAL TABELA</b>", ParagraphStyle('PTTotalLabel', fontSize=9, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+                Paragraph(f"<b>{format_currency(grand_total)}</b>", ParagraphStyle('PTTotalVal', fontSize=9, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+            ]], colWidths=[content_width * 0.82, content_width * 0.18])
+            total_pt_table.setStyle(TableStyle([
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#1a237e')),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#E8EAF6')),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ]))
+            elements.append(total_pt_table)
+        else:
+            # "rates" layout: Function | Day Rate | Night Rate
+            pt_data = [[
+                Paragraph("Fun\u00e7\u00e3o / Cargo", th_style),
+                Paragraph("Day Rate", th_style),
+                Paragraph("Night Rate", th_style),
+            ]]
+            for r in pt_rows:
+                fn = r.get("function_name", "") or r.get("description", "")
+                day = float(r.get("day_rate", 0) or 0)
+                night = float(r.get("night_rate", 0) or 0)
+                pt_data.append([
+                    Paragraph(html_mod.escape(fn), td_cell),
+                    Paragraph(format_currency(day), td_right),
+                    Paragraph(format_currency(night), td_right),
+                ])
+            col_w = [content_width * 0.50, content_width * 0.25, content_width * 0.25]
+            pt_table = Table(pt_data, colWidths=col_w, repeatRows=1)
+            pt_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#777777')),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F8F8')]),
+            ]))
+            elements.append(pt_table)
+        section_num += 1
 
     # === TERMOS GERAIS ===
     termos = proposal.get("termos_gerais", "")

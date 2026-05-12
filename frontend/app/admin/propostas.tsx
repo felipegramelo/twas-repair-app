@@ -8,10 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sharing from 'expo-sharing';
-import { proposalAPI } from '../../services/api';
+import { proposalAPI, clientPriceAPI } from '../../services/api';
 import { BACKEND_URL } from '../../services/config';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
-import { Proposal, ProposalItem, ProposalSubsection } from '../../types';
+import { Proposal, ProposalItem, ProposalSubsection, ProposalPriceRow } from '../../types';
 
 const MONTHS = [
   { value: 0, label: 'Todos' }, { value: 1, label: 'Jan' }, { value: 2, label: 'Fev' }, { value: 3, label: 'Mar' },
@@ -84,6 +84,13 @@ export default function PropostasScreen() {
   const [showTermos, setShowTermos] = useState(true);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
+  // Optional Price Table on Proposal
+  const [showPriceTable, setShowPriceTable] = useState(false);
+  const [priceTableLayout, setPriceTableLayout] = useState<'rates' | 'custom'>('rates');
+  const [priceTableRows, setPriceTableRows] = useState<ProposalPriceRow[]>([]);
+  const [showPriceTableImportModal, setShowPriceTableImportModal] = useState(false);
+  const [availablePriceTables, setAvailablePriceTables] = useState<any[]>([]);
+
   useEffect(() => { loadProposals(); loadToken(); }, [filterMonth, filterYear]);
 
   const loadToken = async () => {
@@ -114,6 +121,7 @@ export default function PropostasScreen() {
     setEquipamento(''); setServico(''); setObservacoes(''); setItens([]); setEditingProposal(null);
     setTermosGerais(DEFAULT_TERMOS); setShowTermos(true); setPhotos([]);
     setExpandedSection(null);
+    setShowPriceTable(false); setPriceTableLayout('rates'); setPriceTableRows([]);
   };
 
   const openAddModal = () => { resetForm(); setModalVisible(true); };
@@ -131,6 +139,9 @@ export default function PropostasScreen() {
     setItens(proposal.itens || []);
     setTermosGerais(proposal.termos_gerais || DEFAULT_TERMOS);
     setShowTermos(true);
+    setShowPriceTable(!!proposal.show_price_table);
+    setPriceTableLayout((proposal.price_table_layout as 'rates' | 'custom') || 'rates');
+    setPriceTableRows(proposal.price_table_rows || []);
     try {
       const p = await proposalAPI.getPhotos(proposal.id);
       setPhotos(p);
@@ -184,6 +195,62 @@ export default function PropostasScreen() {
     const subs = (updated[secIdx].subsections || []).filter((_, i) => i !== subIdx);
     updated[secIdx] = { ...updated[secIdx], subsections: subs };
     setItens(updated);
+  };
+
+  // === Price Table on Proposal ===
+  const newPriceRow = (): ProposalPriceRow => ({
+    id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+    function_name: '', day_rate: 0, night_rate: 0,
+    description: '', unit: '', quantity: 0, unit_value: 0, total: 0,
+  });
+
+  const addPriceRow = () => setPriceTableRows([...priceTableRows, newPriceRow()]);
+
+  const updatePriceRow = (idx: number, field: keyof ProposalPriceRow, value: string | number) => {
+    const updated = [...priceTableRows];
+    let next: any = value;
+    // Numeric fields: parse from input (accepts both `.` and `,` decimal)
+    const numericFields: (keyof ProposalPriceRow)[] = ['day_rate', 'night_rate', 'quantity', 'unit_value', 'total'];
+    if (numericFields.includes(field) && typeof value === 'string') {
+      const cleaned = value.replace(/\./g, '').replace(',', '.');
+      next = parseFloat(cleaned);
+      if (isNaN(next)) next = 0;
+    }
+    (updated[idx] as any)[field] = next;
+    // Auto-calc total for custom layout when qty or unit_value changes
+    if (priceTableLayout === 'custom' && (field === 'quantity' || field === 'unit_value')) {
+      const q = Number(updated[idx].quantity) || 0;
+      const u = Number(updated[idx].unit_value) || 0;
+      updated[idx].total = Math.round(q * u * 100) / 100;
+    }
+    setPriceTableRows(updated);
+  };
+
+  const removePriceRow = (idx: number) => setPriceTableRows(priceTableRows.filter((_, i) => i !== idx));
+
+  const openImportPriceTable = async () => {
+    try {
+      const data = await clientPriceAPI.getAll();
+      setAvailablePriceTables(data || []);
+      setShowPriceTableImportModal(true);
+    } catch {
+      showMsg('Erro ao carregar tabelas de preços');
+    }
+  };
+
+  const handleImportPriceTable = (table: any) => {
+    // Existing client_prices tables use the "rates" layout (function + day + night)
+    const imported: ProposalPriceRow[] = (table.prices || []).map((p: any) => ({
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      function_name: p.function_name || '',
+      day_rate: Number(p.day_rate) || 0,
+      night_rate: Number(p.night_rate) || 0,
+      description: '', unit: '', quantity: 0, unit_value: 0, total: 0,
+    }));
+    setPriceTableLayout('rates');
+    setPriceTableRows(imported);
+    setShowPriceTableImportModal(false);
+    setShowPriceTable(true);
   };
 
   // === Photo Upload ===
@@ -246,6 +313,19 @@ export default function PropostasScreen() {
           })),
         })),
         termos_gerais: termosGerais,
+        show_price_table: showPriceTable,
+        price_table_layout: priceTableLayout,
+        price_table_rows: priceTableRows.map(r => ({
+          id: r.id || Date.now().toString() + Math.random().toString(36).slice(2, 6),
+          function_name: r.function_name || '',
+          day_rate: Number(r.day_rate) || 0,
+          night_rate: Number(r.night_rate) || 0,
+          description: r.description || '',
+          unit: r.unit || '',
+          quantity: Number(r.quantity) || 0,
+          unit_value: Number(r.unit_value) || 0,
+          total: Number(r.total) || 0,
+        })),
       };
       if (editingProposal) {
         await proposalAPI.update(editingProposal.id, payload);
@@ -646,6 +726,168 @@ export default function PropostasScreen() {
                 </View>
               )}
 
+              {/* === TABELA DE PREÇOS (OPCIONAL) === */}
+              <View style={{ marginTop: 16, padding: 12, backgroundColor: '#fafafa', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0' }}>
+                <TouchableOpacity
+                  onPress={() => setShowPriceTable(!showPriceTable)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                  testID="proposal-toggle-price-table"
+                >
+                  <View style={{
+                    width: 22, height: 22, borderRadius: 4, borderWidth: 2,
+                    borderColor: showPriceTable ? '#000' : '#999',
+                    backgroundColor: showPriceTable ? '#000' : 'transparent',
+                    justifyContent: 'center', alignItems: 'center',
+                  }}>
+                    {showPriceTable && <Ionicons name="checkmark" size={16} color="#fff" />}
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#000', flex: 1 }}>
+                    Incluir tabela de preços na proposta
+                  </Text>
+                </TouchableOpacity>
+
+                {showPriceTable && (
+                  <View style={{ marginTop: 14 }}>
+                    {/* Layout selector */}
+                    <Text style={s.label}>Formato da Tabela</Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => setPriceTableLayout('rates')}
+                        style={{
+                          flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center',
+                          backgroundColor: priceTableLayout === 'rates' ? '#000' : '#fff',
+                          borderWidth: 1, borderColor: priceTableLayout === 'rates' ? '#000' : '#ccc',
+                        }}
+                        testID="price-layout-rates"
+                      >
+                        <Text style={{ color: priceTableLayout === 'rates' ? '#fff' : '#000', fontWeight: '600', fontSize: 12 }}>
+                          Função + Day/Night Rate
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setPriceTableLayout('custom')}
+                        style={{
+                          flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center',
+                          backgroundColor: priceTableLayout === 'custom' ? '#000' : '#fff',
+                          borderWidth: 1, borderColor: priceTableLayout === 'custom' ? '#000' : '#ccc',
+                        }}
+                        testID="price-layout-custom"
+                      >
+                        <Text style={{ color: priceTableLayout === 'custom' ? '#fff' : '#000', fontWeight: '600', fontSize: 12 }}>
+                          Descrição + Unidade + Qtd
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Action buttons */}
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                      <TouchableOpacity
+                        onPress={openImportPriceTable}
+                        style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#000', backgroundColor: '#fff' }}
+                        testID="price-import-existing"
+                      >
+                        <Ionicons name="download-outline" size={16} color="#000" />
+                        <Text style={{ color: '#000', fontWeight: '600', fontSize: 12 }}>Importar tabela existente</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={addPriceRow}
+                        style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: 10, borderRadius: 8, backgroundColor: '#000' }}
+                        testID="price-add-row"
+                      >
+                        <Ionicons name="add" size={16} color="#fff" />
+                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>Adicionar linha</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {priceTableRows.length === 0 ? (
+                      <Text style={{ fontSize: 12, color: '#999', fontStyle: 'italic', textAlign: 'center', paddingVertical: 12 }}>
+                        Nenhuma linha. Importe uma tabela existente ou adicione manualmente.
+                      </Text>
+                    ) : (
+                      priceTableRows.map((r, i) => (
+                        <View key={r.id} style={{ marginBottom: 10, padding: 10, backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '600', color: '#666' }}>Linha {i + 1}</Text>
+                            <TouchableOpacity onPress={() => removePriceRow(i)} testID={`price-remove-${i}`}>
+                              <Ionicons name="trash-outline" size={18} color="#d32f2f" />
+                            </TouchableOpacity>
+                          </View>
+
+                          {priceTableLayout === 'rates' ? (
+                            <>
+                              <TextInput
+                                style={s.input}
+                                placeholder="Função / Cargo (ex: Técnico Mecânico)"
+                                value={r.function_name || ''}
+                                onChangeText={v => updatePriceRow(i, 'function_name', v)}
+                                testID={`price-fn-${i}`}
+                              />
+                              <View style={{ flexDirection: 'row', gap: 6 }}>
+                                <TextInput
+                                  style={[s.input, { flex: 1 }]}
+                                  placeholder="Day Rate (R$)"
+                                  value={String(r.day_rate || '')}
+                                  onChangeText={v => updatePriceRow(i, 'day_rate', v)}
+                                  keyboardType="decimal-pad"
+                                  testID={`price-day-${i}`}
+                                />
+                                <TextInput
+                                  style={[s.input, { flex: 1 }]}
+                                  placeholder="Night Rate (R$)"
+                                  value={String(r.night_rate || '')}
+                                  onChangeText={v => updatePriceRow(i, 'night_rate', v)}
+                                  keyboardType="decimal-pad"
+                                  testID={`price-night-${i}`}
+                                />
+                              </View>
+                            </>
+                          ) : (
+                            <>
+                              <TextInput
+                                style={s.input}
+                                placeholder="Descrição"
+                                value={r.description || ''}
+                                onChangeText={v => updatePriceRow(i, 'description', v)}
+                                testID={`price-desc-${i}`}
+                              />
+                              <View style={{ flexDirection: 'row', gap: 6 }}>
+                                <TextInput
+                                  style={[s.input, { flex: 1 }]}
+                                  placeholder="Unidade"
+                                  value={r.unit || ''}
+                                  onChangeText={v => updatePriceRow(i, 'unit', v)}
+                                />
+                                <TextInput
+                                  style={[s.input, { flex: 1 }]}
+                                  placeholder="Qtd"
+                                  value={String(r.quantity || '')}
+                                  onChangeText={v => updatePriceRow(i, 'quantity', v)}
+                                  keyboardType="decimal-pad"
+                                />
+                              </View>
+                              <View style={{ flexDirection: 'row', gap: 6 }}>
+                                <TextInput
+                                  style={[s.input, { flex: 1 }]}
+                                  placeholder="Valor Und. (R$)"
+                                  value={String(r.unit_value || '')}
+                                  onChangeText={v => updatePriceRow(i, 'unit_value', v)}
+                                  keyboardType="decimal-pad"
+                                />
+                                <View style={[s.input, { flex: 1, justifyContent: 'center' }]}>
+                                  <Text style={{ color: '#000', fontWeight: '700' }}>
+                                    Total: {formatCurrency(Number(r.total) || 0)}
+                                  </Text>
+                                </View>
+                              </View>
+                            </>
+                          )}
+                        </View>
+                      ))
+                    )}
+                  </View>
+                )}
+              </View>
+
               {/* === TERMOS GERAIS === */}
               <TouchableOpacity style={s.termosToggle} onPress={() => setShowTermos(!showTermos)} data-testid="termos-toggle">
                 <View style={[s.sectionNumBadge, { backgroundColor: '#546E7A' }]}><Text style={s.sectionNumText}>{termosNumber}</Text></View>
@@ -678,6 +920,40 @@ export default function PropostasScreen() {
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Import Existing Price Table Modal */}
+      <Modal visible={showPriceTableImportModal} animationType="fade" transparent onRequestClose={() => setShowPriceTableImportModal(false)}>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxWidth: 500, alignSelf: 'center', maxHeight: '85%' }]}>
+            <ScrollView>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={s.modalTitle}>Importar Tabela Existente</Text>
+                <TouchableOpacity onPress={() => setShowPriceTableImportModal(false)} testID="price-import-close">
+                  <Ionicons name="close" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
+              <Text style={s.hintText}>Selecione uma tabela cadastrada para preencher as linhas automaticamente.</Text>
+              {availablePriceTables.length === 0 ? (
+                <Text style={{ color: '#999', fontStyle: 'italic', textAlign: 'center', paddingVertical: 24 }}>
+                  Nenhuma tabela cadastrada. Cadastre em "Boletim de Medição → Tabela de Preços".
+                </Text>
+              ) : (
+                availablePriceTables.map((t: any) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    onPress={() => handleImportPriceTable(t)}
+                    style={{ marginVertical: 4, padding: 12, borderRadius: 8, backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#e0e0e0' }}
+                    testID={`price-import-pick-${t.id}`}
+                  >
+                    <Text style={{ fontWeight: '700', fontSize: 14, color: '#000' }}>{t.client_name}{t.label ? ` — ${t.label}` : ''}</Text>
+                    <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{(t.prices || []).length} função(ões)</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );

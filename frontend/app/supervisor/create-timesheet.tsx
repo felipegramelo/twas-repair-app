@@ -17,6 +17,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { serviceOrderAPI, employeeAPI, timesheetAPI } from '../../services/api';
+import { offlineQueue } from '../../services/offlineQueue';
+import { useOffline } from '../../contexts/OfflineContext';
 import { ServiceOrder, Employee, TimesheetEntry } from '../../types';
 
 // Generate 30-minute time slots
@@ -275,12 +277,41 @@ export default function CreateTimesheetScreen() {
     }
   };
 
+  const { isOnline } = useOffline();
+
   const handleSave = async () => {
     if (!selectedSO) { if (Platform.OS === 'web') window.alert('Selecione uma Ordem de Serviço'); else Alert.alert('Erro', 'Selecione uma Ordem de Serviço'); return; }
     if (entries.length === 0) { if (Platform.OS === 'web') window.alert('Adicione pelo menos uma entrada'); else Alert.alert('Erro', 'Adicione pelo menos uma entrada'); return; }
     if (entries.length > 12) { if (Platform.OS === 'web') window.alert('Máximo de 12 funcionários por timesheet. Remova entradas extras ou crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Máximo de 12 funcionários por timesheet.'); return; }
     setSaving(true);
     try {
+      if (!isOnline) {
+        // Offline: store in local queue. It will be auto-synced when online.
+        await offlineQueue.enqueue({
+          type: 'create_timesheet',
+          payload: { os_id: selectedSO.id, entries, observations, supervisor_function: supervisorFunction },
+          snapshot: {
+            id: `local_${Date.now()}`,
+            os_id: selectedSO.id,
+            os_number: selectedSO.os_number,
+            client: selectedSO.client,
+            service: selectedSO.service,
+            entries,
+            observations,
+            status: 'draft',
+            is_offline: true,
+            created_at: new Date().toISOString(),
+          },
+        });
+        const msg = 'Timesheet salvo offline. Será sincronizado quando você tiver conexão.';
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+          router.replace(`/supervisor?refresh=${Date.now()}`);
+        } else {
+          Alert.alert('Salvo offline', msg, [{ text: 'OK', onPress: () => router.replace(`/supervisor?refresh=${Date.now()}`) }]);
+        }
+        return;
+      }
       await timesheetAPI.create(selectedSO.id, entries, observations, supervisorFunction);
       if (Platform.OS === 'web') {
         window.alert('Timesheet criado com sucesso!');

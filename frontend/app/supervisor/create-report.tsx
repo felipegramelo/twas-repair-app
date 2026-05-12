@@ -5,6 +5,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { serviceOrderAPI, reportAPI } from '../../services/api';
+import { offlineQueue } from '../../services/offlineQueue';
+import { useOffline } from '../../contexts/OfflineContext';
 import { ServiceOrder } from '../../types';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -91,12 +93,42 @@ export default function CreateReportScreen() {
     else Alert.alert('Aviso', msg);
   };
 
+  const { isOnline } = useOffline();
+
   const handleCreate = async () => {
     if (!selectedOS) { showMsg('Selecione uma Ordem de Serviço'); return; }
     if (!periodoInicio || (reportType !== 'daily' && !periodoFim)) { showMsg('Preencha a data de início' + (reportType !== 'daily' ? ' e fim' : '')); return; }
 
     setCreating(true);
     try {
+      if (!isOnline) {
+        const so = serviceOrders.find(s => s.id === selectedOS);
+        await offlineQueue.enqueue({
+          type: 'create_report',
+          payload: {
+            report_type: reportType,
+            os_id: selectedOS,
+            periodo_inicio: periodoInicio,
+            periodo_fim: periodoFim,
+            executado_por: user?.name || '',
+          },
+          snapshot: {
+            id: `local_${Date.now()}`,
+            os_id: selectedOS,
+            os_number: so?.os_number || '',
+            client: so?.client || '',
+            report_type: reportType,
+            periodo_inicio: periodoInicio,
+            periodo_fim: periodoFim,
+            status: 'draft',
+            is_offline: true,
+            created_at: new Date().toISOString(),
+          },
+        });
+        showMsg('Relatório salvo offline. Será sincronizado quando você tiver conexão.');
+        router.push('/supervisor');
+        return;
+      }
       await reportAPI.create({
         report_type: reportType,
         os_id: selectedOS,

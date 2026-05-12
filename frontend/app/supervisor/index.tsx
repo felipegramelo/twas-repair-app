@@ -5,6 +5,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { timesheetAPI, reportAPI, serviceOrderAPI } from '../../services/api';
+import { offlineQueue } from '../../services/offlineQueue';
+import { useOffline } from '../../contexts/OfflineContext';
+import { OfflineBanner } from '../../components/OfflineBanner';
 import { BACKEND_URL } from '../../services/config';
 import { buildPdfFilename } from '../../utils/pdfHelper';
 import { Timesheet, Report, ServiceOrder } from '../../types';
@@ -40,6 +43,9 @@ export default function SupervisorDashboard() {
   const router = useRouter();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [offlineTimesheets, setOfflineTimesheets] = useState<any[]>([]);
+  const [offlineReports, setOfflineReports] = useState<any[]>([]);
+  const { pendingCount, isOnline } = useOffline();
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -53,16 +59,24 @@ export default function SupervisorDashboard() {
 
   useEffect(() => { loadData(); AsyncStorage.getItem('token').then(t => t && setAuthToken(t)); }, []);
 
+  // Reload data whenever the offline queue changes (e.g., new offline draft
+  // was created, or items were synced).
+  useEffect(() => { loadData(); }, [pendingCount, isOnline]);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tsData, allReports, osData] = await Promise.all([
+      const [tsData, allReports, osData, offTs, offRep] = await Promise.all([
         timesheetAPI.getAll().catch(() => []),
         reportAPI.getAll().catch(() => []),
         serviceOrderAPI.getAll().catch(() => []),
+        offlineQueue.getOfflineTimesheets(),
+        offlineQueue.getOfflineReports(),
       ]);
       setTimesheets(tsData.filter((t: any) => t.status !== 'finalized'));
       setReports(allReports.filter((r: any) => r.status !== 'finalized'));
+      setOfflineTimesheets(offTs);
+      setOfflineReports(offRep);
       setServiceOrders(osData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -387,12 +401,15 @@ export default function SupervisorDashboard() {
   };
 
   const unifiedItems: UnifiedItem[] = [
+    ...offlineTimesheets.map(t => ({ kind: 'timesheet' as const, data: t as any })),
+    ...offlineReports.map(r => ({ kind: 'report' as const, data: r as any })),
     ...timesheets.map(t => ({ kind: 'timesheet' as const, data: t })),
     ...reports.map(r => ({ kind: 'report' as const, data: r })),
   ];
 
   return (
     <SafeAreaView style={styles.container}>
+      <OfflineBanner />
       <View style={styles.innerContainer}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
           <View style={styles.header}>
@@ -422,9 +439,10 @@ export default function SupervisorDashboard() {
               if (item.kind === 'timesheet') {
                 const ts = item.data;
                 const isFinalized = (ts as any).status === 'finalized';
-                const isShared = ts.supervisor_id !== user?.id;
+                const isOffline = !!(ts as any).is_offline;
+                const isShared = !isOffline && ts.supervisor_id !== user?.id;
                 return (
-                  <TouchableOpacity key={`ts-${ts.id}`} style={[styles.card, isFinalized && { opacity: 0.85 }]} onPress={() => !isFinalized && !isShared && router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} activeOpacity={isFinalized || isShared ? 1 : 0.7} data-testid={`timesheet-card-${ts.id}`}>
+                  <TouchableOpacity key={`ts-${ts.id}`} style={[styles.card, isFinalized && { opacity: 0.85 }, isOffline && { borderColor: '#f57c00', borderWidth: 2 }]} onPress={() => !isFinalized && !isShared && !isOffline && router.push(`/supervisor/edit-timesheet?id=${ts.id}`)} activeOpacity={isFinalized || isShared || isOffline ? 1 : 0.7} data-testid={`timesheet-card-${ts.id}`}>
                     <View style={styles.topRow}>
                       <View style={styles.badgeRow}>
                         <View style={styles.badge}><Text style={styles.badgeText}>{ts.os_number}</Text></View>
@@ -433,6 +451,12 @@ export default function SupervisorDashboard() {
                             <Ionicons name="time-outline" size={12} color="#000" />
                             <Text style={[styles.typeBadgeText, { color: '#000' }]}>Timesheet</Text>
                           </View>
+                          {isOffline && (
+                            <View style={[styles.typeBadge, { backgroundColor: '#fff3e0' }]}>
+                              <Ionicons name="cloud-offline" size={12} color="#e65100" />
+                              <Text style={[styles.typeBadgeText, { color: '#e65100' }]}>Pendente sincronização</Text>
+                            </View>
+                          )}
                           {isShared && (
                             <View style={[styles.typeBadge, { backgroundColor: '#e0f2f1' }]}>
                               <Ionicons name="share-social-outline" size={12} color="#00796b" />
@@ -483,9 +507,10 @@ export default function SupervisorDashboard() {
               }
               const rpt = item.data;
               const isRptFinalized = rpt.status === 'finalized';
-              const isRptShared = rpt.supervisor_id !== user?.id;
+              const isRptOffline = !!(rpt as any).is_offline;
+              const isRptShared = !isRptOffline && rpt.supervisor_id !== user?.id;
               return (
-                <TouchableOpacity key={`rpt-${rpt.id}`} style={[styles.card, isRptFinalized && { opacity: 0.85 }]} onPress={() => !isRptFinalized && !isRptShared && router.push(`/supervisor/edit-report?id=${rpt.id}`)} activeOpacity={isRptFinalized || isRptShared ? 1 : 0.7} data-testid={`report-card-${rpt.id}`}>
+                <TouchableOpacity key={`rpt-${rpt.id}`} style={[styles.card, isRptFinalized && { opacity: 0.85 }, isRptOffline && { borderColor: '#f57c00', borderWidth: 2 }]} onPress={() => !isRptFinalized && !isRptShared && !isRptOffline && router.push(`/supervisor/edit-report?id=${rpt.id}`)} activeOpacity={isRptFinalized || isRptShared || isRptOffline ? 1 : 0.7} data-testid={`report-card-${rpt.id}`}>
                   <View style={styles.topRow}>
                     <View style={styles.badgeRow}>
                       <View style={styles.badge}><Text style={styles.badgeText}>{rpt.os_number}</Text></View>
@@ -494,6 +519,12 @@ export default function SupervisorDashboard() {
                           <Ionicons name={rpt.report_type === 'service' ? 'construct-outline' : 'calendar-outline'} size={12} color={getReportTypeColor(rpt.report_type)} />
                           <Text style={[styles.typeBadgeText, { color: getReportTypeColor(rpt.report_type) }]}>{getReportTypeLabel(rpt.report_type)}</Text>
                         </View>
+                        {isRptOffline && (
+                          <View style={[styles.typeBadge, { backgroundColor: '#fff3e0' }]}>
+                            <Ionicons name="cloud-offline" size={12} color="#e65100" />
+                            <Text style={[styles.typeBadgeText, { color: '#e65100' }]}>Pendente sincronização</Text>
+                          </View>
+                        )}
                         {isRptShared && (
                           <View style={[styles.typeBadge, { backgroundColor: '#e0f2f1' }]}>
                             <Ionicons name="share-social-outline" size={12} color="#00796b" />

@@ -77,9 +77,32 @@ backend/
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
+## Modo Offline para Supervisor (2026-05-12)
+**Supervisor agora pode trabalhar offline** (timesheet, relatório diário, relatório de serviço):
+
+- Detecção automática de conexão via `@react-native-community/netinfo`
+- Banner colorido no topo do dashboard do supervisor:
+  - Vermelho "Você está offline" (sem conexão)
+  - Laranja "X item(ns) aguardando sincronização" (online, com pendentes) + botão "Sincronizar"
+- Quando offline, criar timesheet/relatório salva o documento na fila local (`AsyncStorage` chave `offline_queue_v1`)
+- Drafts offline aparecem no dashboard com borda laranja + badge "Pendente sincronização"
+- Quando a conexão volta, a fila é processada automaticamente (com retry e log de erro por item)
+- Após sincronização bem-sucedida, o item sai da fila e a versão online (`status: draft`) substitui o item local
+- Documentos sincronizados ficam como **draft** — o supervisor revisa e finaliza manualmente
+
+**Arquivos criados:**
+- `frontend/services/offlineQueue.ts` — fila + persistência + sincronização
+- `frontend/contexts/OfflineContext.tsx` — estado global de online/pendentes
+- `frontend/components/OfflineBanner.tsx` — banner visual
+
+**Arquivos modificados:**
+- `frontend/app/_layout.tsx` — wrap com `OfflineProvider`
+- `frontend/app/supervisor/index.tsx` — banner + drafts offline mesclados na lista
+- `frontend/app/supervisor/create-timesheet.tsx` — usa fila quando offline
+- `frontend/app/supervisor/create-report.tsx` — usa fila quando offline
+
 ## Backlog (P1/P2)
 - [P2] Refatorar frontend/app/supervisor/edit-report.tsx (>1000 linhas) em componentes menores
-- [P2] Modo Offline com AsyncStorage + fila de sincronizacao
 
 ## Tabela de Logística Opcional na Proposta (2026-05-12)
 **Checkbox "Incluir tabela de logística"** no formulário da Proposta:

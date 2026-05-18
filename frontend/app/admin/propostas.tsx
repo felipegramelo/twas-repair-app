@@ -122,6 +122,35 @@ export default function PropostasScreen() {
     else Alert.alert('Aviso', msg);
   };
 
+  // === Translate ===
+  const [translateTarget, setTranslateTarget] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+
+  const handleTranslate = async (proposalId: string, targetLang: 'en' | 'es') => {
+    setTranslateTarget(null);
+    setTranslating(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const resp = await fetch(`${BACKEND_URL}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ document_id: proposalId, document_type: 'proposal', target_language: targetLang }),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        const langName = targetLang === 'en' ? 'Inglês' : 'Espanhol';
+        showMsg(`Proposta traduzida para ${langName}! Uma cópia foi criada.`);
+        loadProposals();
+      } else {
+        showMsg(data.detail || 'Erro ao traduzir');
+      }
+    } catch (e: any) {
+      showMsg('Erro ao traduzir: ' + (e?.message || ''));
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const resetForm = () => {
     setEmpresa(''); setContato(''); setEmail(''); setEmbarcacao('');
     setEquipamento(''); setServico(''); setObservacoes(''); setItens([]); setEditingProposal(null);
@@ -555,6 +584,9 @@ export default function PropostasScreen() {
               <Ionicons name="pencil" size={20} color="#000000" />
             </TouchableOpacity>
           )}
+          <TouchableOpacity onPress={() => setTranslateTarget(item.id)} style={s.actionBtn} data-testid={`translate-proposal-${item.id}`}>
+            <Ionicons name="language-outline" size={20} color="#0066cc" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => handleDelete(item)} style={s.actionBtn} data-testid={`delete-proposal-${item.id}`}>
             <Ionicons name="trash" size={20} color="#d32f2f" />
           </TouchableOpacity>
@@ -1145,6 +1177,47 @@ export default function PropostasScreen() {
                 ))
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Translate Language Picker */}
+      <Modal visible={!!translateTarget || translating} animationType="fade" transparent onRequestClose={() => !translating && setTranslateTarget(null)}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 400 }}>
+            {translating ? (
+              <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                <ActivityIndicator size="large" color="#000" />
+                <Text style={{ marginTop: 12, fontSize: 14, color: '#000', fontWeight: '600' }}>Traduzindo proposta...</Text>
+                <Text style={{ marginTop: 4, fontSize: 12, color: '#666', textAlign: 'center' }}>Isso pode levar alguns segundos.</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 16, textAlign: 'center', color: '#000' }}>Traduzir Proposta</Text>
+                <Text style={{ fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 18 }}>
+                  Será criada uma cópia da proposta com todo o texto traduzido (cliente, escopo, termos). O PDF Comercial e Técnico ficam disponíveis nos dois idiomas.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => translateTarget && handleTranslate(translateTarget, 'en')}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, backgroundColor: '#1976d2', marginBottom: 8 }}
+                  data-testid="translate-en"
+                >
+                  <Text style={{ fontSize: 22 }}>🇺🇸</Text>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Traduzir para Inglês</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => translateTarget && handleTranslate(translateTarget, 'es')}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, backgroundColor: '#d32f2f', marginBottom: 12 }}
+                  data-testid="translate-es"
+                >
+                  <Text style={{ fontSize: 22 }}>🇪🇸</Text>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Traduzir para Espanhol</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setTranslateTarget(null)} style={{ paddingVertical: 10, alignItems: 'center' }}>
+                  <Text style={{ color: '#666', fontWeight: '600' }}>Cancelar</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>

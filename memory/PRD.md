@@ -77,6 +77,16 @@ backend/
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
+## Tradução de Propostas (2026-05-18)
+**Botão "Traduzir" na lista de Propostas** (admin), ícone de idioma azul ao lado de Editar/Excluir:
+- Abre modal com 2 opções: 🇺🇸 Inglês / 🇪🇸 Espanhol
+- Cria uma **cópia** da proposta original com todo o conteúdo traduzido via Gemini Nano Banana (Emergent LLM Key)
+- Numeração da cópia traduzida ganha sufixo `-EN` ou `-ES` (ex: `P-0011-EN`)
+- Campos traduzidos: serviço, descrição de itens, subseções, termos gerais, observações
+- **Tabela de Preços e Tabela de Logística são preservadas** na cópia (valores não traduzem)
+- PDFs Comercial e Técnico ficam disponíveis nos dois idiomas
+- Arquivos tocados: `backend/routes/translate.py`, `backend/routes/proposals.py`, `frontend/app/admin/propostas.tsx`
+
 ## Modo Offline para Supervisor (2026-05-12)
 **Supervisor agora pode trabalhar offline** (timesheet, relatório diário, relatório de serviço):
 

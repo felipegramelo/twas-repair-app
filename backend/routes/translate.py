@@ -149,6 +149,12 @@ async def translate_proposal(doc_id: str, target_lang: str, lang_code: str, curr
         "itens": translated_itens,
         "termos_gerais": t_termos,
         "observacoes": t_observacoes,
+        # Preserve optional price/logistics tables (values stay the same — they are numbers)
+        "show_price_table": proposal.get("show_price_table", False),
+        "price_table_layout": proposal.get("price_table_layout", "rates"),
+        "price_table_rows": proposal.get("price_table_rows", []),
+        "show_logistics_table": proposal.get("show_logistics_table", False),
+        "logistics_rows": proposal.get("logistics_rows", []),
         "status": "pendente",
         "po_number": "",
         "os_id": "",

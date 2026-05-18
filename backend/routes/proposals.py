@@ -215,6 +215,8 @@ def serialize_proposal(p):
         "price_table_rows": p.get("price_table_rows", []),
         "show_logistics_table": p.get("show_logistics_table", False),
         "logistics_rows": p.get("logistics_rows", []),
+        "language": p.get("language", "pt"),
+        "translated_from": p.get("translated_from", ""),
         "status": p.get("status", "pendente"),
         "po_number": p.get("po_number", ""),
         "os_id": p.get("os_id", ""),

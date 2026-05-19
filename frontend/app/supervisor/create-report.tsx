@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Platform, Alert, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -79,10 +80,17 @@ export default function CreateReportScreen() {
 
   const loadData = async () => {
     try {
-      const osData = await serviceOrderAPI.getAll();
-      setServiceOrders(osData);
-    } catch (error) {
-      showMsg('Erro ao carregar ordens de serviço.');
+      let osData: any[] = [];
+      try { osData = await serviceOrderAPI.getAll(); } catch { osData = []; }
+      if (osData && osData.length > 0) {
+        try { await AsyncStorage.setItem('cached_service_orders', JSON.stringify(osData)); } catch {}
+      } else {
+        const cached = await AsyncStorage.getItem('cached_service_orders');
+        if (cached) { try { osData = JSON.parse(cached); } catch {} }
+      }
+      setServiceOrders(osData || []);
+    } catch {
+      // Silent — offline fallback handled above
     } finally {
       setLoading(false);
     }

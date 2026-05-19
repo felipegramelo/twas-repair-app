@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -149,12 +150,29 @@ export default function CreateTimesheetScreen() {
 
   const loadData = async () => {
     try {
-      const [soData, empData] = await Promise.all([serviceOrderAPI.getAll(), employeeAPI.getAll()]);
-      setServiceOrders(soData);
-      setAllEmployees(empData);
-      setFilteredEmployees(empData);
+      // Try online; if offline, fall back to caches stored after the last
+      // successful sync (supervisor index caches both OSs and employees).
+      let soData: any[] = [];
+      let empData: any[] = [];
+      try { soData = await serviceOrderAPI.getAll(); } catch { soData = []; }
+      try { empData = await employeeAPI.getAll(); } catch { empData = []; }
+      if (!soData || soData.length === 0) {
+        const cached = await AsyncStorage.getItem('cached_service_orders');
+        if (cached) { try { soData = JSON.parse(cached); } catch {} }
+      } else {
+        try { await AsyncStorage.setItem('cached_service_orders', JSON.stringify(soData)); } catch {}
+      }
+      if (!empData || empData.length === 0) {
+        const cached = await AsyncStorage.getItem('cached_employees');
+        if (cached) { try { empData = JSON.parse(cached); } catch {} }
+      } else {
+        try { await AsyncStorage.setItem('cached_employees', JSON.stringify(empData)); } catch {}
+      }
+      setServiceOrders(soData || []);
+      setAllEmployees(empData || []);
+      setFilteredEmployees(empData || []);
     } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao carregar dados');
+      // Already handled above
     } finally {
       setLoading(false);
     }

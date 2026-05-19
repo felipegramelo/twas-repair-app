@@ -66,18 +66,30 @@ export default function SupervisorDashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [tsData, allReports, osData, offTs, offRep] = await Promise.all([
-        timesheetAPI.getAll().catch(() => []),
-        reportAPI.getAll().catch(() => []),
-        serviceOrderAPI.getAll().catch(() => []),
+      const [tsData, allReports, osData, offTs, offRep, cachedOsRaw] = await Promise.all([
+        timesheetAPI.getAll().catch(() => null),
+        reportAPI.getAll().catch(() => null),
+        serviceOrderAPI.getAll().catch(() => null),
         offlineQueue.getOfflineTimesheets(),
         offlineQueue.getOfflineReports(),
+        AsyncStorage.getItem('cached_service_orders').catch(() => null),
       ]);
-      setTimesheets(tsData.filter((t: any) => t.status !== 'finalized'));
-      setReports(allReports.filter((r: any) => r.status !== 'finalized'));
+
+      // Service orders: cache the online list so create-timesheet / create-report
+      // can list OSs even when offline.
+      let osList: any[] = [];
+      if (osData) {
+        osList = osData;
+        try { await AsyncStorage.setItem('cached_service_orders', JSON.stringify(osData)); } catch {}
+      } else if (cachedOsRaw) {
+        try { osList = JSON.parse(cachedOsRaw); } catch { osList = []; }
+      }
+      setServiceOrders(osList);
+
+      setTimesheets((tsData || []).filter((t: any) => t.status !== 'finalized'));
+      setReports((allReports || []).filter((r: any) => r.status !== 'finalized'));
       setOfflineTimesheets(offTs);
       setOfflineReports(offRep);
-      setServiceOrders(osData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     }

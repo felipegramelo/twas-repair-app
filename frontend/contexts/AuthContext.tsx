@@ -25,15 +25,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   async function loadStoredData() {
     try {
       const token = await AsyncStorage.getItem('token');
-      if (token) {
+      if (!token) { setLoading(false); return; }
+
+      // Always restore the cached user first so the app can boot offline.
+      // The server check below only updates / clears the session when online.
+      const cachedRaw = await AsyncStorage.getItem('user_profile');
+      if (cachedRaw) {
+        try { setUser(JSON.parse(cachedRaw)); } catch {}
+      }
+
+      try {
         // Wake up server with a quick ping before full auth check
-        try { await axios.get(BACKEND_URL + '/api/auth/login', { timeout: 5000 }).catch(() => {}); } catch {}
+        await axios.get(BACKEND_URL + '/api/auth/login', { timeout: 5000 }).catch(() => {});
         const userData = await authAPI.getMe();
         setUser(userData);
+        await AsyncStorage.setItem('user_profile', JSON.stringify(userData));
+      } catch (err: any) {
+        // 401/403 means the token is bad — log out. Anything else (no internet,
+        // server down, timeout) → keep the cached session so the user can work
+        // offline.
+        const status = err?.response?.status;
+        if (status === 401 || status === 403) {
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.removeItem('user_profile');
+          setUser(null);
+        }
+        // Otherwise: silently keep the cached user we already restored
       }
-    } catch (error) {
-      await AsyncStorage.removeItem('token');
-      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -47,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const response = await authAPI.login(email, password);
         await AsyncStorage.setItem('token', response.access_token);
+        await AsyncStorage.setItem('user_profile', JSON.stringify(response.user));
         setUser(response.user);
         return;
       } catch (error: any) {
@@ -61,13 +80,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     if (lastError?.message?.includes('Network') || lastError?.code === 'ERR_NETWORK' || lastError?.code === 'ECONNABORTED') {
-      throw new Error('Servidor iniciando. Aguarde alguns segundos e tente novamente.');
+      throw new Error('Sem conexão com a internet. Conecte-se para fazer o primeiro login. Após o primeiro login, o app funciona offline.');
     }
     throw new Error(lastError?.response?.data?.detail || 'Erro ao conectar. Tente novamente.');
   }
 
   async function signOut() {
     await AsyncStorage.removeItem('token');
+    await AsyncStorage.removeItem('user_profile');
     setUser(null);
   }
 

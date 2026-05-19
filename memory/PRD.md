@@ -77,6 +77,23 @@ backend/
 - Admin: admin@twasrepair.com / admin123
 - Supervisor: supervisor@twasrepair.com / super123
 
+## Correção Modo Offline — Auth + Cache (2026-05-19)
+**Problema relatado pelo usuário:** ao abrir o app sem internet (mesmo após login prévio), aparecia "Servidor iniciando" e travava no login.
+
+**Causa raiz:** `AuthContext.loadStoredData()` chamava `authAPI.getMe()` no boot e, em qualquer falha (incluindo timeout/offline), removia o token e forçava re-login — que precisa de internet → deadlock.
+
+**Correção (`frontend/contexts/AuthContext.tsx`):**
+- Login salva o perfil do usuário em `AsyncStorage` ('user_profile') além do token
+- Boot restaura o perfil do cache **antes** de tentar validar com o servidor → app abre offline
+- Token só é removido se servidor responder 401/403 (token inválido); em offline/timeout mantém a sessão
+- Mensagem de erro atualizada: "Sem conexão com a internet. Conecte-se para o primeiro login. Após o primeiro login, o app funciona offline."
+
+**Cache adicional para uso offline:**
+- `cached_service_orders` (lista de OS para criar timesheet/relatório offline)
+- `cached_employees` (funcionários para criar timesheet offline)
+- Cache atualizado a cada sucesso online; em offline o app cai pra última versão cacheada
+- Arquivos tocados: `supervisor/index.tsx`, `supervisor/create-timesheet.tsx`, `supervisor/create-report.tsx`
+
 ## Tradução de Propostas (2026-05-18)
 **Botão "Traduzir" na lista de Propostas** (admin), ícone de idioma azul ao lado de Editar/Excluir:
 - Abre modal com 2 opções: 🇺🇸 Inglês / 🇪🇸 Espanhol

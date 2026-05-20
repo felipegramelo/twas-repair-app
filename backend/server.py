@@ -1,6 +1,8 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 import logging
+import os
 
 from database import client
 from config import init_storage
@@ -18,6 +20,11 @@ from routes.translate import router as translate_router
 from routes.holidays import router as holidays_router
 
 app = FastAPI(title="TWAS REPAIR API")
+
+# Serve generated graphics (logo / feature graphic) for download via /api/static
+_assets_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "assets", "images")
+if os.path.isdir(_assets_dir):
+    app.mount("/api/static-assets", StaticFiles(directory=_assets_dir), name="static-assets")
 
 # Include all route modules under /api prefix
 api_prefix = "/api"

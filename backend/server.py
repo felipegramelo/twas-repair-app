@@ -103,6 +103,32 @@ async def startup_event():
     except Exception as e:
         logging.error(f"Admin seed failed: {e}")
 
+    # One-off migration: backfill `embarcacao` on existing reports from their OS
+    try:
+        from database import db
+        from bson import ObjectId
+        cursor = db.reports.find({"$or": [{"embarcacao": {"$exists": False}}, {"embarcacao": ""}, {"embarcacao": None}]})
+        migrated = 0
+        async for rep in cursor:
+            os_id = rep.get("os_id")
+            if not os_id:
+                continue
+            try:
+                os_data = await db.service_orders.find_one({"_id": ObjectId(os_id)})
+            except Exception:
+                os_data = None
+            if not os_data:
+                continue
+            emb = os_data.get("embarcacao", "")
+            if not emb:
+                continue
+            await db.reports.update_one({"_id": rep["_id"]}, {"$set": {"embarcacao": emb}})
+            migrated += 1
+        if migrated:
+            logging.info(f"Backfilled embarcacao on {migrated} report(s)")
+    except Exception as e:
+        logging.error(f"Reports embarcacao backfill failed: {e}")
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

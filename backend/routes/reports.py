@@ -624,9 +624,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         
         _draw_right_label("Cliente:", report.get('client', ''), detail_y)
         detail_y -= line_h
-        _draw_right_label("Rig/Vessel:", report.get('location', ''), detail_y)
-        detail_y -= line_h
-        _draw_right_label("Equipamento:", report.get('service', ''), detail_y)
+        _draw_right_label("Embarcação:", report.get('embarcacao', '') or report.get('location', ''), detail_y)
         detail_y -= line_h
         _draw_right_label("OS:", report.get('os_number', ''), detail_y)
         detail_y -= line_h
@@ -1165,7 +1163,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         
         # Use Paragraphs instead of a table so they align exactly with the intro text below
         elements.append(Paragraph(f"<b>CLIENTE:</b> {report.get('client', '')}", aval_field_style))
-        elements.append(Paragraph(f"<b>NAVIO/VESSEL:</b> {report.get('location', '')}", aval_field_style))
+        elements.append(Paragraph(f"<b>NAVIO/VESSEL:</b> {report.get('embarcacao', '') or report.get('location', '')}", aval_field_style))
         elements.append(Paragraph(f"<b>SERVIÇO / SERVICE:</b> {report.get('service', '')}", aval_field_style))
         elements.append(Paragraph(f"<b>PERÍODO / PERIOD:</b> {periodo_inicio} a {periodo_fim}", aval_field_style))
         if oc_wo_val:

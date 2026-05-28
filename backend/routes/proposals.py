@@ -18,6 +18,13 @@ import uuid
 import jwt
 from pathlib import Path
 
+# Enable HEIC/HEIF support (iOS Photos default format)
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except Exception as _e:
+    logging.warning(f"pillow-heif not available: {_e}")
+
 from database import db
 from config import SECRET_KEY, ALGORITHM, put_object, get_object, APP_NAME
 from dependencies import get_current_user, get_admin_user

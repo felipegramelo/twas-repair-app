@@ -27,11 +27,73 @@ const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.inclu
 const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Aviso', msg); };
 
 const PlainTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
+  // Auto-continue bullet markers per line:
+  // If the current line starts with "• " and user presses Enter,
+  // the next line auto-starts with "• ". Pressing Enter on an empty
+  // "• " line removes the bullet (ends the list).
   if (Platform.OS === 'web') {
-    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} placeholder={placeholder}
+    const handleKeyDown = (e: any) => {
+      if (e.key !== 'Enter') return;
+      const ta = e.target;
+      const v: string = ta.value || '';
+      const caret: number = ta.selectionStart;
+      // Find the start of the current line
+      const lineStart = v.lastIndexOf('\n', caret - 1) + 1;
+      const currentLine = v.substring(lineStart, caret);
+      const bulletMatch = currentLine.match(/^(• )/);
+      if (!bulletMatch) return; // line not bulleted -> default Enter behavior
+      // Empty bullet line ("• ") -> end the list (remove the "• ")
+      if (currentLine === '• ') {
+        e.preventDefault();
+        const before = v.substring(0, lineStart);
+        const after = v.substring(caret);
+        const nv = before + '\n' + after;
+        onChangeText(nv);
+        setTimeout(() => { ta.selectionStart = ta.selectionEnd = before.length + 1; }, 0);
+        return;
+      }
+      // Continue bullet on next line
+      e.preventDefault();
+      const before = v.substring(0, caret);
+      const after = v.substring(ta.selectionEnd);
+      const nv = before + '\n• ' + after;
+      onChangeText(nv);
+      setTimeout(() => { ta.selectionStart = ta.selectionEnd = caret + 3; }, 0);
+    };
+    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} onKeyDown={handleKeyDown} placeholder={placeholder}
       style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333', fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', ...(cs || {}) }} />;
   }
-  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={onChangeText} placeholder={placeholder} multiline textAlignVertical="top" />;
+  // Native (iOS/Android): detect newline addition and auto-continue bullets from previous line
+  const handleNativeChange = (newText: string) => {
+    const prev = value || '';
+    // Only react to additions (length grew by exactly 1, char added is \n)
+    if (newText.length === prev.length + 1) {
+      // Find which position the newline was added at
+      for (let i = 0; i < newText.length; i++) {
+        if (newText[i] !== prev[i]) {
+          if (newText[i] === '\n') {
+            // Get content of previous line (between last \n before i and i)
+            const lineStart = newText.lastIndexOf('\n', i - 1) + 1;
+            const prevLine = newText.substring(lineStart, i);
+            if (prevLine === '• ') {
+              // empty bullet -> remove bullet, keep newline (end list)
+              const after = newText.substring(i);
+              onChangeText(newText.substring(0, lineStart) + after);
+              return;
+            }
+            if (prevLine.startsWith('• ')) {
+              // continue bullet on the new line
+              onChangeText(newText.substring(0, i + 1) + '• ' + newText.substring(i + 1));
+              return;
+            }
+          }
+          break;
+        }
+      }
+    }
+    onChangeText(newText);
+  };
+  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={handleNativeChange} placeholder={placeholder} multiline textAlignVertical="top" />;
 };
 
 const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {

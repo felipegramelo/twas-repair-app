@@ -201,7 +201,7 @@ async def update_report(report_id: str, update: ReportUpdate, user: dict = Depen
         raise HTTPException(status_code=403, detail="Apenas o autor pode editar este relatório")
     
     update_data = {}
-    for field in ["periodo_inicio", "periodo_fim", "executado_por", "oc_wo", "sections", "status", "daily_entries"]:
+    for field in ["periodo_inicio", "periodo_fim", "executado_por", "oc_wo", "representante_twas", "representante_cliente", "sections", "status", "daily_entries"]:
         value = getattr(update, field, None)
         if value is not None:
             update_data[field] = value
@@ -766,6 +766,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         lbl_servico = "SERVICE:"
         lbl_executado = "PERFORMED BY:"
         lbl_periodo = "PERIOD:"
+        lbl_rep_twas = "TWAS REPRESENTATIVE:"
+        lbl_rep_cliente = "CLIENT REPRESENTATIVE:"
     elif report_lang == "es":
         lbl_cliente = "CLIENTE:"
         lbl_embarcacao = "EMBARCACI\u00d3N:"
@@ -774,6 +776,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         lbl_servico = "SERVICIO:"
         lbl_executado = "EJECUTADO POR:"
         lbl_periodo = "PER\u00cdODO:"
+        lbl_rep_twas = "REPRESENTANTE TWAS:"
+        lbl_rep_cliente = "REPRESENTANTE DEL CLIENTE:"
     else:
         lbl_cliente = "CLIENTE:"
         lbl_embarcacao = "EMBARCA\u00c7\u00c3O:"
@@ -782,7 +786,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         lbl_servico = "SERVI\u00c7O:"
         lbl_executado = "EXECUTADO POR:"
         lbl_periodo = "PER\u00cdODO:"
-    
+        lbl_rep_twas = "REPRESENTANTE TWAS:"
+        lbl_rep_cliente = "REPRESENTANTE DO CLIENTE:"
+
     info_data = [
         [Paragraph(f"<b>{lbl_cliente}</b>", label_style), Paragraph(report.get("client", ""), value_style)],
         [Paragraph(f"<b>{lbl_embarcacao}</b>", label_style), Paragraph(report.get("embarcacao", ""), value_style)],
@@ -792,6 +798,13 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         [Paragraph(f"<b>{lbl_executado}</b>", label_style), Paragraph(report.get("executado_por", report.get("supervisor_name", "")), value_style)],
         [Paragraph(f"<b>{lbl_periodo}</b>", label_style), Paragraph(periodo_str, value_style)],
     ]
+    # Optional rows: only include when value is present (so capa stays clean if not filled)
+    rep_twas_value = (report.get("representante_twas") or "").strip()
+    if rep_twas_value:
+        info_data.append([Paragraph(f"<b>{lbl_rep_twas}</b>", label_style), Paragraph(rep_twas_value, value_style)])
+    rep_cliente_value = (report.get("representante_cliente") or "").strip()
+    if rep_cliente_value:
+        info_data.append([Paragraph(f"<b>{lbl_rep_cliente}</b>", label_style), Paragraph(rep_cliente_value, value_style)])
     info_table = Table(info_data, colWidths=[5*cm, content_width - 5*cm])
     info_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),

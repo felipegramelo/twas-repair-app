@@ -99,6 +99,8 @@ export default function EditReportScreen() {
   const [periodoFim, setPeriodoFim] = useState('');
   const [executadoPor, setExecutadoPor] = useState('');
   const [ocWo, setOcWo] = useState('');
+  const [representanteTwas, setRepresentanteTwas] = useState('');
+  const [representanteCliente, setRepresentanteCliente] = useState('');
   const [showSectionsModal, setShowSectionsModal] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [addingSectionTitle, setAddingSectionTitle] = useState('');
@@ -125,6 +127,7 @@ export default function EditReportScreen() {
       const [data, photosData] = await Promise.all([reportAPI.getById(id!), reportAPI.getPhotos(id!)]);
       setReport(data); setPeriodoInicio(data.periodo_inicio || ''); setPeriodoFim(data.periodo_fim || '');
       setExecutadoPor(data.executado_por || ''); setOcWo(data.oc_wo || ''); setSections(data.sections || []); setPhotos(photosData);
+      setRepresentanteTwas(data.representante_twas || ''); setRepresentanteCliente(data.representante_cliente || '');
       setDailyEntries(data.daily_entries || []);
       setPdfSelectedDays(new Set((data.daily_entries || []).map((e: any) => e.id)));
       // Initialize captions from backend data
@@ -142,7 +145,7 @@ export default function EditReportScreen() {
         reportAPI.updateCaption(id!, photoId, caption)
       );
       await Promise.all(captionPromises);
-      await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, oc_wo: ocWo, sections, daily_entries: dailyEntries });
+      await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, oc_wo: ocWo, representante_twas: representanteTwas, representante_cliente: representanteCliente, sections, daily_entries: dailyEntries });
       showMsg('Relatório salvo com sucesso!'); router.push('/supervisor');
     } catch (e: any) { showMsg('Erro ao salvar: ' + (e.message || '')); } finally { setSaving(false); }
   };
@@ -599,6 +602,32 @@ export default function EditReportScreen() {
           <View style={{ marginBottom: 12 }}>
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4 }}>OC / WO (opcional)</Text>
             <TextInput style={[styles.textInput, { height: 40 }]} value={ocWo} onChangeText={setOcWo} placeholder="Ex: 12345" placeholderTextColor="#aaa" />
+          </View>
+
+          {/* Representante TWAS (opcional) */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4 }}>Representante TWAS (opcional)</Text>
+            <TextInput
+              style={[styles.textInput, { height: 40 }]}
+              value={representanteTwas}
+              onChangeText={setRepresentanteTwas}
+              placeholder="Nome do representante TWAS"
+              placeholderTextColor="#aaa"
+              data-testid="representante-twas-input"
+            />
+          </View>
+
+          {/* Representante Cliente (opcional) */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4 }}>Representante Cliente (opcional)</Text>
+            <TextInput
+              style={[styles.textInput, { height: 40 }]}
+              value={representanteCliente}
+              onChangeText={setRepresentanteCliente}
+              placeholder="Nome do representante do cliente"
+              placeholderTextColor="#aaa"
+              data-testid="representante-cliente-input"
+            />
           </View>
 
           {/* Índice do Relatório */}

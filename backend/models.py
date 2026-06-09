@@ -228,6 +228,8 @@ class ReportUpdate(BaseModel):
     periodo_fim: Optional[str] = None
     executado_por: Optional[str] = None
     oc_wo: Optional[str] = None
+    representante_twas: Optional[str] = None
+    representante_cliente: Optional[str] = None
     sections: Optional[List[dict]] = None
     status: Optional[str] = None
     daily_entries: Optional[List[dict]] = None

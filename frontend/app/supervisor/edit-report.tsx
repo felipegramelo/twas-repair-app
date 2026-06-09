@@ -23,7 +23,13 @@ const NO_BULLET_SECTIONS = ['introduction', 'equipment', 'objective'];
 const NO_TEXT_SECTIONS = ['ndt'];
 const IMAGE_ONLY_SECTIONS = ['pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'];
 const PDF_UPLOAD_SECTIONS = new Set(['ndt', 'pressure_test', 'certificate']);
-const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(key);
+// Normalize translation suffixes so e.g. "disassembly_en", "assembly_es" are treated
+// the same as their base keys ("disassembly", "assembly").
+const normalizeKey = (key: string) => key ? key.replace(/_(en|es|pt)$/i, '') : key;
+const isPhotoOnlySection = (key: string) => {
+  const k = normalizeKey(key);
+  return k.endsWith('_photos') || k.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(k);
+};
 const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Aviso', msg); };
 
 const PlainTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
@@ -401,7 +407,10 @@ export default function EditReportScreen() {
 
   const getPhotoUrl = (sp: string) => reportAPI.getPhotoUrl(sp, token);
   const getPhotosForSection = (sk: string) => photos.filter(p => p.section_key === sk);
-  const canHavePhotos = (sk: string) => !NO_PHOTO_SECTIONS.includes(sk) || sk.startsWith('daily_');
+  const canHavePhotos = (sk: string) => {
+    const k = normalizeKey(sk);
+    return !NO_PHOTO_SECTIONS.includes(k) || k.startsWith('daily_');
+  };
 
   const toggleSection = (sectionKey: string) => {
     setSections(prev => prev.map(s => {
@@ -733,7 +742,7 @@ export default function EditReportScreen() {
                       const subNum = numberMap.get(sub.key) || '';
                       const isPhotos = isPhotoOnlySection(sub.key);
                       const isCustomSub = sub.key.startsWith('sub_') || sub.key.startsWith('custom_') || sub.key.startsWith('subsub_');
-                      const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(sec.key) || isPhotos || isCustomSub;
+                      const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(normalizeKey(sec.key)) || isPhotos || isCustomSub;
                       return (
                         <View key={sub.key} style={styles.subsectionBlock}>
                           <TextInput

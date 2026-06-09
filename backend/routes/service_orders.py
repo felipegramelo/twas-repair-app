@@ -49,7 +49,7 @@ async def get_service_orders(month: Optional[int] = Query(None), year: Optional[
         start = datetime(year, 1, 1)
         end = datetime(year + 1, 1, 1)
         query["created_at"] = {"$gte": start, "$lt": end}
-    service_orders = await db.service_orders.find(query).sort("created_at", -1).to_list(500)
+    service_orders = await db.service_orders.find(query).sort("os_number", 1).to_list(500)
     for so in service_orders:
         so["id"] = str(so.pop("_id"))
         if "proposal_id" not in so:

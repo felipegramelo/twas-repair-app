@@ -18,13 +18,6 @@ import uuid
 import jwt
 from pathlib import Path
 
-# Enable HEIC/HEIF support (iOS Photos default format)
-try:
-    from pillow_heif import register_heif_opener
-    register_heif_opener()
-except Exception as _e:
-    logging.warning(f"pillow-heif not available: {_e}")
-
 from database import db
 from config import SECRET_KEY, ALGORITHM, put_object, get_object, APP_NAME
 from dependencies import get_current_user, get_admin_user
@@ -303,7 +296,6 @@ async def duplicate_report(report_id: str, dup: DuplicateReportRequest, user: di
 MIME_TYPES = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
     "gif": "image/gif", "webp": "image/webp", "pdf": "application/pdf",
-    "heic": "image/heic", "heif": "image/heif",
 }
 
 def convert_pdf_to_images(pdf_data: bytes) -> list:
@@ -632,7 +624,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         
         _draw_right_label("Cliente:", report.get('client', ''), detail_y)
         detail_y -= line_h
-        _draw_right_label("Embarcação:", report.get('embarcacao', '') or report.get('location', ''), detail_y)
+        _draw_right_label("Rig/Vessel:", report.get('location', ''), detail_y)
+        detail_y -= line_h
+        _draw_right_label("Equipamento:", report.get('service', ''), detail_y)
         detail_y -= line_h
         _draw_right_label("OS:", report.get('os_number', ''), detail_y)
         detail_y -= line_h
@@ -1171,7 +1165,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         
         # Use Paragraphs instead of a table so they align exactly with the intro text below
         elements.append(Paragraph(f"<b>CLIENTE:</b> {report.get('client', '')}", aval_field_style))
-        elements.append(Paragraph(f"<b>NAVIO/VESSEL:</b> {report.get('embarcacao', '') or report.get('location', '')}", aval_field_style))
+        elements.append(Paragraph(f"<b>NAVIO/VESSEL:</b> {report.get('location', '')}", aval_field_style))
         elements.append(Paragraph(f"<b>SERVIÇO / SERVICE:</b> {report.get('service', '')}", aval_field_style))
         elements.append(Paragraph(f"<b>PERÍODO / PERIOD:</b> {periodo_inicio} a {periodo_fim}", aval_field_style))
         if oc_wo_val:

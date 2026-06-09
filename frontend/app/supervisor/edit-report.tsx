@@ -23,83 +23,15 @@ const NO_BULLET_SECTIONS = ['introduction', 'equipment', 'objective'];
 const NO_TEXT_SECTIONS = ['ndt'];
 const IMAGE_ONLY_SECTIONS = ['pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'];
 const PDF_UPLOAD_SECTIONS = new Set(['ndt', 'pressure_test', 'certificate']);
-// Normalize translation suffixes so e.g. "disassembly_en", "assembly_es" are treated
-// the same as their base keys ("disassembly", "assembly").
-const normalizeKey = (key: string) => key ? key.replace(/_(en|es|pt)$/i, '') : key;
-const isPhotoOnlySection = (key: string) => {
-  const k = normalizeKey(key);
-  return k.endsWith('_photos') || k.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(k);
-};
+const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(key);
 const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Aviso', msg); };
 
 const PlainTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
-  // Auto-continue bullet markers per line:
-  // If the current line starts with "• " and user presses Enter,
-  // the next line auto-starts with "• ". Pressing Enter on an empty
-  // "• " line removes the bullet (ends the list).
   if (Platform.OS === 'web') {
-    const handleKeyDown = (e: any) => {
-      if (e.key !== 'Enter') return;
-      const ta = e.target;
-      const v: string = ta.value || '';
-      const caret: number = ta.selectionStart;
-      // Find the start of the current line
-      const lineStart = v.lastIndexOf('\n', caret - 1) + 1;
-      const currentLine = v.substring(lineStart, caret);
-      const bulletMatch = currentLine.match(/^(• )/);
-      if (!bulletMatch) return; // line not bulleted -> default Enter behavior
-      // Empty bullet line ("• ") -> end the list (remove the "• ")
-      if (currentLine === '• ') {
-        e.preventDefault();
-        const before = v.substring(0, lineStart);
-        const after = v.substring(caret);
-        const nv = before + '\n' + after;
-        onChangeText(nv);
-        setTimeout(() => { ta.selectionStart = ta.selectionEnd = before.length + 1; }, 0);
-        return;
-      }
-      // Continue bullet on next line
-      e.preventDefault();
-      const before = v.substring(0, caret);
-      const after = v.substring(ta.selectionEnd);
-      const nv = before + '\n• ' + after;
-      onChangeText(nv);
-      setTimeout(() => { ta.selectionStart = ta.selectionEnd = caret + 3; }, 0);
-    };
-    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} onKeyDown={handleKeyDown} placeholder={placeholder}
+    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} placeholder={placeholder}
       style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333', fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', ...(cs || {}) }} />;
   }
-  // Native (iOS/Android): detect newline addition and auto-continue bullets from previous line
-  const handleNativeChange = (newText: string) => {
-    const prev = value || '';
-    // Only react to additions (length grew by exactly 1, char added is \n)
-    if (newText.length === prev.length + 1) {
-      // Find which position the newline was added at
-      for (let i = 0; i < newText.length; i++) {
-        if (newText[i] !== prev[i]) {
-          if (newText[i] === '\n') {
-            // Get content of previous line (between last \n before i and i)
-            const lineStart = newText.lastIndexOf('\n', i - 1) + 1;
-            const prevLine = newText.substring(lineStart, i);
-            if (prevLine === '• ') {
-              // empty bullet -> remove bullet, keep newline (end list)
-              const after = newText.substring(i);
-              onChangeText(newText.substring(0, lineStart) + after);
-              return;
-            }
-            if (prevLine.startsWith('• ')) {
-              // continue bullet on the new line
-              onChangeText(newText.substring(0, i + 1) + '• ' + newText.substring(i + 1));
-              return;
-            }
-          }
-          break;
-        }
-      }
-    }
-    onChangeText(newText);
-  };
-  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={handleNativeChange} placeholder={placeholder} multiline textAlignVertical="top" />;
+  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={onChangeText} placeholder={placeholder} multiline textAlignVertical="top" />;
 };
 
 const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
@@ -407,10 +339,7 @@ export default function EditReportScreen() {
 
   const getPhotoUrl = (sp: string) => reportAPI.getPhotoUrl(sp, token);
   const getPhotosForSection = (sk: string) => photos.filter(p => p.section_key === sk);
-  const canHavePhotos = (sk: string) => {
-    const k = normalizeKey(sk);
-    return !NO_PHOTO_SECTIONS.includes(k) || k.startsWith('daily_');
-  };
+  const canHavePhotos = (sk: string) => !NO_PHOTO_SECTIONS.includes(sk) || sk.startsWith('daily_');
 
   const toggleSection = (sectionKey: string) => {
     setSections(prev => prev.map(s => {
@@ -742,7 +671,7 @@ export default function EditReportScreen() {
                       const subNum = numberMap.get(sub.key) || '';
                       const isPhotos = isPhotoOnlySection(sub.key);
                       const isCustomSub = sub.key.startsWith('sub_') || sub.key.startsWith('custom_') || sub.key.startsWith('subsub_');
-                      const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(normalizeKey(sec.key)) || isPhotos || isCustomSub;
+                      const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(sec.key) || isPhotos || isCustomSub;
                       return (
                         <View key={sub.key} style={styles.subsectionBlock}>
                           <TextInput

@@ -18,8 +18,6 @@ MIME_TYPES = {
     "gif": "image/gif",
     "webp": "image/webp",
     "pdf": "application/pdf",
-    "heic": "image/heic",
-    "heif": "image/heif",
 }
 
 

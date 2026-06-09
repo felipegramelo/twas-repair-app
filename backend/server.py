@@ -1,8 +1,6 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 import logging
-import os
 
 from database import client
 from config import init_storage
@@ -20,11 +18,6 @@ from routes.translate import router as translate_router
 from routes.holidays import router as holidays_router
 
 app = FastAPI(title="TWAS REPAIR API")
-
-# Serve generated graphics (logo / feature graphic) for download via /api/static
-_assets_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "assets", "images")
-if os.path.isdir(_assets_dir):
-    app.mount("/api/static-assets", StaticFiles(directory=_assets_dir), name="static-assets")
 
 # Include all route modules under /api prefix
 api_prefix = "/api"
@@ -102,32 +95,6 @@ async def startup_event():
             logging.info("Admin permissions updated")
     except Exception as e:
         logging.error(f"Admin seed failed: {e}")
-
-    # One-off migration: backfill `embarcacao` on existing reports from their OS
-    try:
-        from database import db
-        from bson import ObjectId
-        cursor = db.reports.find({"$or": [{"embarcacao": {"$exists": False}}, {"embarcacao": ""}, {"embarcacao": None}]})
-        migrated = 0
-        async for rep in cursor:
-            os_id = rep.get("os_id")
-            if not os_id:
-                continue
-            try:
-                os_data = await db.service_orders.find_one({"_id": ObjectId(os_id)})
-            except Exception:
-                os_data = None
-            if not os_data:
-                continue
-            emb = os_data.get("embarcacao", "")
-            if not emb:
-                continue
-            await db.reports.update_one({"_id": rep["_id"]}, {"$set": {"embarcacao": emb}})
-            migrated += 1
-        if migrated:
-            logging.info(f"Backfilled embarcacao on {migrated} report(s)")
-    except Exception as e:
-        logging.error(f"Reports embarcacao backfill failed: {e}")
 
 
 @app.on_event("shutdown")

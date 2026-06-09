@@ -670,7 +670,8 @@ export default function EditReportScreen() {
                     {sec.subsections.filter(sub => sub.enabled).map(sub => {
                       const subNum = numberMap.get(sub.key) || '';
                       const isPhotos = isPhotoOnlySection(sub.key);
-                      const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(sec.key) || isPhotos || sub.key.startsWith('sub_') || sub.key.startsWith('custom_');
+                      const isCustomSub = sub.key.startsWith('sub_') || sub.key.startsWith('custom_') || sub.key.startsWith('subsub_');
+                      const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(sec.key) || isPhotos || isCustomSub;
                       return (
                         <View key={sub.key} style={styles.subsectionBlock}>
                           <TextInput
@@ -680,7 +681,7 @@ export default function EditReportScreen() {
                             placeholder="Nome da subseção..."
                             data-testid={`subsection-title-${sub.key}`}
                           />
-                          {!isPhotos && !showPhotoUpload && (
+                          {!isPhotos && (!showPhotoUpload || isCustomSub) && (
                             <>
                               {renderTextAreaControls(sub.key, hiddenTextAreas.has(sub.key))}
                               {renderSmartTextArea(sub.key, sub.content, `Texto para ${sub.title}...`)}
@@ -690,6 +691,7 @@ export default function EditReportScreen() {
                           {(sub.subsections || []).filter((ss: Section) => ss.enabled).map((ss: Section) => {
                             const ssNum = numberMap.get(ss.key) || '';
                             const isSP = isPhotoOnlySection(ss.key);
+                            const isCustomSubSub = ss.key.startsWith('sub_') || ss.key.startsWith('custom_') || ss.key.startsWith('subsub_');
                             return (
                               <View key={ss.key} style={styles.subsubBlock}>
                                 <TextInput
@@ -704,7 +706,7 @@ export default function EditReportScreen() {
                                     {renderSmartTextArea(ss.key, ss.content, `Texto para ${ss.title}...`)}
                                   </>
                                 )}
-                                {isSP ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
+                                {(isSP || isCustomSubSub) ? renderPhotoGrid(ss.key, true) : (canHavePhotos(ss.key) && renderPhotoGrid(ss.key))}
                               </View>);
                           })}
                         </View>);

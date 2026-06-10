@@ -624,9 +624,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         
         _draw_right_label("Cliente:", report.get('client', ''), detail_y)
         detail_y -= line_h
-        _draw_right_label("Rig/Vessel:", report.get('location', ''), detail_y)
-        detail_y -= line_h
-        _draw_right_label("Equipamento:", report.get('service', ''), detail_y)
+        _draw_right_label("Rig/Vessel:", report.get('embarcacao', '') or report.get('location', ''), detail_y)
         detail_y -= line_h
         _draw_right_label("OS:", report.get('os_number', ''), detail_y)
         detail_y -= line_h

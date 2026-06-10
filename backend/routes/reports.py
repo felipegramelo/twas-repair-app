@@ -1178,7 +1178,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         
         # Use Paragraphs instead of a table so they align exactly with the intro text below
         elements.append(Paragraph(f"<b>CLIENTE:</b> {report.get('client', '')}", aval_field_style))
-        elements.append(Paragraph(f"<b>NAVIO/VESSEL:</b> {report.get('location', '')}", aval_field_style))
+        elements.append(Paragraph(f"<b>NAVIO/VESSEL:</b> {report.get('embarcacao', '') or report.get('location', '')}", aval_field_style))
         elements.append(Paragraph(f"<b>SERVIÇO / SERVICE:</b> {report.get('service', '')}", aval_field_style))
         elements.append(Paragraph(f"<b>PERÍODO / PERIOD:</b> {periodo_inicio} a {periodo_fim}", aval_field_style))
         if oc_wo_val:

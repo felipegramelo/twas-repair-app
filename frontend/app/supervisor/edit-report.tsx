@@ -105,6 +105,7 @@ export default function EditReportScreen() {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [addingSectionTitle, setAddingSectionTitle] = useState('');
   const [addingSubsectionTitle, setAddingSubsectionTitle] = useState<Record<string, string>>({});
+  const [addingSubsectionLayout, setAddingSubsectionLayout] = useState<Record<string, 'full_page' | 'grid'>>({});
   const [showAddSubsection, setShowAddSubsection] = useState<string | null>(null);
   const [customSectionMode, setCustomSectionMode] = useState<Record<string, Set<string>>>({});
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -481,18 +482,20 @@ export default function EditReportScreen() {
   const addSubsection = (parentKey: string) => {
     const title = (addingSubsectionTitle[parentKey] || '').trim();
     if (!title) return;
+    const layout = addingSubsectionLayout[parentKey] || 'full_page';
     setSections(prev => prev.map(s => {
       if (s.key === parentKey) {
-        return { ...s, subsections: [...s.subsections, { key: `sub_${Date.now()}`, number: '', title: title.toUpperCase(), content: '', enabled: true, subsections: [] }] };
+        return { ...s, subsections: [...s.subsections, { key: `sub_${Date.now()}`, number: '', title: title.toUpperCase(), content: '', enabled: true, subsections: [], photo_layout: layout } as any] };
       }
       return { ...s, subsections: s.subsections.map(sub => {
         if (sub.key === parentKey) {
-          return { ...sub, subsections: [...(sub.subsections || []), { key: `subsub_${Date.now()}`, number: '', title: title.toUpperCase(), content: '', enabled: true, subsections: [] }] };
+          return { ...sub, subsections: [...(sub.subsections || []), { key: `subsub_${Date.now()}`, number: '', title: title.toUpperCase(), content: '', enabled: true, subsections: [], photo_layout: layout } as any] };
         }
         return sub;
       })};
     }));
     setAddingSubsectionTitle(prev => ({ ...prev, [parentKey]: '' }));
+    setAddingSubsectionLayout(prev => ({ ...prev, [parentKey]: 'full_page' }));
     setShowAddSubsection(null);
   };
 
@@ -742,10 +745,31 @@ export default function EditReportScreen() {
                     })}
                     {/* Add subsection button */}
                     {showAddSubsection === sec.key ? (
-                      <View style={styles.addSubRow}>
-                        <TextInput style={styles.addSubInput} value={addingSubsectionTitle[sec.key] || ''} onChangeText={(t) => setAddingSubsectionTitle(prev => ({ ...prev, [sec.key]: t }))} placeholder="Nome da subseção..." autoFocus />
-                        <TouchableOpacity style={styles.addSubConfirmBtn} onPress={() => addSubsection(sec.key)}><Ionicons name="checkmark-circle" size={26} color="#000000" /></TouchableOpacity>
-                        <TouchableOpacity onPress={() => setShowAddSubsection(null)}><Ionicons name="close-circle" size={26} color="#999" /></TouchableOpacity>
+                      <View style={{ marginTop: 8, marginBottom: 8 }}>
+                        <View style={styles.addSubRow}>
+                          <TextInput style={styles.addSubInput} value={addingSubsectionTitle[sec.key] || ''} onChangeText={(t) => setAddingSubsectionTitle(prev => ({ ...prev, [sec.key]: t }))} placeholder="Nome da subseção..." autoFocus />
+                          <TouchableOpacity style={styles.addSubConfirmBtn} onPress={() => addSubsection(sec.key)}><Ionicons name="checkmark-circle" size={26} color="#000000" /></TouchableOpacity>
+                          <TouchableOpacity onPress={() => setShowAddSubsection(null)}><Ionicons name="close-circle" size={26} color="#999" /></TouchableOpacity>
+                        </View>
+                        <Text style={{ fontSize: 12, color: '#666', marginTop: 8, marginBottom: 6, fontWeight: '600' }}>Estilo das fotos no PDF:</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <TouchableOpacity
+                            data-testid="layout-full-page"
+                            style={[styles.layoutChoice, (addingSubsectionLayout[sec.key] || 'full_page') === 'full_page' && styles.layoutChoiceActive]}
+                            onPress={() => setAddingSubsectionLayout(prev => ({ ...prev, [sec.key]: 'full_page' }))}
+                          >
+                            <Ionicons name="image-outline" size={18} color={(addingSubsectionLayout[sec.key] || 'full_page') === 'full_page' ? '#fff' : '#000'} />
+                            <Text style={[styles.layoutChoiceText, (addingSubsectionLayout[sec.key] || 'full_page') === 'full_page' && { color: '#fff' }]}>1 foto por página</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            data-testid="layout-grid"
+                            style={[styles.layoutChoice, addingSubsectionLayout[sec.key] === 'grid' && styles.layoutChoiceActive]}
+                            onPress={() => setAddingSubsectionLayout(prev => ({ ...prev, [sec.key]: 'grid' }))}
+                          >
+                            <Ionicons name="grid-outline" size={18} color={addingSubsectionLayout[sec.key] === 'grid' ? '#fff' : '#000'} />
+                            <Text style={[styles.layoutChoiceText, addingSubsectionLayout[sec.key] === 'grid' && { color: '#fff' }]}>2 fotos + legenda</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ) : (
                       <TouchableOpacity style={styles.addSubBtn} onPress={() => setShowAddSubsection(sec.key)}>
@@ -1035,6 +1059,10 @@ const styles = StyleSheet.create({
   addSubRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   addSubInput: { flex: 1, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#000000', padding: 10, fontSize: 14, color: '#333' },
   addSubConfirmBtn: { padding: 2 },
+  // Layout choice for new subsections (1 photo per page vs grid 2x with caption)
+  layoutChoice: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1.5, borderColor: '#000000', backgroundColor: '#fff' },
+  layoutChoiceActive: { backgroundColor: '#000000', borderColor: '#000000' },
+  layoutChoiceText: { fontSize: 12, fontWeight: '600', color: '#000000' },
   // Mode buttons for custom sections
   modeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1.5, borderColor: '#000000', justifyContent: 'center', backgroundColor: '#fff' },
   modeBtnActive: { backgroundColor: '#000000', borderColor: '#000000' },

@@ -998,7 +998,14 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         for sub in subs:
             sub_key = sub.get("key", "")
             sub_photos = report_photos.get(sub_key, [])
-            sub_is_fp = sub_key in FULL_PAGE_KEYS or sub_key.startswith('sub_') or sub_key.startswith('subsub_') or sub_key.startswith('custom_')
+            # Respect explicit photo_layout when set; otherwise fall back to legacy auto-rule
+            sub_layout = sub.get("photo_layout")
+            if sub_layout == "grid":
+                sub_is_fp = False
+            elif sub_layout == "full_page":
+                sub_is_fp = True
+            else:
+                sub_is_fp = sub_key in FULL_PAGE_KEYS or sub_key.startswith('sub_') or sub_key.startswith('subsub_') or sub_key.startswith('custom_')
             
             if sub_is_fp and sub_photos:
                 first_group = []
@@ -1028,13 +1035,19 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 sub_content = sub.get("content", "")
                 if sub_content:
                     sub_header.append(Paragraph(format_content(sub_content), body_style))
-                _render_photos(sub_key, elements_list, header_elements=sub_header)
+                _render_photos(sub_key, elements_list, force_grid=(sub_layout == "grid"), header_elements=sub_header)
             
             for subsub in sub.get("subsections", []):
                 if subsub.get("enabled", True):
                     ss_key = subsub.get("key", "")
                     ss_photos = report_photos.get(ss_key, [])
-                    ss_is_fp = ss_key in FULL_PAGE_KEYS or ss_key.startswith('sub_') or ss_key.startswith('subsub_') or ss_key.startswith('custom_')
+                    ss_layout = subsub.get("photo_layout")
+                    if ss_layout == "grid":
+                        ss_is_fp = False
+                    elif ss_layout == "full_page":
+                        ss_is_fp = True
+                    else:
+                        ss_is_fp = ss_key in FULL_PAGE_KEYS or ss_key.startswith('sub_') or ss_key.startswith('subsub_') or ss_key.startswith('custom_')
                     
                     if ss_is_fp and ss_photos:
                         first_group = [Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style)]
@@ -1056,7 +1069,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                         ss_content = subsub.get("content", "")
                         if ss_content:
                             ss_header.append(Paragraph(format_content(ss_content), body_style))
-                        _render_photos(ss_key, elements_list, header_elements=ss_header)
+                        _render_photos(ss_key, elements_list, force_grid=(ss_layout == "grid"), header_elements=ss_header)
     
     # Image-only sections: render full-page images (one per page)
     FULL_PAGE_KEYS = {'ndt', 'pressure_test', 'certificate', 'propeller_shaft', 'pinion_shaft', 'input_shaft', 'coupling', 'swivel_pinion', 'propeller', 'reduction_gear'}
@@ -1066,7 +1079,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     photo_img_w = photo_col_w - 0.3*cm
     photo_img_h = 6*cm
     
-    def _render_photos(section_key, elements_list, force_full_page=False, header_elements=None):
+    def _render_photos(section_key, elements_list, force_full_page=False, force_grid=False, header_elements=None):
         """Render photos for a section. header_elements: list of flowables to keep together with first photo row."""
         sec_photos = report_photos.get(section_key, [])
         if not sec_photos:
@@ -1077,7 +1090,12 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             return
         
         # Full page: NDT subsections, pressure_test, certificate, custom sections
-        is_full_page = force_full_page or section_key in FULL_PAGE_KEYS or section_key.startswith('sub_') or section_key.startswith('subsub_') or section_key.startswith('custom_')
+        if force_grid:
+            is_full_page = False
+        elif force_full_page:
+            is_full_page = True
+        else:
+            is_full_page = section_key in FULL_PAGE_KEYS or section_key.startswith('sub_') or section_key.startswith('subsub_') or section_key.startswith('custom_')
         
         if is_full_page:
             if header_elements:

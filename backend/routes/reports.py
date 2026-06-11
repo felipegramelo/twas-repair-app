@@ -736,13 +736,13 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     # Service name above photo
     service_cover_style = ParagraphStyle('ServiceCover', parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceAfter=12)
     elements.append(Paragraph(service_name, service_cover_style))
-    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Spacer(1, 0.3*cm))
     
-    # Cover photo (larger, centered)
+    # Cover photo (centered) - reduced height so the info table (incl. TWAS/Client reps) fits on the same page
     cover_photos = report_photos.get("cover", [])
     if cover_photos:
         photo = cover_photos[0]
-        img = load_photo_image(photo["storage_path"], content_width, 12*cm)
+        img = load_photo_image(photo["storage_path"], content_width, 9*cm)
         if img:
             # Center the image
             img.hAlign = 'CENTER'
@@ -750,9 +750,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     # Vessel/Embarcacao name below photo
     embarcacao_cover_name = report.get("embarcacao", "").upper()
-    vessel_cover_style = ParagraphStyle('VesselCover', parent=styles['Normal'], fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceBefore=12, spaceAfter=16)
+    vessel_cover_style = ParagraphStyle('VesselCover', parent=styles['Normal'], fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black, spaceBefore=8, spaceAfter=10)
     elements.append(Paragraph(embarcacao_cover_name, vessel_cover_style))
-    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Spacer(1, 0.2*cm))
     
     # Info table - translate labels based on report language
     report_lang = report.get("language", "pt")

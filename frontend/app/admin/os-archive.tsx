@@ -99,6 +99,7 @@ export default function OSArchiveScreen() {
         () => timesheetAPI.downloadPDF(ts.id),
         nativeUrl,
         buildPdfFilename('TM', ts.os_number, ts.client, ts.service),
+        true,
       );
     } catch { showMsg('Erro ao abrir PDF do Timesheet'); }
   };
@@ -111,6 +112,7 @@ export default function OSArchiveScreen() {
         () => reportAPI.downloadPDF(report.id),
         nativeUrl,
         buildPdfFilename('REL', report.os_number, report.client, report.service),
+        true,
       );
     } catch { showMsg('Erro ao abrir PDF do Relatório'); }
   };
@@ -118,9 +120,9 @@ export default function OSArchiveScreen() {
   const handleDownloadTimesheetPDF = async (ts: DocItem) => {
     try {
       const backendUrl = BACKEND_URL;
-      const nativeUrl = `${backendUrl}/api/timesheets/${ts.id}/pdf?t=${Date.now()}`;
+      const nativeUrl = `${backendUrl}/api/timesheets/${ts.id}/pdf?t=${Date.now()}&download=1`;
       await downloadAndSharePDF(
-        () => timesheetAPI.downloadPDF(ts.id),
+        () => timesheetAPI.downloadPDF(ts.id, true),
         nativeUrl,
         buildPdfFilename('TM', ts.os_number, ts.client, ts.service),
       );
@@ -130,9 +132,9 @@ export default function OSArchiveScreen() {
   const handleDownloadReportPDF = async (report: DocItem) => {
     try {
       const backendUrl = BACKEND_URL;
-      const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
+      const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}&download=1`;
       await downloadAndSharePDF(
-        () => reportAPI.downloadPDF(report.id),
+        () => reportAPI.downloadPDF(report.id, true),
         nativeUrl,
         buildPdfFilename('REL', report.os_number, report.client, report.service),
       );

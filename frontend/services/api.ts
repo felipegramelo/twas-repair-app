@@ -159,8 +159,9 @@ export const timesheetAPI = {
     const response = await api.delete(`/timesheets/${id}`);
     return response.data;
   },
-  downloadPDF: async (id: string): Promise<Blob> => {
-    const response = await api.get(`/timesheets/${id}/pdf?t=${Date.now()}`, {
+  downloadPDF: async (id: string, forceDownload: boolean = false): Promise<Blob> => {
+    const downloadParam = forceDownload ? '&download=1' : '';
+    const response = await api.get(`/timesheets/${id}/pdf?t=${Date.now()}${downloadParam}`, {
       responseType: 'blob',
       headers: { 'Cache-Control': 'no-cache' },
     });
@@ -380,8 +381,9 @@ export const reportAPI = {
     const response = await api.post(`/reports/${id}/duplicate`, data);
     return response.data;
   },
-  downloadPDF: async (id: string): Promise<Blob> => {
-    const response = await api.get(`/reports/${id}/pdf?t=${Date.now()}`, {
+  downloadPDF: async (id: string, forceDownload: boolean = false): Promise<Blob> => {
+    const downloadParam = forceDownload ? '&download=1' : '';
+    const response = await api.get(`/reports/${id}/pdf?t=${Date.now()}${downloadParam}`, {
       responseType: 'blob',
       headers: { 'Cache-Control': 'no-cache' },
       timeout: 120000,

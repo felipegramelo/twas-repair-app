@@ -497,7 +497,7 @@ async def delete_report_photo(report_id: str, photo_id: str, user: dict = Depend
     return {"success": True}
 
 @router.get("/reports/{report_id}/pdf")
-async def generate_report_pdf(report_id: str, request: Request, token: str = Query(default=None), day_ids: str = Query(default=None)):
+async def generate_report_pdf(report_id: str, request: Request, token: str = Query(default=None), day_ids: str = Query(default=None), download: str = Query(default=None)):
     # Accept auth from query param OR Authorization header (for mobile browser direct URL access)
     auth_token = token
     if not auth_token:
@@ -1427,11 +1427,12 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     report_kind = "RT" if report.get("report_type") == "service" else "RD"
     filename = f"{_safe(report.get('os_number', ''))} - {_safe(report.get('client', ''))} - {report_kind} - {_safe(report.get('service', ''))}.pdf".strip(" -")
 
+    disposition = "attachment" if download else "inline"
     return StreamingResponse(
         final_buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
         }
     )

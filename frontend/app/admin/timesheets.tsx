@@ -95,7 +95,7 @@ export default function AdminTimesheetsScreen() {
   const handleDownloadPDF = async (timesheet: Timesheet) => {
     try {
       if (Platform.OS === 'web') {
-        const blob = await timesheetAPI.downloadPDF(timesheet.id);
+        const blob = await timesheetAPI.downloadPDF(timesheet.id, true);
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;

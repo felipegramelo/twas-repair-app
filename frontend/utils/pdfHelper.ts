@@ -24,24 +24,36 @@ export function buildPdfFilename(
 
 /**
  * Download and open/share a PDF file.
- * On web: creates a download link.
+ * On web:
+ *   - openInBrowser=true (default Visualizar): opens in new browser tab (inline)
+ *   - openInBrowser=false (Baixar): triggers file download
  * On iOS/Android: downloads via expo-file-system and opens share sheet.
  */
 export async function downloadAndSharePDF(
   fetchBlob: () => Promise<Blob>,
   nativeUrl: string,
   fileName: string,
+  openInBrowser: boolean = false,
 ): Promise<void> {
   if (Platform.OS === 'web') {
-    const blob = await fetchBlob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (openInBrowser) {
+      // Open inline in a new tab so the user can preview without saving to disk
+      const blob = await fetchBlob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Revoke after a few seconds to free memory but keep the tab usable
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } else {
+      const blob = await fetchBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   } else {
     const token = await AsyncStorage.getItem('token');
     // Ensure URL has /api prefix

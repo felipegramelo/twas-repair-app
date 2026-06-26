@@ -52,7 +52,7 @@ export default function DailyReportsScreen() {
     try {
       const backendUrl = BACKEND_URL;
       const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
-      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, buildPdfFilename('REL', report.os_number, report.client, report.service));
+      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, buildPdfFilename('REL', report.os_number, report.client, report.service), true);
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao abrir PDF');
       else Alert.alert('Erro', 'Erro ao abrir PDF');
@@ -62,8 +62,8 @@ export default function DailyReportsScreen() {
   const handleDownloadPDF = async (report: ReportItem) => {
     try {
       const backendUrl = BACKEND_URL;
-      const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}`;
-      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id), nativeUrl, buildPdfFilename('REL', report.os_number, report.client, report.service));
+      const nativeUrl = `${backendUrl}/api/reports/${report.id}/pdf?t=${Date.now()}&download=1`;
+      await downloadAndSharePDF(() => reportAPI.downloadPDF(report.id, true), nativeUrl, buildPdfFilename('REL', report.os_number, report.client, report.service));
       if (Platform.OS === 'web') window.alert('PDF baixado com sucesso!');
     } catch (error) {
       if (Platform.OS === 'web') window.alert('Erro ao baixar PDF');

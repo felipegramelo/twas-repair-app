@@ -251,7 +251,7 @@ async def duplicate_timesheet(ts_id: str, current_user: Dict[str, Any] = Depends
 # ==================== PDF GENERATION ====================
 
 @router.get("/timesheets/{ts_id}/pdf")
-async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None), credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))):
+async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None), download: Optional[str] = Query(None), credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))):
     # Accept token via query string (?token=...) OR Authorization: Bearer header (for mobile & web)
     auth_token = token
     if not auth_token and credentials:
@@ -645,11 +645,12 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         return re.sub(r'[<>:"/\\|?*]', '', str(s or '')).strip()
     filename = f"{_safe(ts.get('os_number', ''))} - {_safe(ts.get('client', ''))} - TM - {_safe(ts.get('service', ''))}.pdf".strip(" -")
 
+    disposition = "attachment" if download else "inline"
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",

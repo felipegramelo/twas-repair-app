@@ -1431,7 +1431,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         final_buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": f'inline; filename="{filename}"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
         }
     )

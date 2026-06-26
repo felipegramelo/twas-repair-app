@@ -373,6 +373,16 @@ export default function SupervisorDashboard() {
     else if (cleaned.length >= 5) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
     setter(formatted);
   };
+  const htmlDateToBR = (htmlDate: string): string => {
+    if (!htmlDate) return '';
+    const [y, m, d] = htmlDate.split('-');
+    return `${d}/${m}/${y}`;
+  };
+  const brDateToHtml = (brDate: string): string => {
+    if (!brDate) return '';
+    const m = brDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  };
 
   const getStatusLabel = (s: string) => s === 'draft' ? 'Rascunho' : s === 'finalized' ? 'Finalizado' : s === 'completed' ? 'Concluído' : s === 'approved' ? 'Aprovado' : s;
   const getStatusColor = (s: string) => s === 'draft' ? '#ff9800' : s === 'finalized' ? '#4caf50' : s === 'completed' ? '#4caf50' : s === 'approved' ? '#2196f3' : '#999';
@@ -695,11 +705,29 @@ export default function SupervisorDashboard() {
             <View style={styles.dateRow}>
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Início</Text>
-                <TextInput style={styles.dateInput} value={dupPeriodoInicio} onChangeText={(t) => formatDateInput(t, setDupPeriodoInicio)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+                {Platform.OS === 'web' ? (
+                  <input
+                    type="date"
+                    value={brDateToHtml(dupPeriodoInicio)}
+                    onChange={(e: any) => setDupPeriodoInicio(htmlDateToBR(e.target.value))}
+                    style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }}
+                  />
+                ) : (
+                  <TextInput style={styles.dateInput} value={dupPeriodoInicio} onChangeText={(t) => formatDateInput(t, setDupPeriodoInicio)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+                )}
               </View>
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Fim</Text>
-                <TextInput style={styles.dateInput} value={dupPeriodoFim} onChangeText={(t) => formatDateInput(t, setDupPeriodoFim)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+                {Platform.OS === 'web' ? (
+                  <input
+                    type="date"
+                    value={brDateToHtml(dupPeriodoFim)}
+                    onChange={(e: any) => setDupPeriodoFim(htmlDateToBR(e.target.value))}
+                    style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 8, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', textAlign: 'center', cursor: 'pointer', boxSizing: 'border-box' }}
+                  />
+                ) : (
+                  <TextInput style={styles.dateInput} value={dupPeriodoFim} onChangeText={(t) => formatDateInput(t, setDupPeriodoFim)} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+                )}
               </View>
             </View>
             <View style={styles.dupActions}>

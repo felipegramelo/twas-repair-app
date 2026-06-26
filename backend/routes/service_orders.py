@@ -82,6 +82,18 @@ async def update_service_order(so_id: str, so_data: ServiceOrderCreate, current_
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Service Order not found")
     
+    # Propagate key OS fields to existing reports so the PDF stays in sync with the OS
+    try:
+        propagate = {}
+        for key in ("embarcacao", "client", "location", "service"):
+            val = (so_dict.get(key) or "").strip() if isinstance(so_dict.get(key), str) else so_dict.get(key)
+            if val:
+                propagate[key] = val
+        if propagate:
+            await db.reports.update_many({"os_id": so_id}, {"$set": propagate})
+    except Exception:
+        pass
+    
     updated_so = await db.service_orders.find_one({"_id": ObjectId(so_id)})
     updated_so["_id"] = str(updated_so["_id"])
     return ServiceOrder(**updated_so)

@@ -28,10 +28,11 @@ router = APIRouter()
 
 ROOT_DIR = Path(__file__).parent.parent
 
-def get_default_service_sections(client="", service="", location=""):
+def get_default_service_sections(client="", service="", location="", embarcacao=""):
+    vessel_name = (embarcacao or location or "").strip()
     intro_text = (
         f"A TWAS Repair foi contratada pela(o) {client} para realizar o (a) {service} "
-        f"da embarcação {location}.\n"
+        f"da embarcação {vessel_name}.\n"
         f"A TWAS Repair performou as atividades descritas no relatório abaixo, utilizando-se de mão de obra "
         f"especializada, atendendo os requerimentos da(o) {client}, através do representante/especialista "
         f"do sistema treinado pelo fabricante."
@@ -64,10 +65,11 @@ def get_default_service_sections(client="", service="", location=""):
         {"key": "client_eval", "number": "8", "title": "AVALIAÇÃO DO CLIENTE", "content": "", "enabled": False, "subsections": []},
     ]
 
-def get_default_daily_sections(client="", service="", location=""):
+def get_default_daily_sections(client="", service="", location="", embarcacao=""):
+    vessel_name = (embarcacao or location or "").strip()
     intro_text = (
         f"A TWAS Repair foi contratada pela(o) {client} para realizar o (a) {service} "
-        f"da embarcação {location}.\n"
+        f"da embarcação {vessel_name}.\n"
         f"A TWAS Repair performou as atividades descritas no relatório abaixo, utilizando-se de mão de obra "
         f"especializada, atendendo os requerimentos da(o) {client}, através do representante/especialista "
         f"do sistema treinado pelo fabricante."
@@ -90,9 +92,9 @@ async def create_report(report: ReportCreate, user: dict = Depends(get_current_u
     
     now = datetime.utcnow()
     default_sections = get_default_service_sections(
-        client=os_data["client"], service=os_data["service"], location=os_data["location"]
+        client=os_data["client"], service=os_data["service"], location=os_data["location"], embarcacao=os_data.get("embarcacao", "")
     ) if report.report_type == "service" else get_default_daily_sections(
-        client=os_data["client"], service=os_data["service"], location=os_data["location"]
+        client=os_data["client"], service=os_data["service"], location=os_data["location"], embarcacao=os_data.get("embarcacao", "")
     )
     report_doc = {
         "report_type": report.report_type,

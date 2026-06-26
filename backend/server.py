@@ -97,13 +97,13 @@ async def startup_event():
         logging.error(f"Admin seed failed: {e}")
 
     # One-off migration: backfill embarcacao/client/location/service on existing reports from their OS
+    # Also fix legacy introduction text that has "da embarcação {location}" → "da embarcação {embarcacao}"
     try:
         from database import db
         from bson import ObjectId
-        cursor = db.reports.find({"$or": [
-            {"embarcacao": {"$exists": False}}, {"embarcacao": ""}, {"embarcacao": None},
-        ]})
+        cursor = db.reports.find({})
         migrated = 0
+        intro_fixed = 0
         async for rep in cursor:
             os_id = rep.get("os_id")
             if not os_id:
@@ -115,16 +115,34 @@ async def startup_event():
             if not os_data:
                 continue
             update_data = {}
+            os_emb = (os_data.get("embarcacao") or "").strip()
+            os_loc = (os_data.get("location") or "").strip()
+            # 1) Backfill top-level fields if missing
             for key in ("embarcacao", "client", "location", "service"):
                 val = (os_data.get(key) or "")
                 if isinstance(val, str): val = val.strip()
                 if val and not (rep.get(key) or "").strip():
                     update_data[key] = val
+            # 2) Fix introduction text in sections (replace "embarcação <location>" with "embarcação <embarcacao>")
+            if os_emb and os_loc and os_emb != os_loc:
+                sections = rep.get("sections") or []
+                changed = False
+                for sec in sections:
+                    if sec.get("key") == "introduction":
+                        content = sec.get("content") or ""
+                        old_phrase = f"embarcação {os_loc}"
+                        new_phrase = f"embarcação {os_emb}"
+                        if old_phrase in content and new_phrase not in content:
+                            sec["content"] = content.replace(old_phrase, new_phrase)
+                            changed = True
+                if changed:
+                    update_data["sections"] = sections
+                    intro_fixed += 1
             if update_data:
                 await db.reports.update_one({"_id": rep["_id"]}, {"$set": update_data})
                 migrated += 1
         if migrated:
-            logging.info(f"Backfilled OS fields on {migrated} report(s)")
+            logging.info(f"Backfilled OS fields on {migrated} report(s); intro text fixed on {intro_fixed}")
     except Exception as e:
         logging.error(f"Reports OS field backfill failed: {e}")
 

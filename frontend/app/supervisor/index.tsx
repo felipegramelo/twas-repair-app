@@ -197,8 +197,15 @@ export default function SupervisorDashboard() {
   const handleDownloadReportPDF = async (report: Report) => {
     try {
       if (Platform.OS === 'web') {
-        const url = getReportPdfUrl(report.id);
-        window.location.href = url;
+        const blob = await reportAPI.downloadPDF(report.id, true);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = buildPdfFilename('REL', report.os_number, report.client, report.service);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       } else {
         const token = await AsyncStorage.getItem('token');
         const baseURL = BACKEND_URL + '/api';

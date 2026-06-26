@@ -649,7 +649,7 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",

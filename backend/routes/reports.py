@@ -16,6 +16,7 @@ from PIL import Image as PILImage
 import io
 import uuid
 import jwt
+import asyncio
 from pathlib import Path
 
 from database import db
@@ -23,6 +24,7 @@ from config import SECRET_KEY, ALGORITHM, put_object, get_object, APP_NAME
 from dependencies import get_current_user, get_admin_user
 from models import ReportCreate, ReportUpdate, UserRole
 from utils import parse_date_sortable
+from services.onedrive import send_pdf_to_onedrive
 
 router = APIRouter()
 
@@ -1428,6 +1430,17 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         return re.sub(r'[<>:"/\\|?*]', '', str(s or '')).strip()
     report_kind = "RT" if report.get("report_type") == "service" else "RD"
     filename = f"{_safe(report.get('os_number', ''))} - {_safe(report.get('client', ''))} - {report_kind} - {_safe(report.get('service', ''))}.pdf".strip(" -")
+
+    # Fire-and-forget upload to OneDrive (via Make.com) when user explicitly downloads
+    if download:
+        pdf_bytes_copy = final_buffer.getvalue()
+        final_buffer.seek(0)
+        asyncio.create_task(send_pdf_to_onedrive(
+            pdf_bytes=pdf_bytes_copy,
+            filename=filename,
+            os_number=str(report.get("os_number", "")),
+            kind="report",
+        ))
 
     disposition = "attachment" if download else "inline"
     return StreamingResponse(

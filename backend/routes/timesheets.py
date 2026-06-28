@@ -13,6 +13,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 import io
 import jwt
+import asyncio
 from pathlib import Path
 from PIL import Image as PILImage
 
@@ -20,6 +21,7 @@ from database import db
 from config import SECRET_KEY, ALGORITHM, get_object
 from dependencies import get_current_user, get_admin_user
 from models import TimesheetCreate, UserRole, _validate_timesheet_entries
+from services.onedrive import send_pdf_to_onedrive
 
 router = APIRouter()
 
@@ -644,6 +646,17 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
     def _safe(s: str) -> str:
         return re.sub(r'[<>:"/\\|?*]', '', str(s or '')).strip()
     filename = f"{_safe(ts.get('os_number', ''))} - {_safe(ts.get('client', ''))} - TM - {_safe(ts.get('service', ''))}.pdf".strip(" -")
+
+    # Fire-and-forget upload to OneDrive (via Make.com) when user explicitly downloads
+    if download:
+        pdf_bytes_copy = buffer.getvalue()
+        buffer.seek(0)
+        asyncio.create_task(send_pdf_to_onedrive(
+            pdf_bytes=pdf_bytes_copy,
+            filename=filename,
+            os_number=str(ts.get("os_number", "")),
+            kind="timesheet",
+        ))
 
     disposition = "attachment" if download else "inline"
     return StreamingResponse(

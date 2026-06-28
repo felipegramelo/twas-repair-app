@@ -1,0 +1,34 @@
+{
+  "summary": "Validated OneDrive (Make.com webhook) integration for TIMESHEETS PDF download endpoint. All 8 backend tests passed (100% success in 17.79s). Confirmed: (a) GET /api/timesheets/{id}/pdf?download=1 returns valid PDF (200, application/pdf, Content-Disposition: attachment, PDF magic bytes %PDF) AND fires real asyncio background upload to Make.com — backend.err.log shows 'services.onedrive - INFO - OneDrive upload OK [timesheet] 04 - 2603 - 01 - Petrobras S.A. - TM - Turbina Principal.pdf -> 200' within ~1-2s for BOTH Bearer-header AND ?token= query-param auth modes; (b) GET /api/timesheets/{id}/pdf (no download=1) returns PDF with inline disposition and NO upload log appears within 8s — webhook correctly suppressed for preview; (c) Auth: missing token returns 401, invalid token returns 401; (d) Reports regression OK: GET /api/reports/{id}/pdf?download=1 still triggers 'OneDrive upload OK [report] ... -> 200'; (e) Basic CRUD GET /api/timesheets (list) and GET /api/timesheets/{id} (detail) still work. Make.com webhooks for BOTH timesheets and reports returned HTTP 200 (real uploads to OneDrive).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_43_timesheets_onedrive.py",
+    "/app/test_reports/pytest/test_iteration_43.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/timesheets.py:651-659 mirrors the proven Reports pattern: takes pdf_bytes_copy = buffer.getvalue() BEFORE buffer.seek(0), then asyncio.create_task wraps send_pdf_to_onedrive — StreamingResponse buffer is not consumed by the upload. Correct.",
+    "services/onedrive.py wraps the entire body in try/except returning False — fire-and-forget background task cannot break the PDF response. Even on timeout (60s) or network error, user receives 200 OK with PDF.",
+    "Minor: the `download` query param is treated as truthy on any non-empty string (e.g., ?download=0 or ?download=false would also trigger upload). If strict semantics are desired, parse to int/bool. Currently matches documented behaviour (?download=1).",
+    "routes/timesheets.py is 674 lines — same observation as reports.py (1456 lines): PDF generation logic mixed with CRUD routes. Consider splitting into a dedicated pdf module for maintainability (non-blocking).",
+    "Same JWT-decoding boilerplate (token from ?token OR Bearer header → jwt.decode → load user) duplicated in routes/timesheets.py:255-275 and routes/reports.py. DRY opportunity: extract to a shared dependency like `get_current_user_pdf` (non-blocking)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_43_timesheets_onedrive.py (created)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "N/A (backend-only test request)"},
+  "test_credentials": "admin@twasrepair.com / admin123 (used; from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — reused existing timesheet 69e778eef169af6cb86192cd ('04 - 2603 - 01 - Petrobras S.A. - TM - Turbina Principal.pdf') and existing report 6a286491904faa29a157f0a6.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Each successful run of this test file produces 2 real timesheet uploads + 1 real report upload to the user's OneDrive (Make.com webhooks are LIVE). The PDFs overwrite the same target filenames each run. Webhook log lines to look for in /var/log/supervisor/backend.err.log: 'services.onedrive - INFO - OneDrive upload OK [timesheet] ...' and '... [report] ...'. The asyncio.create_task background upload takes 1-10s to complete after the request returns, so always poll/wait before asserting log content (use _wait_for_log helper with 30s timeout). Both MAKE_WEBHOOK_REPORTS_URL and MAKE_WEBHOOK_TIMESHEETS_URL are configured in /app/backend/.env — do not modify. NOTE: this codebase uses Expo (frontend/.env has EXPO_PUBLIC_BACKEND_URL, NOT REACT_APP_BACKEND_URL); my test file falls back to EXPO_PUBLIC_BACKEND_URL and finally hardcoded preview URL to be robust.",
+  "rca of the issue": "N/A — no issues found. Timesheets OneDrive integration works end-to-end against the real Make.com webhook (https://hook.us2.make.com/p43xnik7eupifvurj4maastrmlmxro5a) which returned HTTP 200 on every upload attempt. Implementation mirrors the validated Reports pattern exactly."
+}

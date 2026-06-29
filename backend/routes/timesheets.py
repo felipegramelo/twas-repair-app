@@ -651,10 +651,11 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
     if download:
         pdf_bytes_copy = buffer.getvalue()
         buffer.seek(0)
+        os_num = (str(ts.get("os_number") or "").strip() or "SEM-OS")
         asyncio.create_task(send_pdf_to_onedrive(
             pdf_bytes=pdf_bytes_copy,
             filename=filename,
-            os_number=str(ts.get("os_number", "")),
+            os_number=os_num,
             kind="timesheet",
         ))
 

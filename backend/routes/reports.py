@@ -1435,10 +1435,11 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     if download:
         pdf_bytes_copy = final_buffer.getvalue()
         final_buffer.seek(0)
+        os_num = (str(report.get("os_number") or "").strip() or "SEM-OS")
         asyncio.create_task(send_pdf_to_onedrive(
             pdf_bytes=pdf_bytes_copy,
             filename=filename,
-            os_number=str(report.get("os_number", "")),
+            os_number=os_num,
             kind="report",
         ))
 

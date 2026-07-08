@@ -20,6 +20,33 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Auto-logout on 401 (token expired / invalid)
+let onSessionExpiredHandler: (() => void) | null = null;
+export const setSessionExpiredHandler = (handler: () => void) => {
+  onSessionExpiredHandler = handler;
+};
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const status = error?.response?.status;
+    const detail = error?.response?.data?.detail;
+    if (status === 401 || (status === 403 && detail === 'Not authenticated')) {
+      try {
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('user');
+      } catch {}
+      if (onSessionExpiredHandler) {
+        onSessionExpiredHandler();
+      } else if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-alert
+        window.alert('Sessão expirada. Por favor faça login novamente.');
+        window.location.href = '/';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Auth API
 export const authAPI = {
   login: async (email: string, password: string) => {

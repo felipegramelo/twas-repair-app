@@ -1,0 +1,30 @@
+{
+  "summary": "Frontend session-expiry interceptor tested end-to-end. The new axios response interceptor in /app/frontend/services/api.ts correctly detects 401/403 'Not authenticated' responses, clears token+user from AsyncStorage/localStorage, shows the alert 'Sessão expirada. Por favor faça login novamente.' and redirects to '/'. Verified by opening /admin/projects without a valid token: 3 concurrent API calls (projects, service-orders, supervisors) all returned 403, interceptor fired, storage was cleared, redirect to '/' happened. The core fix WORKS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "api.ts response interceptor", "issue": "Interceptor fires the window.alert once per failed request. When a page issues N parallel requests that all return 401/403 (e.g. /admin/projects makes 3 parallel calls), the user sees N stacked 'Sessão expirada...' alerts. Should debounce/guard so only the FIRST 401 triggers the alert+redirect and subsequent ones just reject silently.", "selector": "/app/frontend/services/api.ts lines 28-48", "priority": "MEDIUM"},
+      {"component": "admin/projects.tsx load() catch", "issue": "After the interceptor already shows 'Sessão expirada...', the screen's own catch fires notify('Erro', 'Not authenticated') so the user sees BOTH alerts. When onSessionExpiredHandler is triggered (or the alert already handled 401), screens should skip their local error notify. Suggest: in interceptor, mark the error (e.g., error.sessionExpired = true) and have screens check that flag before showing Alert.alert; OR simply throw a sentinel that screens ignore.", "selector": "/app/frontend/app/admin/projects.tsx line 51-52", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_50.json"],
+  "action_items": [
+    "Debounce interceptor: only trigger the 'Sessão expirada' alert + redirect ONCE per session-expiry event (use a module-level flag reset after redirect).",
+    "Suppress the screen-level 'Erro / Not authenticated' notify when the interceptor has already handled it (add a flag on the axios error object, e.g., error.__handledBy = 'sessionExpiredInterceptor')."
+  ],
+  "critical_code_review_comments": [
+    "api.ts response interceptor lacks a re-entry guard: if 5 requests fail in parallel with 401, 5 alerts are shown. Add: `let sessionExpiredShown = false;` guard before the alert/redirect block.",
+    "Screen catch handlers show raw backend detail messages ('Not authenticated') to end users; consider mapping known error codes to friendly messages centrally.",
+    "setSessionExpiredHandler is exported but no screen appears to register it, so on RN mobile (no window.alert / no window.location) the interceptor silently no-ops after clearing storage. Make sure the root layout registers a handler using expo-router (e.g., router.replace('/'))."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested this iteration)", "frontend": "100% for the reviewed fix (interceptor works); minor UX polish needed"},
+  "test_credentials": "admin@twasrepair.com / admin123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The interceptor fix is functionally validated. Observed behavior when navigating to /admin/projects without a valid token: 3x '403 Not authenticated' responses → 3x 'Sessão expirada...' alerts + 1x 'Erro / Not authenticated' alert (from projects.tsx local catch), then redirect to '/'. localStorage is emptied. Login flow via Playwright: 'Entrar' button is a RN-Web Pressable rendered without role=button, so use page.get_by_text('Entrar') instead of button selectors when testing authenticated flows.",
+  "rca of the issue": "Root fix works. The remaining UX rough edge is duplicated alerts caused by (a) N parallel failing requests each firing the interceptor's alert, and (b) each screen's own try/catch surfacing the raw error detail after the interceptor already handled it. Add a module-level 'alreadyHandling' flag inside the interceptor and mark the rejected error so screens can skip local error UI."
+}

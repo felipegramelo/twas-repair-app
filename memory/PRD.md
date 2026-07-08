@@ -1,110 +1,105 @@
 # TWAS Repair - Product Requirements Document
 
 ## Original Problem Statement
-Unificar dois apps (Timesheet Tracker + Service/Daily Report) em um único app "TWAS REPAIR" com autenticação por roles (Admin/Supervisor), CRUD completo para Timesheets/Reports/Service Orders, geração de PDFs A4 avançados (capa, índice dinâmico, watermark, fotos), Boletim de Medição, Dashboard Financeiro, sincronização automática com OneDrive e build iOS nativo via EAS.
+Unificar dois apps (Timesheet + Service/Daily Report) em um único app "TWAS REPAIR" com autenticação por roles (Admin/Supervisor), CRUD completo para Timesheets/Reports/Service Orders, geração de PDFs A4, Boletim de Medição, Dashboard Financeiro, sincronização OneDrive, build iOS via EAS.
 
 ## User's preferred language
 Portuguese (pt-BR)
 
-## What Currently Exists
-Full-stack app React Native (Expo Web + iOS) + FastAPI + MongoDB com:
-- Modo offline (AsyncStorage + NetInfo)
-- Geração de PDFs avançada (ReportLab + PyMuPDF)
-- Auth JWT por roles (Admin/Supervisor)
-- CRUD completo (OS, Reports, Timesheets)
-- Boletim de Medição
-- Object Storage Emergent
-- Tradução via Gemini Nano Banana
-- **OneDrive sync via Make.com (Reports + Timesheets) ✅**
-
 ## Production Deployment
 - **Web**: Vercel (frontend)
-- **Backend**: Railway projeto `dynamic-compassion` / serviço `twas-repair-app` (`twas-repair-app-production.up.railway.app`)
+- **Backend**: Railway projeto `dynamic-compassion` / serviço `twas-repair-app` (`twas-repair-app-production.up.railway.app`) — NÃO mexer no `empowering-ambition`
 - **Database**: MongoDB (managed)
 - **iOS**: EAS Build (yarn-based)
 
 ## Architecture
 ```
-/app
-├── backend/
-│   ├── routes/ — auth, service_orders, reports, timesheets, boletim, holidays, proposals, translate
-│   ├── services/ — onedrive.py (Make.com webhook helper)
-│   ├── utils.py, models.py, database.py, server.py
-│   └── .env — MAKE_WEBHOOK_REPORTS_URL, MAKE_WEBHOOK_TIMESHEETS_URL
-├── frontend/
-│   ├── app/ — admin/*, supervisor/*
-│   ├── services/api.ts, utils/pdfHelper.ts
-│   └── .env — EXPO_PUBLIC_BACKEND_URL, EXPO_PUBLIC_REPORT_API_URL (Railway)
+/app/backend/
+  routes/ — auth, service_orders, reports, timesheets, boletim, holidays, proposals, translate, projects
+  services/ — onedrive.py (Make.com webhook helper — 3 kinds: report/timesheet/project)
+  models.py, database.py, server.py
+  .env — MAKE_WEBHOOK_REPORTS_URL, MAKE_WEBHOOK_TIMESHEETS_URL, MAKE_WEBHOOK_PROJECTS_URL(vazia)
+
+/app/frontend/
+  app/admin/ — projects.tsx, edit-project.tsx (novos)
+  app/supervisor/ — projects.tsx (novo)
+  services/api.ts — projectAPI (novo)
 ```
 
 ## Key DB Schema
-- `service_orders` (os_number, embarcacao, client, location, ...)
+- `service_orders` (os_number, embarcacao, client, location, service, ...)
 - `reports` (os_number, photo_layout, representante_twas, representante_cliente, ...)
 - `timesheets`
+- `projects` (NOVO — os_number, title, embarcacao, client, start_date, end_date, lock_end_date, tasks[])
+  - tasks[]: id (UUID), parent_id, name, duration_value, duration_unit (dias/hrs), start_date, end_date, progress_percent, order, notes
 
 ## 3rd Party Integrations
-- Emergent Object Storage (Universal Key)
-- Gemini Nano Banana (Universal Key)
-- **Make.com Webhook → OneDrive (Personal Account) — 2 cenários ativos:**
-  - **TWAS Reports → OneDrive**: `https://hook.us2.make.com/haeb0tfy171wrr3t7sqrw4knshcqr7kx`
-  - **TWAS Timesheets → OneDrive**: `https://hook.us2.make.com/p43xnik7eupifvurj4maastrmlmxro5a`
+- Emergent Object Storage / Gemini Nano Banana (Universal Key)
+- **Make.com Webhook → OneDrive Personal (2 cenários ativos):**
+  - TWAS Reports → OneDrive: `hook.us2.make.com/haeb0tfy171wrr3t7sqrw4knshcqr7kx`
+  - TWAS Timesheets → OneDrive: `hook.us2.make.com/p43xnik7eupifvurj4maastrmlmxro5a`
+- Cenário Projects: ainda NÃO criado (Fase 3)
 
 ## What's Been Implemented (Recent)
-### 2026-06-28 — OneDrive Sync (Timesheets) ✅
-- Backend `routes/timesheets.py`: asyncio.create_task dispara `send_pdf_to_onedrive(kind="timesheet")` quando `?download=1`
-- Make.com scenario: `Webhook → Create a Folder (os_number) → Upload a File (Rename the new file)`
-- Pasta de destino: `/TWAS BR/.../ORDENS DE SERVIÇOS/[OS_NUMBER]/`
-- "Rename the new file" garante preservação de versões antigas (sufixo `(1)`, `(2)`...)
-- Pasta mantida com "Replace the existing folder" (retorna ID da existente, não deleta conteúdo)
-- Validado por testing_agent (100% — 8/8 testes)
 
-### 2026-06-27/28 — OneDrive Sync (Reports) ✅
-- `services/onedrive.py` (multipart/form-data via httpx)
-- `routes/reports.py` asyncio.create_task em `?download=1`
-- Make.com scenario com Create a Folder + Upload File
-- Railway env var `MAKE_WEBHOOK_REPORTS_URL` configurada
-- Validado em produção
+### 2026-07-08 — Módulo Projetos MVP (Fase 1) ✅
+- Backend `routes/projects.py`: CRUD completo + hierarquia parent/child + auto-recalc end_date + cascade delete
+- PDF landscape A4 com **Gantt visual** (barras coloridas, portion azul = concluído)
+- Permissões: Admin CRUD full; Supervisor apenas PATCH progress_percent
+- Frontend Admin: tela de listagem + modal criar (com input manual OS + chips de OS existentes) + tela de edição com árvore de tarefas
+- Frontend Supervisor: tela de projetos com expand/collapse + modal de edição de % apenas
+- Bug fix pós-teste inicial: input manual de OS adicionado (não depender só de chips), título tornou-se opcional
+- **Validado**: testing_agent iteration_45 (backend 18/18) + iteration_46 (frontend 100%)
+
+### 2026-06-28/29 — OneDrive Bug Fix ✅
+- Corrigido: envio de `os_number=''` derrubava cenários Make.com. Agora usa 'SEM-OS' como fallback.
+- Iterations 43/44 validados
 
 ### Anteriores
-- iOS EAS build fix (yarn.lock)
-- App Logo + Feature Graphic
-- HEIC photo upload (pillow_heif)
-- PDF photo_layout toggle (1 foto/página vs grid)
-- `?download=1` separa Visualizar vs Baixar PDF
-- OS sort by created_at desc
-- Propagação de campos OS → Reports
-- Embarcação/Vessel name em PDF
-- Representante TWAS/Cliente
-- Calendar widgets para Duplicate
+- OneDrive Reports+Timesheets, iOS EAS build, HEIC upload, photo_layout, ?download=1, Vessel/Embarcação, Representantes, etc.
 
 ## Prioritized Backlog
 
-### P0 (próxima sessão)
-- **Save to GitHub** — push das mudanças backend para que o Railway tenha o código novo (services/onedrive.py + triggers em routes)
-- **Railway env var pendente**: `MAKE_WEBHOOK_TIMESHEETS_URL=https://hook.us2.make.com/p43xnik7eupifvurj4maastrmlmxro5a` (Reports já adicionada)
-
 ### P1
-- Botão dedicado "Salvar no OneDrive" no UI (manual trigger, sem precisar baixar)
-- Indicador visual no UI mostrando última sincronização ao OneDrive
+- **Fase 2 — Projetos**: Melhorias visuais no Gantt (dias/labels no eixo x, milestones), calendário para inputs de data (não texto)
+- **Fase 3 — Projetos → OneDrive**: criar 3º cenário Make.com para Projects + configurar `MAKE_WEBHOOK_PROJECTS_URL` (backend/local + Railway)
+- Save to GitHub para Railway pegar routes/projects.py
 
 ### P2
-- Refatorar `/app/frontend/app/supervisor/edit-report.tsx` (>1100 linhas)
-- Extrair PDF generation de `routes/reports.py` (1456 linhas) e `routes/timesheets.py` (674 linhas) para modules dedicados
-- DRY: dependência compartilhada `get_current_user_pdf` para JWT (?token + Bearer header)
-- Considerar plano pago Make.com (Free: 1000 ops/mês ≈ 500 PDFs entre Reports + Timesheets)
+- Refatorar edit-project.tsx (calendar widget em vez de texto ISO)
+- testID prop (RN Web canonical) em vez de data-testid onde possível (para melhor test coverage automatizado)
+- Splitting rot es/reports.py (>1500 linhas) e routes/timesheets.py (>700 linhas) em módulos separados
+- Índice OS Archive incluir projetos
 
 ## Key API Endpoints
-- `GET /api/reports/{id}/pdf?download=1` — download PDF + dispara OneDrive webhook (kind=report)
-- `GET /api/timesheets/{id}/pdf?download=1` — download PDF + dispara OneDrive webhook (kind=timesheet)
-- `GET /api/{reports|timesheets}/{id}/pdf` (sem download=1) — preview inline (não dispara webhook)
+### Projects (NOVO)
+- `POST /api/projects` (admin)
+- `GET /api/projects[?os_number=...]` (all authenticated)
+- `GET /api/projects/{id}` (all)
+- `PUT /api/projects/{id}` (admin)
+- `DELETE /api/projects/{id}` (admin)
+- `POST /api/projects/{id}/tasks` (admin)
+- `PUT /api/projects/{id}/tasks/{task_id}` (admin)
+- `PATCH /api/projects/{id}/tasks/{task_id}/progress` (admin + supervisor)
+- `DELETE /api/projects/{id}/tasks/{task_id}` (admin, cascade)
+- `GET /api/projects/{id}/pdf?download=1&token=...` (auth via query OR Bearer)
+
+### Reports / Timesheets (existentes)
+- `GET /api/reports/{id}/pdf?download=1` — download + OneDrive
+- `GET /api/timesheets/{id}/pdf?download=1` — download + OneDrive
 
 ## Critical Setup Info
-- **MongoDB**: usar apenas `MONGO_URL` e `DB_NAME` do backend/.env
-- **Frontend backend URL**: `EXPO_PUBLIC_BACKEND_URL` (preview) e `EXPO_PUBLIC_REPORT_API_URL` (Railway prod)
-- **Make.com Free plan**: 1000 ops/mês — cada PDF baixado = 2 ops (Create Folder + Upload)
-- **OneDrive Personal Account**: NÃO usar Azure Entra ID/Power Automate — só Make.com Webhook
-- **Backend asyncio.create_task**: precisa de restart do supervisor após mudar .env (uvicorn --reload não detecta .env)
+- **MongoDB**: usar apenas `MONGO_URL` e `DB_NAME`
+- **Frontend**: `EXPO_PUBLIC_BACKEND_URL` (preview) e `EXPO_PUBLIC_REPORT_API_URL` (Railway prod)
+- **Make.com Free plan**: 1000 ops/mês, ~500 PDFs (2 ops por PDF)
+- **OneDrive Personal**: SÓ Make.com Webhook funciona (não Entra ID/Power Automate)
+- **Backend restart necessário após mudanças em .env** (uvicorn --reload não detecta .env)
+- **auth JWT**: `access_token` no login response (não `token`); login endpoint retorna `{access_token, token_type, user}`
 
 ## Test Credentials
 - Admin: `admin@twasrepair.com` / `admin123`
 - Supervisor: `supervisor@twasrepair.com` / `super123`
+
+## Bug Fixes Recentes
+- **SEM-OS fallback** (iter 44): impede que reports/timesheets sem os_number derrubem cenários Make.com
+- **OS input manual** (iter 46): resolve UX bug onde admin não conseguia digitar OS no modal

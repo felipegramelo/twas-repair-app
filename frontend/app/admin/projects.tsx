@@ -174,7 +174,7 @@ export default function AdminProjectsScreen() {
                 <Text style={styles.hint}>Nenhuma O.S. cadastrada. Digite o número acima manualmente.</Text>
               )}
 
-              <Text style={styles.label}>Título *</Text>
+              <Text style={styles.label}>Título (opcional)</Text>
               <TextInput style={styles.input} value={form.title} onChangeText={t => setForm(f => ({ ...f, title: t }))} placeholder="Ex: Amaralina Star Thruster Overhaul SN 3826" data-testid="project-title-input" />
 
               <Text style={styles.label}>Embarcação</Text>

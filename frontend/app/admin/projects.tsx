@@ -49,7 +49,7 @@ export default function AdminProjectsScreen() {
       setServiceOrders(sos as any);
       setSupervisors(sups);
     } catch (e: any) {
-      notify('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
     } finally {
       setLoading(false);
     }
@@ -93,6 +93,7 @@ export default function AdminProjectsScreen() {
         router.push(`/admin/edit-project?id=${p.id}`);
       }, 100);
     } catch (e: any) {
+      if (e?.sessionExpired) return;
       const detail = e?.response?.data?.detail || e?.message || 'Falha ao criar projeto';
       notify('Erro', typeof detail === 'string' ? detail : JSON.stringify(detail));
     } finally {
@@ -107,7 +108,7 @@ export default function AdminProjectsScreen() {
       await projectAPI.remove(id);
       await load();
     } catch (e: any) {
-      notify('Erro', e?.response?.data?.detail || 'Falha ao excluir');
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao excluir');
     }
   };
 
@@ -133,7 +134,7 @@ export default function AdminProjectsScreen() {
       setProjects(ps => ps.map(x => x.id === updated.id ? updated : x));
       setShareProject(null);
     } catch (e: any) {
-      notify('Erro', e?.response?.data?.detail || 'Falha ao compartilhar');
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao compartilhar');
     }
   };
 

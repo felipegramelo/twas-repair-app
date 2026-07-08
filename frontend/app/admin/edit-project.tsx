@@ -49,7 +49,7 @@ export default function EditProjectScreen() {
       const p = await projectAPI.getById(id);
       setProject(p);
     } catch (e: any) {
-      notify('Erro', e?.response?.data?.detail || 'Falha ao carregar');
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao carregar');
     } finally {
       setLoading(false);
     }
@@ -85,7 +85,7 @@ export default function EditProjectScreen() {
       const p = await projectAPI.update(project.id, patch);
       setProject(p);
     } catch (e: any) {
-      notify('Erro', e?.response?.data?.detail || 'Falha ao salvar');
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao salvar');
     } finally {
       setSaving(false);
     }
@@ -134,7 +134,7 @@ export default function EditProjectScreen() {
       setShowTaskModal(false);
       await load();
     } catch (e: any) {
-      notify('Erro', e?.response?.data?.detail || 'Falha ao salvar tarefa');
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao salvar tarefa');
     }
   };
 
@@ -145,7 +145,7 @@ export default function EditProjectScreen() {
       await projectAPI.removeTask(project!.id, taskId);
       await load();
     } catch (e: any) {
-      notify('Erro', e?.response?.data?.detail || 'Falha ao excluir');
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao excluir');
     }
   };
 

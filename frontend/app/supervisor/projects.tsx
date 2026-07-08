@@ -26,7 +26,7 @@ export default function SupervisorProjectsScreen() {
       const list = await projectAPI.getAll();
       setProjects(list);
     } catch (e: any) {
-      notify('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
     } finally {
       setLoading(false);
     }

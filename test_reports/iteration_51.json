@@ -1,0 +1,22 @@
+{
+  "summary": "Validated session-expired alert dedup fix. With bogus token, navigating to /admin/projects (3 parallel GETs: /projects, /service-orders, /projects/_/supervisors) produced EXACTLY 1 window.alert 'Sessão expirada...' and redirected to '/'. Token+user cleared from localStorage. Happy-path login also produced 0 alerts.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "sessionExpiredShown guard is reset after fixed 3s timer; if user is slow to see the alert, could theoretically re-fire on retry — acceptable trade-off.",
+    "onSessionExpiredHandler branch does NOT reset sessionExpiredShown after handler runs; if handler is registered (React Native path), a second logout attempt could be silently swallowed until 3s passes. Consider resetting guard inside/after handler branch too for symmetry."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not tested per request)", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Fix in /app/frontend/services/api.ts (sessionExpiredShown guard + error.sessionExpired flag) works as intended. Verified via localStorage.setItem('token','bogus') then navigating /admin/projects. Dialog counter via page.on('dialog') = 1. Final URL = root. Token cleared. If retesting, note: React Native Web uses localStorage as AsyncStorage backend — confirmed working.",
+  "rca of the issue": "N/A — validation only, no bug found."
+}

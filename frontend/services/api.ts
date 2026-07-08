@@ -22,6 +22,7 @@ api.interceptors.request.use(async (config) => {
 
 // Auto-logout on 401 (token expired / invalid)
 let onSessionExpiredHandler: (() => void) | null = null;
+let sessionExpiredShown = false;
 export const setSessionExpiredHandler = (handler: () => void) => {
   onSessionExpiredHandler = handler;
 };
@@ -31,16 +32,23 @@ api.interceptors.response.use(
     const status = error?.response?.status;
     const detail = error?.response?.data?.detail;
     if (status === 401 || (status === 403 && detail === 'Not authenticated')) {
-      try {
-        await AsyncStorage.removeItem('token');
-        await AsyncStorage.removeItem('user');
-      } catch {}
-      if (onSessionExpiredHandler) {
-        onSessionExpiredHandler();
-      } else if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-alert
-        window.alert('Sessão expirada. Por favor faça login novamente.');
-        window.location.href = '/';
+      // Mark the error so screen-level catches can skip their local notify
+      if (error) error.sessionExpired = true;
+      if (!sessionExpiredShown) {
+        sessionExpiredShown = true;
+        try {
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.removeItem('user');
+        } catch {}
+        if (onSessionExpiredHandler) {
+          onSessionExpiredHandler();
+        } else if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-alert
+          window.alert('Sessão expirada. Por favor faça login novamente.');
+          window.location.href = '/';
+        }
+        // Allow future logins to re-arm the guard
+        setTimeout(() => { sessionExpiredShown = false; }, 3000);
       }
     }
     return Promise.reject(error);

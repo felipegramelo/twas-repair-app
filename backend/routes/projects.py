@@ -24,6 +24,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from bson import ObjectId
+from pydantic import BaseModel
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -80,7 +81,23 @@ def _task_new(task_in: dict) -> dict:
 def _clean_project(doc: dict) -> dict:
     doc["id"] = str(doc.pop("_id"))
     doc.setdefault("tasks", [])
+    doc.setdefault("shared_with", [])
     return doc
+
+
+def _is_admin(user: dict) -> bool:
+    return (user.get("role") or "").lower() == "admin"
+
+
+def _uid(user: dict) -> str:
+    return str(user.get("_id") or user.get("id") or "")
+
+
+def _can_edit(project: dict, user: dict) -> bool:
+    """Admin can always; supervisor only if listed in shared_with."""
+    if _is_admin(user):
+        return True
+    return _uid(user) in (project.get("shared_with") or [])
 
 
 def _recalc_end_date(project: dict) -> Optional[str]:
@@ -120,6 +137,9 @@ async def list_projects(
     query = {}
     if os_number:
         query["os_number"] = os_number
+    # Supervisor sees only projects assigned to them
+    if not _is_admin(current_user):
+        query["shared_with"] = _uid(current_user)
     projects = await db.projects.find(query).sort("created_at", -1).to_list(500)
     return [_clean_project(p) for p in projects]
 
@@ -131,14 +151,24 @@ async def get_project(project_id: str, current_user: Dict[str, Any] = Depends(ge
     doc = await db.projects.find_one({"_id": ObjectId(project_id)})
     if not doc:
         raise HTTPException(404, "Project not found")
+    if not _can_edit(doc, current_user) and not _is_admin(current_user):
+        raise HTTPException(403, "Não autorizado a acessar este projeto")
     return _clean_project(doc)
 
 
 @router.put("/projects/{project_id}")
-async def update_project(project_id: str, payload: ProjectUpdate, current_user: Dict[str, Any] = Depends(get_admin_user)):
+async def update_project(project_id: str, payload: ProjectUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
     if not ObjectId.is_valid(project_id):
         raise HTTPException(400, "Invalid project id")
+    doc = await db.projects.find_one({"_id": ObjectId(project_id)})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if not _can_edit(doc, current_user):
+        raise HTTPException(403, "Não autorizado a editar este projeto")
     updates = {k: v for k, v in payload.model_dump(exclude_none=True).items()}
+    # Only admin may change shared_with
+    if "shared_with" in updates and not _is_admin(current_user):
+        updates.pop("shared_with")
     if not updates:
         raise HTTPException(400, "No fields to update")
     updates["updated_at"] = _now()
@@ -155,14 +185,51 @@ async def delete_project(project_id: str, current_user: Dict[str, Any] = Depends
     return {"ok": True}
 
 
-# ---------------- task subroutes ----------------
-@router.post("/projects/{project_id}/tasks")
-async def add_task(project_id: str, task: ProjectTaskCreate, current_user: Dict[str, Any] = Depends(get_admin_user)):
+class ShareRequest(BaseModel):
+    supervisor_ids: List[str]
+
+
+@router.post("/projects/{project_id}/share")
+async def share_project(
+    project_id: str,
+    payload: ShareRequest,
+    current_user: Dict[str, Any] = Depends(get_admin_user),
+):
+    """Admin sets which supervisors can edit this project."""
     if not ObjectId.is_valid(project_id):
         raise HTTPException(400, "Invalid project id")
     doc = await db.projects.find_one({"_id": ObjectId(project_id)})
     if not doc:
         raise HTTPException(404, "Project not found")
+    ids = list({str(x) for x in payload.supervisor_ids if x})
+    await db.projects.update_one(
+        {"_id": ObjectId(project_id)},
+        {"$set": {"shared_with": ids, "updated_at": _now()}},
+    )
+    doc = await db.projects.find_one({"_id": ObjectId(project_id)})
+    return _clean_project(doc)
+
+
+@router.get("/projects/_/supervisors")
+async def list_supervisors(current_user: Dict[str, Any] = Depends(get_admin_user)):
+    """List all supervisor users (for admin to pick when creating/sharing a project)."""
+    users = await db.users.find({"role": "supervisor"}).sort("name", 1).to_list(500)
+    return [
+        {"id": str(u["_id"]), "name": u.get("name") or u.get("email"), "email": u.get("email", "")}
+        for u in users
+    ]
+
+
+# ---------------- task subroutes ----------------
+@router.post("/projects/{project_id}/tasks")
+async def add_task(project_id: str, task: ProjectTaskCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
+    if not ObjectId.is_valid(project_id):
+        raise HTTPException(400, "Invalid project id")
+    doc = await db.projects.find_one({"_id": ObjectId(project_id)})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if not _can_edit(doc, current_user):
+        raise HTTPException(403, "Não autorizado a editar este projeto")
     new_task = _task_new(task.model_dump())
     doc.setdefault("tasks", []).append(new_task)
     if not doc.get("lock_end_date"):
@@ -177,13 +244,15 @@ async def add_task(project_id: str, task: ProjectTaskCreate, current_user: Dict[
 @router.put("/projects/{project_id}/tasks/{task_id}")
 async def update_task(
     project_id: str, task_id: str, payload: ProjectTaskUpdate,
-    current_user: Dict[str, Any] = Depends(get_admin_user),
+    current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     if not ObjectId.is_valid(project_id):
         raise HTTPException(400, "Invalid project id")
     doc = await db.projects.find_one({"_id": ObjectId(project_id)})
     if not doc:
         raise HTTPException(404, "Project not found")
+    if not _can_edit(doc, current_user):
+        raise HTTPException(403, "Não autorizado a editar este projeto")
     updates = payload.model_dump(exclude_none=True)
     found = False
     for t in doc.get("tasks", []):
@@ -208,14 +277,16 @@ async def update_task(
 @router.patch("/projects/{project_id}/tasks/{task_id}/progress")
 async def update_task_progress(
     project_id: str, task_id: str, payload: ProjectProgressUpdate,
-    current_user: Dict[str, Any] = Depends(get_current_user),  # supervisor allowed
+    current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    """Supervisor-friendly endpoint: only updates the progress % of a task."""
+    """Update ONLY the progress % of a task. Admin OR authorized supervisor."""
     if not ObjectId.is_valid(project_id):
         raise HTTPException(400, "Invalid project id")
     doc = await db.projects.find_one({"_id": ObjectId(project_id)})
     if not doc:
         raise HTTPException(404, "Project not found")
+    if not _can_edit(doc, current_user):
+        raise HTTPException(403, "Não autorizado a editar este projeto")
     found = False
     for t in doc.get("tasks", []):
         if t.get("id") == task_id:
@@ -230,12 +301,14 @@ async def update_task_progress(
 
 
 @router.delete("/projects/{project_id}/tasks/{task_id}")
-async def delete_task(project_id: str, task_id: str, current_user: Dict[str, Any] = Depends(get_admin_user)):
+async def delete_task(project_id: str, task_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
     if not ObjectId.is_valid(project_id):
         raise HTTPException(400, "Invalid project id")
     doc = await db.projects.find_one({"_id": ObjectId(project_id)})
     if not doc:
         raise HTTPException(404, "Project not found")
+    if not _can_edit(doc, current_user):
+        raise HTTPException(403, "Não autorizado a editar este projeto")
     # remove task and its descendants
     tasks = doc.get("tasks", [])
     to_del = {task_id}

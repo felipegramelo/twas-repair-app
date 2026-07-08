@@ -473,6 +473,7 @@ export interface Project {
   end_date?: string | null;
   lock_end_date?: boolean;
   description?: string;
+  shared_with?: string[];
   tasks: ProjectTask[];
   created_by?: string;
   created_at?: string;
@@ -515,6 +516,14 @@ export const projectAPI = {
   },
   removeTask: async (projectId: string, taskId: string) => {
     const response = await api.delete(`/projects/${projectId}/tasks/${taskId}`);
+    return response.data;
+  },
+  listSupervisors: async (): Promise<{ id: string; name: string; email: string }[]> => {
+    const response = await api.get('/projects/_/supervisors');
+    return response.data;
+  },
+  share: async (projectId: string, supervisorIds: string[]): Promise<Project> => {
+    const response = await api.post(`/projects/${projectId}/share`, { supervisor_ids: supervisorIds });
     return response.data;
   },
   pdfUrl: (projectId: string, download: boolean = false): string => {

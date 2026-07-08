@@ -301,6 +301,7 @@ class ProjectCreate(BaseModel):
     end_date: Optional[str] = None     # planned project end (ISO)
     lock_end_date: bool = False        # if True, don't auto-recalc end_date from tasks
     description: Optional[str] = ""
+    shared_with: List[str] = []        # supervisor user_ids allowed to edit
     tasks: List[ProjectTaskCreate] = []
 
 
@@ -314,6 +315,7 @@ class ProjectUpdate(BaseModel):
     end_date: Optional[str] = None
     lock_end_date: Optional[bool] = None
     description: Optional[str] = None
+    shared_with: Optional[List[str]] = None
 
 
 class ProjectProgressUpdate(BaseModel):

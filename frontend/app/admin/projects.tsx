@@ -33,13 +33,21 @@ export default function AdminProjectsScreen() {
   });
 
   const [creating, setCreating] = useState(false);
+  const [supervisors, setSupervisors] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [shareProject, setShareProject] = useState<Project | null>(null);
+  const [shareSelection, setShareSelection] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, sos] = await Promise.all([projectAPI.getAll(), serviceOrderAPI.getAll()]);
+      const [list, sos, sups] = await Promise.all([
+        projectAPI.getAll(),
+        serviceOrderAPI.getAll(),
+        projectAPI.listSupervisors().catch(() => []),
+      ]);
       setProjects(list);
       setServiceOrders(sos as any);
+      setSupervisors(sups);
     } catch (e: any) {
       notify('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
     } finally {
@@ -109,6 +117,26 @@ export default function AdminProjectsScreen() {
     return Math.round(s / p.tasks.length);
   };
 
+  const openShare = (p: Project) => {
+    setShareProject(p);
+    setShareSelection([...(p.shared_with || [])]);
+  };
+
+  const toggleSup = (sid: string) => {
+    setShareSelection(cur => cur.includes(sid) ? cur.filter(x => x !== sid) : [...cur, sid]);
+  };
+
+  const saveShare = async () => {
+    if (!shareProject) return;
+    try {
+      const updated = await projectAPI.share(shareProject.id, shareSelection);
+      setProjects(ps => ps.map(x => x.id === updated.id ? updated : x));
+      setShareProject(null);
+    } catch (e: any) {
+      notify('Erro', e?.response?.data?.detail || 'Falha ao compartilhar');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -142,6 +170,9 @@ export default function AdminProjectsScreen() {
                 <Text style={styles.progressLabel}>{overallProgress(p)}% concluído • {p.tasks?.length || 0} tarefas</Text>
               </View>
               <View style={styles.cardActions}>
+                <TouchableOpacity onPress={() => openShare(p)} data-testid={`admin-project-share-${p.id}`}>
+                  <Ionicons name="people-outline" size={22} color="#6a1b9a" />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => router.push(`/admin/edit-project?id=${p.id}`)} data-testid={`admin-project-edit-${p.id}`}>
                   <Ionicons name="create-outline" size={22} color="#1976d2" />
                 </TouchableOpacity>
@@ -228,6 +259,50 @@ export default function AdminProjectsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Share Modal */}
+      <Modal visible={!!shareProject} animationType="slide" transparent onRequestClose={() => setShareProject(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Compartilhar Projeto</Text>
+            <Text style={{ color: '#666', marginBottom: 12 }} numberOfLines={2}>
+              {shareProject?.title} (OS {shareProject?.os_number})
+            </Text>
+            <Text style={{ color: '#333', fontWeight: '600', marginBottom: 8 }}>
+              Selecione os supervisores que poderão editar:
+            </Text>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {supervisors.length === 0 ? (
+                <Text style={styles.hint}>Nenhum supervisor cadastrado</Text>
+              ) : supervisors.map(sup => {
+                const checked = shareSelection.includes(sup.id);
+                return (
+                  <TouchableOpacity
+                    key={sup.id}
+                    style={[styles.supRow, checked && styles.supRowChecked]}
+                    onPress={() => toggleSup(sup.id)}
+                    data-testid={`sup-select-${sup.id}`}
+                  >
+                    <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={22} color={checked ? '#6a1b9a' : '#666'} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={{ fontWeight: '600', color: '#000' }}>{sup.name}</Text>
+                      <Text style={{ color: '#666', fontSize: 12 }}>{sup.email}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => setShareProject(null)}>
+                <Text style={styles.btnGhostText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={saveShare} data-testid="share-save-btn">
+                <Text style={styles.btnPrimaryText}>Salvar ({shareSelection.length})</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -257,6 +332,8 @@ const styles = StyleSheet.create({
   chipText: { color: '#333', fontSize: 13, fontWeight: '600' },
   chipTextSelected: { color: '#fff', fontWeight: '700' },
   hint: { fontSize: 12, color: '#666', marginTop: 8, fontStyle: 'italic' },
+  supRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, backgroundColor: '#fafafa', marginBottom: 6, borderWidth: 1, borderColor: '#eee' },
+  supRowChecked: { backgroundColor: '#f3e5f5', borderColor: '#6a1b9a' },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
   btn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
   btnGhost: { backgroundColor: '#f0f0f0' },

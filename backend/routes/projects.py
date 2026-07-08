@@ -466,7 +466,7 @@ async def delete_task(project_id: str, task_id: str, current_user: Dict[str, Any
 
 # ---------------- PDF ----------------
 def _flatten_tasks(tasks: List[dict]) -> List[tuple]:
-    """Return list of (depth, task) in hierarchical order."""
+    """Return list of (depth, task, has_children) in hierarchical order."""
     by_parent: Dict[Optional[str], List[dict]] = {}
     for t in tasks:
         by_parent.setdefault(t.get("parent_id") or None, []).append(t)
@@ -476,15 +476,27 @@ def _flatten_tasks(tasks: List[dict]) -> List[tuple]:
     out: List[tuple] = []
     def walk(parent: Optional[str], depth: int):
         for t in by_parent.get(parent, []):
-            out.append((depth, t))
+            has_children = bool(by_parent.get(t["id"]))
+            out.append((depth, t, has_children))
             walk(t["id"], depth + 1)
     walk(None, 0)
     return out
 
 
+_WEEKDAY_PT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+
+
 def _fmt_date(iso: Optional[str]) -> str:
     d = _parse_date(iso)
     return d.strftime("%d/%m/%y") if d else "-"
+
+
+def _fmt_date_full(iso: Optional[str]) -> str:
+    """Format like 'Qua 14/01/26' (day-of-week + date), matching MS Project style."""
+    d = _parse_date(iso)
+    if not d:
+        return "-"
+    return f"{_WEEKDAY_PT[d.weekday()]} {d.strftime('%d/%m/%y')}"
 
 
 @router.get("/projects/{project_id}/pdf")
@@ -524,16 +536,18 @@ async def project_pdf(
     buffer = io.BytesIO()
     pdf = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=1*cm, rightMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
     styles = getSampleStyleSheet()
-    h_style = ParagraphStyle("h", parent=styles["Heading1"], alignment=TA_CENTER, fontSize=14)
-    sub_style = ParagraphStyle("sub", parent=styles["Normal"], alignment=TA_CENTER, fontSize=9)
+    h_style = ParagraphStyle("h", parent=styles["Heading1"], alignment=TA_CENTER, fontSize=14, fontName="Helvetica-Bold")
+    sub_style = ParagraphStyle("sub", parent=styles["Normal"], alignment=TA_CENTER, fontSize=9, fontName="Helvetica-Bold")
     cell_style = ParagraphStyle("c", parent=styles["Normal"], fontSize=8, leading=10)
     cell_bold = ParagraphStyle("cb", parent=cell_style, fontName="Helvetica-Bold")
+    phase_style = ParagraphStyle("ph", parent=styles["Normal"], fontSize=9, leading=11, fontName="Helvetica-Bold")
+    tick_style = ParagraphStyle("tk", parent=styles["Normal"], fontSize=6, leading=7, alignment=TA_CENTER, fontName="Helvetica-Bold")
 
     elements = []
     elements.append(Paragraph(doc.get("title") or "Projeto", h_style))
     header_line = f"OS: {doc.get('os_number','')} | Embarcação: {doc.get('embarcacao','')} | Cliente: {doc.get('client','')}"
     elements.append(Paragraph(header_line, sub_style))
-    elements.append(Paragraph(f"Início: {_fmt_date(doc.get('start_date'))} | Término: {_fmt_date(doc.get('end_date'))}", sub_style))
+    elements.append(Paragraph(f"Início: {_fmt_date_full(doc.get('start_date'))}  |  Término: {_fmt_date_full(doc.get('end_date'))}", sub_style))
     elements.append(Spacer(1, 0.4*cm))
 
     # Determine timeline extent for Gantt bars
@@ -547,9 +561,34 @@ async def project_pdf(
             all_dates.append(e)
     proj_start = _parse_date(doc.get("start_date")) or (min(all_dates) if all_dates else date.today())
     proj_end = _parse_date(doc.get("end_date")) or (max(all_dates) if all_dates else proj_start)
-    total_days = max((proj_end - proj_start).days, 1)
+    total_days = max((proj_end - proj_start).days + 1, 1)
 
-    # Table header
+    gantt_col_width = 10 * cm  # visual bar column width
+
+    # Build a timeline header (date ticks) matching the Gantt column
+    # Show ~9 tick labels evenly spaced across the timeline (like the model: 08 11 14 17 20 23 26 29 01)
+    tick_count = min(9, total_days) if total_days > 1 else 1
+    tick_cells = []
+    for i in range(tick_count):
+        # position i-th tick at day index = round(i * (total_days-1) / (tick_count-1))
+        if tick_count == 1:
+            day_offset = 0
+        else:
+            day_offset = round(i * (total_days - 1) / (tick_count - 1))
+        d = proj_start + timedelta(days=day_offset)
+        tick_cells.append(Paragraph(d.strftime("%d/%m"), tick_style))
+    header_gantt = Table([tick_cells], colWidths=[gantt_col_width/tick_count]*tick_count, rowHeights=[0.5*cm])
+    header_gantt.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#0d47a1")),
+        ("TEXTCOLOR", (0,0), (-1,-1), colors.white),
+        ("BOX", (0,0), (-1,-1), 0.25, colors.grey),
+        ("INNERGRID", (0,0), (-1,-1), 0.25, colors.HexColor("#3a6fbf")),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING", (0,0), (-1,-1), 0),
+        ("RIGHTPADDING", (0,0), (-1,-1), 0),
+    ]))
+
+    # Table header: last column is the timeline ticks row
     data = [[
         Paragraph("#", cell_bold),
         Paragraph("Nome da Tarefa", cell_bold),
@@ -557,19 +596,26 @@ async def project_pdf(
         Paragraph("Início", cell_bold),
         Paragraph("Término", cell_bold),
         Paragraph("% Concl.", cell_bold),
-        Paragraph("Gantt", cell_bold),
+        header_gantt,
     ]]
 
-    gantt_col_width = 10 * cm  # visual bar column width
     ordered = _flatten_tasks(doc.get("tasks", []))
-    for i, (depth, t) in enumerate(ordered, start=1):
-        indent = "&nbsp;" * (depth * 4)
-        name_html = f"{indent}{'<b>' if depth==0 else ''}{t.get('name','')}{'</b>' if depth==0 else ''}"
+    phase_row_indices: List[int] = []  # rows to highlight with light-gray background
+    for i, (depth, t, has_children) in enumerate(ordered, start=1):
+        # Phase headers: any task that has children — rendered bold + slightly larger.
+        is_phase = has_children
+        indent = "&nbsp;" * (depth * 3)
+        name_text = t.get("name") or ""
+        if is_phase:
+            name_para = Paragraph(f"{indent}<b>{name_text}</b>", phase_style)
+            phase_row_indices.append(i)  # position in `data` (header is row 0)
+        else:
+            name_para = Paragraph(f"{indent}{name_text}", cell_style)
+
         dur = f"{t.get('duration_value','')} {t.get('duration_unit','')}".strip()
         s = _parse_date(t.get("start_date"))
         e = _parse_date(t.get("end_date"))
         # Build a mini Gantt using a nested table of cells
-        # Split gantt column into total_days cells; fill start..end range gray, and completed portion darker
         cells = [""] * total_days
         style_gantt = [
             ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
@@ -583,27 +629,27 @@ async def project_pdf(
             end_idx = min(total_days - 1, (e - proj_start).days)
             bar_len = end_idx - start_idx + 1
             progress_len = max(0, min(bar_len, int(round(bar_len * float(t.get("progress_percent") or 0) / 100.0))))
+            # Phase bars: dark filled black-like bar (matches MS Project phase). Leaf bars: blue.
+            done_color = colors.HexColor("#111111") if is_phase else colors.HexColor("#1e88e5")
+            todo_color = colors.HexColor("#555555") if is_phase else colors.HexColor("#bbdefb")
             for j in range(start_idx, end_idx + 1):
-                if j < start_idx + progress_len:
-                    style_gantt.append(("BACKGROUND", (j,0), (j,0), colors.HexColor("#1e88e5")))
-                else:
-                    style_gantt.append(("BACKGROUND", (j,0), (j,0), colors.HexColor("#bbdefb")))
-        gantt_table = Table([cells], colWidths=[gantt_col_width/total_days]*total_days, rowHeights=[0.55*cm])
+                fill = done_color if j < start_idx + progress_len else todo_color
+                style_gantt.append(("BACKGROUND", (j,0), (j,0), fill))
+        bar_row_height = 0.4*cm if is_phase else 0.55*cm
+        gantt_table = Table([cells], colWidths=[gantt_col_width/total_days]*total_days, rowHeights=[bar_row_height])
         gantt_table.setStyle(TableStyle(style_gantt))
 
-        data.append([
-            Paragraph(str(i), cell_style),
-            Paragraph(name_html, cell_style),
-            Paragraph(dur, cell_style),
-            Paragraph(_fmt_date(t.get("start_date")), cell_style),
-            Paragraph(_fmt_date(t.get("end_date")), cell_style),
-            Paragraph(f"{float(t.get('progress_percent') or 0):.0f}%", cell_style),
-            gantt_table,
-        ])
+        num_para = Paragraph(f"<b>{i}</b>", cell_bold) if is_phase else Paragraph(str(i), cell_style)
+        dur_para = Paragraph(f"<b>{dur}</b>", cell_bold) if is_phase else Paragraph(dur, cell_style)
+        s_para = Paragraph(f"<b>{_fmt_date_full(t.get('start_date'))}</b>", cell_bold) if is_phase else Paragraph(_fmt_date_full(t.get('start_date')), cell_style)
+        e_para = Paragraph(f"<b>{_fmt_date_full(t.get('end_date'))}</b>", cell_bold) if is_phase else Paragraph(_fmt_date_full(t.get('end_date')), cell_style)
+        pct_txt = f"{float(t.get('progress_percent') or 0):.0f}%"
+        pct_para = Paragraph(f"<b>{pct_txt}</b>", cell_bold) if is_phase else Paragraph(pct_txt, cell_style)
 
-    col_widths = [0.9*cm, 6.0*cm, 2.0*cm, 1.8*cm, 1.8*cm, 1.5*cm, gantt_col_width]
-    tbl = Table(data, colWidths=col_widths, repeatRows=1)
-    tbl.setStyle(TableStyle([
+        data.append([num_para, name_para, dur_para, s_para, e_para, pct_para, gantt_table])
+
+    col_widths = [0.9*cm, 6.0*cm, 1.8*cm, 2.2*cm, 2.2*cm, 1.4*cm, gantt_col_width]
+    table_style = [
         ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
         ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#0d47a1")),
         ("TEXTCOLOR", (0,0), (-1,0), colors.white),
@@ -613,7 +659,23 @@ async def project_pdf(
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
         ("FONTSIZE", (0,0), (-1,-1), 8),
         ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.whitesmoke, colors.white]),
-    ]))
+        # Zero padding for the header gantt cell so its inner table fills it
+        ("LEFTPADDING", (6,0), (6,0), 0),
+        ("RIGHTPADDING", (6,0), (6,0), 0),
+        ("TOPPADDING", (6,0), (6,0), 0),
+        ("BOTTOMPADDING", (6,0), (6,0), 0),
+        # Zero padding on all Gantt bar cells so bars fill the row
+        ("LEFTPADDING", (6,1), (6,-1), 0),
+        ("RIGHTPADDING", (6,1), (6,-1), 0),
+        ("TOPPADDING", (6,1), (6,-1), 1),
+        ("BOTTOMPADDING", (6,1), (6,-1), 1),
+    ]
+    # Phase row background — subtle light-gray to visually group hierarchy
+    for r in phase_row_indices:
+        table_style.append(("BACKGROUND", (0,r), (5,r), colors.HexColor("#e3e8ee")))
+
+    tbl = Table(data, colWidths=col_widths, repeatRows=1)
+    tbl.setStyle(TableStyle(table_style))
     elements.append(tbl)
     pdf.build(elements)
     buffer.seek(0)

@@ -461,6 +461,15 @@ export default function SupervisorDashboard() {
             <Text style={styles.createButtonText}>Criar Novo</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.createButton, { backgroundColor: '#6a1b9a', marginTop: 8 }]}
+            onPress={() => router.push('/supervisor/projects')}
+            data-testid="sup-projects-btn"
+          >
+            <Ionicons name="calendar" size={24} color="#fff" />
+            <Text style={styles.createButtonText}>Projetos (progresso)</Text>
+          </TouchableOpacity>
+
           {loading ? (
             <ActivityIndicator size="large" color="#000000" style={{ marginTop: 24 }} />
           ) : unifiedItems.length > 0 ? (

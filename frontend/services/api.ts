@@ -447,3 +447,78 @@ export const sharingAPI = {
     return response.data;
   },
 };
+
+// ============= PROJECTS API =============
+export interface ProjectTask {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  duration_value: number;
+  duration_unit: string; // "dias" | "hrs"
+  start_date: string | null;
+  end_date: string | null;
+  progress_percent: number;
+  order: number;
+  notes?: string;
+}
+
+export interface Project {
+  id: string;
+  os_number: string;
+  title: string;
+  embarcacao?: string;
+  client?: string;
+  location?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  lock_end_date?: boolean;
+  description?: string;
+  tasks: ProjectTask[];
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const projectAPI = {
+  getAll: async (osNumber?: string): Promise<Project[]> => {
+    const qs = osNumber ? `?os_number=${encodeURIComponent(osNumber)}` : '';
+    const response = await api.get(`/projects${qs}`);
+    return response.data;
+  },
+  getById: async (id: string): Promise<Project> => {
+    const response = await api.get(`/projects/${id}`);
+    return response.data;
+  },
+  create: async (payload: Partial<Project> & { tasks?: Partial<ProjectTask>[] }): Promise<Project> => {
+    const response = await api.post('/projects', payload);
+    return response.data;
+  },
+  update: async (id: string, payload: Partial<Project>): Promise<Project> => {
+    const response = await api.put(`/projects/${id}`, payload);
+    return response.data;
+  },
+  remove: async (id: string) => {
+    const response = await api.delete(`/projects/${id}`);
+    return response.data;
+  },
+  addTask: async (projectId: string, task: Partial<ProjectTask>) => {
+    const response = await api.post(`/projects/${projectId}/tasks`, task);
+    return response.data;
+  },
+  updateTask: async (projectId: string, taskId: string, payload: Partial<ProjectTask>) => {
+    const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, payload);
+    return response.data;
+  },
+  updateTaskProgress: async (projectId: string, taskId: string, progressPercent: number): Promise<Project> => {
+    const response = await api.patch(`/projects/${projectId}/tasks/${taskId}/progress`, { progress_percent: progressPercent });
+    return response.data;
+  },
+  removeTask: async (projectId: string, taskId: string) => {
+    const response = await api.delete(`/projects/${projectId}/tasks/${taskId}`);
+    return response.data;
+  },
+  pdfUrl: (projectId: string, download: boolean = false): string => {
+    return `${BACKEND_URL}/api/projects/${projectId}/pdf${download ? '?download=1' : ''}`;
+  },
+};
+

@@ -26,7 +26,12 @@ async def send_pdf_to_onedrive(
 
     Returns True on success, False otherwise. Never raises (safe to call from
     background tasks)."""
-    env_key = "MAKE_WEBHOOK_REPORTS_URL" if kind == "report" else "MAKE_WEBHOOK_TIMESHEETS_URL"
+    env_key_map = {
+        "report": "MAKE_WEBHOOK_REPORTS_URL",
+        "timesheet": "MAKE_WEBHOOK_TIMESHEETS_URL",
+        "project": "MAKE_WEBHOOK_PROJECTS_URL",
+    }
+    env_key = env_key_map.get(kind, "MAKE_WEBHOOK_REPORTS_URL")
     webhook_url = os.environ.get(env_key, "").strip()
     if not webhook_url:
         logger.info(f"OneDrive webhook ({kind}) not configured; skipping upload")

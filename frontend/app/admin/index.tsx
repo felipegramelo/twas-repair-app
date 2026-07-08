@@ -106,6 +106,16 @@ export default function AdminDashboard() {
             <Text style={styles.cardDescription}>Gerenciar O.S.</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.card, { borderWidth: 2, borderColor: '#6a1b9a' }]}
+            onPress={() => router.push('/admin/projects')}
+            data-testid="admin-projects-card"
+          >
+            <Ionicons name="calendar" size={40} color="#6a1b9a" />
+            <Text style={styles.cardTitle}>Projetos</Text>
+            <Text style={styles.cardDescription}>Cronograma de tarefas por O.S.</Text>
+          </TouchableOpacity>
+
 
           <TouchableOpacity
             style={styles.card}

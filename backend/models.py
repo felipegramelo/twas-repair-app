@@ -263,3 +263,60 @@ class ReportResponse(BaseModel):
     created_at: str
     updated_at: str
 
+
+# ==================== PROJECT MODELS ====================
+
+class ProjectTaskCreate(BaseModel):
+    """A single task within a project (can have children for hierarchy)."""
+    name: str
+    parent_id: Optional[str] = None  # None = root task
+    duration_value: float = 0
+    duration_unit: str = "dias"  # "dias" or "hrs"
+    start_date: Optional[str] = None  # ISO YYYY-MM-DD
+    end_date: Optional[str] = None    # ISO YYYY-MM-DD
+    progress_percent: float = 0       # 0..100
+    order: int = 0                    # sort order within siblings
+    notes: Optional[str] = ""
+
+
+class ProjectTaskUpdate(BaseModel):
+    name: Optional[str] = None
+    parent_id: Optional[str] = None
+    duration_value: Optional[float] = None
+    duration_unit: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    progress_percent: Optional[float] = None
+    order: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class ProjectCreate(BaseModel):
+    os_number: str                     # linked Service Order (required)
+    title: str                         # e.g., "Amaralina Star Thruster Overhaul SN 3826"
+    embarcacao: Optional[str] = ""
+    client: Optional[str] = ""
+    location: Optional[str] = ""
+    start_date: Optional[str] = None   # planned project start (ISO)
+    end_date: Optional[str] = None     # planned project end (ISO)
+    lock_end_date: bool = False        # if True, don't auto-recalc end_date from tasks
+    description: Optional[str] = ""
+    tasks: List[ProjectTaskCreate] = []
+
+
+class ProjectUpdate(BaseModel):
+    os_number: Optional[str] = None
+    title: Optional[str] = None
+    embarcacao: Optional[str] = None
+    client: Optional[str] = None
+    location: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    lock_end_date: Optional[bool] = None
+    description: Optional[str] = None
+
+
+class ProjectProgressUpdate(BaseModel):
+    """Payload used by Supervisor to update a single task's progress."""
+    progress_percent: float
+

@@ -5,6 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { projectAPI, Project, ProjectTask } from '../../services/api';
 
+const notify = (title: string, message: string) => {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
 interface TaskForm {
   id?: string;
   name: string;
@@ -40,7 +49,7 @@ export default function EditProjectScreen() {
       const p = await projectAPI.getById(id);
       setProject(p);
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao carregar');
+      notify('Erro', e?.response?.data?.detail || 'Falha ao carregar');
     } finally {
       setLoading(false);
     }
@@ -76,7 +85,7 @@ export default function EditProjectScreen() {
       const p = await projectAPI.update(project.id, patch);
       setProject(p);
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao salvar');
+      notify('Erro', e?.response?.data?.detail || 'Falha ao salvar');
     } finally {
       setSaving(false);
     }
@@ -102,7 +111,7 @@ export default function EditProjectScreen() {
   const saveTask = async () => {
     if (!project) return;
     if (!taskForm.name.trim()) {
-      Alert.alert('Erro', 'Informe o nome da tarefa');
+      notify('Erro', 'Informe o nome da tarefa');
       return;
     }
     const payload = {
@@ -125,7 +134,7 @@ export default function EditProjectScreen() {
       setShowTaskModal(false);
       await load();
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao salvar tarefa');
+      notify('Erro', e?.response?.data?.detail || 'Falha ao salvar tarefa');
     }
   };
 
@@ -136,7 +145,7 @@ export default function EditProjectScreen() {
       await projectAPI.removeTask(project!.id, taskId);
       await load();
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao excluir');
+      notify('Erro', e?.response?.data?.detail || 'Falha ao excluir');
     }
   };
 

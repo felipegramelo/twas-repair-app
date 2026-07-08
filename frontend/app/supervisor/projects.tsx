@@ -1,10 +1,19 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Modal, TextInput, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { projectAPI, Project, ProjectTask } from '../../services/api';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
+
+const notify = (title: string, message: string) => {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
 
 export default function SupervisorProjectsScreen() {
   const router = useRouter();
@@ -20,7 +29,7 @@ export default function SupervisorProjectsScreen() {
       const list = await projectAPI.getAll();
       setProjects(list);
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
+      notify('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
     } finally {
       setLoading(false);
     }
@@ -65,7 +74,7 @@ export default function SupervisorProjectsScreen() {
       setProjects(ps => ps.map(p => p.id === updated.id ? updated : p));
       setProgressEditor(null);
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao salvar progresso');
+      notify('Erro', e?.response?.data?.detail || 'Falha ao salvar progresso');
     }
   };
 

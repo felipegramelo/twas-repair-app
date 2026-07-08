@@ -23,6 +23,8 @@ export default function AdminProjectsScreen() {
     description: '',
   });
 
+  const [creating, setCreating] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -30,7 +32,7 @@ export default function AdminProjectsScreen() {
       setProjects(list);
       setServiceOrders(sos as any);
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
+      notify('Erro', e?.response?.data?.detail || 'Falha ao carregar projetos');
     } finally {
       setLoading(false);
     }
@@ -50,35 +52,45 @@ export default function AdminProjectsScreen() {
   };
 
   const create = async () => {
-    if (!form.os_number) {
-      Alert.alert('Erro', 'Digite ou selecione uma Ordem de Serviço');
+    if (!form.os_number.trim()) {
+      notify('Erro', 'Digite ou selecione uma Ordem de Serviço');
       return;
     }
+    setCreating(true);
     try {
-      const p = await projectAPI.create({
-        ...form,
-        title: form.title || `Projeto - OS ${form.os_number}`,
+      const payload = {
+        os_number: form.os_number.trim(),
+        title: form.title.trim() || `Projeto - OS ${form.os_number.trim()}`,
+        embarcacao: form.embarcacao || '',
+        client: form.client || '',
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        description: form.description || '',
         tasks: [],
-      } as any);
+      };
+      const p = await projectAPI.create(payload as any);
       setShowCreate(false);
       setForm({ os_number: '', title: '', embarcacao: '', client: '', start_date: '', end_date: '', description: '' });
-      router.push(`/admin/edit-project?id=${p.id}`);
+      // give the modal a tick to close before navigating
+      setTimeout(() => {
+        router.push(`/admin/edit-project?id=${p.id}`);
+      }, 100);
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao criar projeto');
+      const detail = e?.response?.data?.detail || e?.message || 'Falha ao criar projeto';
+      notify('Erro', typeof detail === 'string' ? detail : JSON.stringify(detail));
+    } finally {
+      setCreating(false);
     }
   };
 
   const remove = async (id: string) => {
-    if (Platform.OS === 'web') {
-      if (!confirm('Excluir este projeto?')) return;
-    } else {
-      // TODO: use native Alert.alert with buttons
-    }
+    const ok = Platform.OS === 'web' ? window.confirm('Excluir este projeto?') : true;
+    if (!ok) return;
     try {
       await projectAPI.remove(id);
       await load();
     } catch (e: any) {
-      Alert.alert('Erro', e?.response?.data?.detail || 'Falha ao excluir');
+      notify('Erro', e?.response?.data?.detail || 'Falha ao excluir');
     }
   };
 
@@ -196,8 +208,12 @@ export default function AdminProjectsScreen() {
               <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => setShowCreate(false)} data-testid="project-cancel-btn">
                 <Text style={styles.btnGhostText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={create} data-testid="project-create-btn">
-                <Text style={styles.btnPrimaryText}>Criar e adicionar tarefas</Text>
+              <TouchableOpacity style={[styles.btn, styles.btnPrimary, creating && { opacity: 0.6 }]} onPress={create} disabled={creating} data-testid="project-create-btn">
+                {creating ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.btnPrimaryText}>Criar e adicionar tarefas</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>

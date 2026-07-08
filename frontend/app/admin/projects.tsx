@@ -7,6 +7,15 @@ import { projectAPI, serviceOrderAPI, Project } from '../../services/api';
 import { ServiceOrder } from '../types';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
 
+const notify = (title: string, message: string) => {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
 export default function AdminProjectsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);

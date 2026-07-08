@@ -178,10 +178,10 @@ export default function AdminProjectsScreen() {
                 <TouchableOpacity onPress={() => router.push(`/admin/edit-project?id=${p.id}`)} data-testid={`admin-project-edit-${p.id}`}>
                   <Ionicons name="create-outline" size={22} color="#1976d2" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => downloadAndSharePDF(projectAPI.pdfUrl(p.id, false), `${p.os_number} - ${p.title} - PROJETO.pdf`, true)} data-testid={`admin-project-view-${p.id}`}>
+                <TouchableOpacity onPress={() => downloadAndSharePDF(() => projectAPI.downloadPDF(p.id, false), projectAPI.pdfUrl(p.id, false), `${p.os_number} - ${p.title} - PROJETO.pdf`, true)} data-testid={`admin-project-view-${p.id}`}>
                   <Ionicons name="eye-outline" size={22} color="#388e3c" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => downloadAndSharePDF(projectAPI.pdfUrl(p.id, true), `${p.os_number} - ${p.title} - PROJETO.pdf`, false)} data-testid={`admin-project-download-${p.id}`}>
+                <TouchableOpacity onPress={() => downloadAndSharePDF(() => projectAPI.downloadPDF(p.id, true), projectAPI.pdfUrl(p.id, true), `${p.os_number} - ${p.title} - PROJETO.pdf`, false)} data-testid={`admin-project-download-${p.id}`}>
                   <Ionicons name="download-outline" size={22} color="#f57c00" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => remove(p.id)} data-testid={`admin-project-delete-${p.id}`}>

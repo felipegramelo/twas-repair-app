@@ -575,5 +575,13 @@ export const projectAPI = {
   pdfUrl: (projectId: string, download: boolean = false): string => {
     return `${BACKEND_URL}/api/projects/${projectId}/pdf${download ? '?download=1' : ''}`;
   },
+  downloadPDF: async (projectId: string, forceDownload: boolean = false): Promise<Blob> => {
+    const downloadParam = forceDownload ? '&download=1' : '';
+    const response = await api.get(`/projects/${projectId}/pdf?t=${Date.now()}${downloadParam}`, {
+      responseType: 'blob',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    return response.data;
+  },
 };
 

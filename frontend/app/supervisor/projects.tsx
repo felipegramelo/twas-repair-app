@@ -77,10 +77,10 @@ export default function SupervisorProjectsScreen() {
                   <Text style={styles.progressLabel}>{prog}% • {p.tasks?.length || 0} tarefas</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                  <TouchableOpacity onPress={() => downloadAndSharePDF(projectAPI.pdfUrl(p.id, false), `${p.os_number} - ${p.title} - PROJETO.pdf`, true)} data-testid={`sup-project-view-${p.id}`}>
+                  <TouchableOpacity onPress={() => downloadAndSharePDF(() => projectAPI.downloadPDF(p.id, false), projectAPI.pdfUrl(p.id, false), `${p.os_number} - ${p.title} - PROJETO.pdf`, true)} data-testid={`sup-project-view-${p.id}`}>
                     <Ionicons name="eye-outline" size={22} color="#388e3c" />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => downloadAndSharePDF(projectAPI.pdfUrl(p.id, true), `${p.os_number} - ${p.title} - PROJETO.pdf`, false)} data-testid={`sup-project-download-${p.id}`}>
+                  <TouchableOpacity onPress={() => downloadAndSharePDF(() => projectAPI.downloadPDF(p.id, true), projectAPI.pdfUrl(p.id, true), `${p.os_number} - ${p.title} - PROJETO.pdf`, false)} data-testid={`sup-project-download-${p.id}`}>
                     <Ionicons name="download-outline" size={22} color="#f57c00" />
                   </TouchableOpacity>
                   <Ionicons name="chevron-forward" size={22} color="#666" />

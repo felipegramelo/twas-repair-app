@@ -621,6 +621,10 @@ async def project_pdf(
     def _safe(s: str) -> str:
         return re.sub(r'[<>:"/\\|?*]', '', str(s or '')).strip()
     filename = f"{_safe(doc.get('os_number',''))} - {_safe(doc.get('title',''))} - PROJETO.pdf".strip(" -")
+    # RFC 6266: fallback ASCII name + UTF-8 encoded name for Unicode chars (em-dash etc.)
+    from urllib.parse import quote
+    ascii_filename = filename.encode('ascii', 'ignore').decode('ascii') or "project.pdf"
+    utf8_filename = quote(filename, safe='')
 
     if download:
         pdf_bytes = buffer.getvalue()
@@ -638,7 +642,7 @@ async def project_pdf(
         buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Content-Disposition": f"{disposition}; filename=\"{ascii_filename}\"; filename*=UTF-8''{utf8_filename}",
             "Cache-Control": "no-cache, no-store, must-revalidate",
         }
     )

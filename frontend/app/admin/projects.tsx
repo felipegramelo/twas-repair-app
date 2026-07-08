@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { projectAPI, serviceOrderAPI, Project } from '../../services/api';
 import { ServiceOrder } from '../types';
 import { downloadAndSharePDF } from '../../utils/pdfHelper';
+import DateField from '../../components/DateField';
 
 const notify = (title: string, message: string) => {
   if (Platform.OS === 'web') {
@@ -236,11 +237,19 @@ export default function AdminProjectsScreen() {
               <Text style={styles.label}>Cliente</Text>
               <TextInput style={styles.input} value={form.client} onChangeText={t => setForm(f => ({ ...f, client: t }))} />
 
-              <Text style={styles.label}>Data Início (YYYY-MM-DD)</Text>
-              <TextInput style={styles.input} value={form.start_date} onChangeText={t => setForm(f => ({ ...f, start_date: t }))} placeholder="2026-01-14" />
+              <Text style={styles.label}>Data Início</Text>
+              <DateField
+                value={form.start_date}
+                onChange={v => setForm(f => ({ ...f, start_date: v }))}
+                testID="new-project-start-input"
+              />
 
-              <Text style={styles.label}>Data Término (YYYY-MM-DD)</Text>
-              <TextInput style={styles.input} value={form.end_date} onChangeText={t => setForm(f => ({ ...f, end_date: t }))} placeholder="2026-01-29" />
+              <Text style={styles.label}>Data Término</Text>
+              <DateField
+                value={form.end_date}
+                onChange={v => setForm(f => ({ ...f, end_date: v }))}
+                testID="new-project-end-input"
+              />
 
               <Text style={styles.label}>Descrição</Text>
               <TextInput style={[styles.input, { height: 60 }]} value={form.description} onChangeText={t => setForm(f => ({ ...f, description: t }))} multiline />

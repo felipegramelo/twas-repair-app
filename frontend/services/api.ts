@@ -540,6 +540,7 @@ export const projectAPI = {
     fd.append('file', file as any);
     const response = await api.post(`/projects/${projectId}/import-pdf`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // PDF read + fitz.open can be slow for large files
     });
     return response.data;
   },

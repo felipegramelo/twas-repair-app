@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { projectAPI, Project, ProjectTask } from '../../services/api';
+import DateField from '../../components/DateField';
 
 const notify = (title: string, message: string) => {
   if (Platform.OS === 'web') {
@@ -58,25 +59,40 @@ export default function EditProjectScreen() {
         const file = ev.target?.files?.[0];
         if (!file) return;
         setImporting(true);
+        // 1) POST the file (fast — backend fires async task)
         try {
           const res = await projectAPI.importPdf(project.id, file);
           notify('Importando', res.message || 'Processando o PDF em segundo plano. Aguarde alguns segundos.');
-          // Poll for completion
-          for (let i = 0; i < 24; i++) {
+        } catch (e: any) {
+          setImporting(false);
+          if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao enviar PDF');
+          return;
+        }
+        // 2) Poll for completion (up to ~3 min) — swallow transient network errors.
+        try {
+          let done = false;
+          for (let i = 0; i < 60; i++) {
             await new Promise(r => setTimeout(r, 3000));
-            const p = await projectAPI.getById(project.id);
-            setProject(p);
-            if (p.import_status === 'done') {
-              notify('Sucesso', `Tarefas importadas! Total: ${p.tasks?.length || 0}`);
-              break;
-            }
-            if (p.import_status === 'error') {
-              notify('Erro', p.import_error || 'Falha na importação');
-              break;
+            try {
+              const p = await projectAPI.getById(project.id);
+              setProject(p);
+              if (p.import_status === 'done') {
+                notify('Sucesso', `Tarefas importadas! Total: ${p.tasks?.length || 0}`);
+                done = true;
+                break;
+              }
+              if (p.import_status === 'error') {
+                notify('Erro', p.import_error || 'Falha na importação');
+                done = true;
+                break;
+              }
+            } catch {
+              // Transient GET failure — keep polling.
             }
           }
-        } catch (e: any) {
-          if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao enviar PDF');
+          if (!done) {
+            notify('Aviso', 'Ainda processando… atualize a página em alguns instantes para ver o resultado.');
+          }
         } finally {
           setImporting(false);
         }
@@ -327,11 +343,19 @@ export default function EditProjectScreen() {
                 </View>
               </View>
 
-              <Text style={styles.label}>Data Início (YYYY-MM-DD)</Text>
-              <TextInput style={styles.input} value={taskForm.start_date} onChangeText={t => setTaskForm(f => ({ ...f, start_date: t }))} placeholder="2026-01-14" data-testid="task-start-input" />
+              <Text style={styles.label}>Data Início</Text>
+              <DateField
+                value={taskForm.start_date}
+                onChange={v => setTaskForm(f => ({ ...f, start_date: v }))}
+                testID="task-start-input"
+              />
 
-              <Text style={styles.label}>Data Término (YYYY-MM-DD)</Text>
-              <TextInput style={styles.input} value={taskForm.end_date} onChangeText={t => setTaskForm(f => ({ ...f, end_date: t }))} placeholder="2026-01-23" data-testid="task-end-input" />
+              <Text style={styles.label}>Data Término</Text>
+              <DateField
+                value={taskForm.end_date}
+                onChange={v => setTaskForm(f => ({ ...f, end_date: v }))}
+                testID="task-end-input"
+              />
 
               <Text style={styles.label}>Progresso (%)</Text>
               <TextInput style={styles.input} value={taskForm.progress_percent} onChangeText={t => setTaskForm(f => ({ ...f, progress_percent: t }))} keyboardType="numeric" placeholder="0-100" data-testid="task-progress-input" />

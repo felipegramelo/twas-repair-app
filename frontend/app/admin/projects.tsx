@@ -50,13 +50,14 @@ export default function AdminProjectsScreen() {
   };
 
   const create = async () => {
-    if (!form.os_number || !form.title) {
-      Alert.alert('Erro', 'Selecione uma O.S. e informe um título');
+    if (!form.os_number) {
+      Alert.alert('Erro', 'Digite ou selecione uma Ordem de Serviço');
       return;
     }
     try {
       const p = await projectAPI.create({
         ...form,
+        title: form.title || `Projeto - OS ${form.os_number}`,
         tasks: [],
       } as any);
       setShowCreate(false);
@@ -144,18 +145,34 @@ export default function AdminProjectsScreen() {
             <Text style={styles.modalTitle}>Novo Projeto</Text>
             <ScrollView>
               <Text style={styles.label}>Ordem de Serviço *</Text>
-              <ScrollView horizontal style={{ maxHeight: 44 }}>
-                {serviceOrders.map((so: any) => (
-                  <TouchableOpacity
-                    key={so.id}
-                    style={[styles.chip, form.os_number === so.os_number && styles.chipSelected]}
-                    onPress={() => pickOS(so.os_number)}
-                    data-testid={`os-chip-${so.os_number}`}
-                  >
-                    <Text style={[styles.chipText, form.os_number === so.os_number && styles.chipTextSelected]}>{so.os_number}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <TextInput
+                style={styles.input}
+                value={form.os_number}
+                onChangeText={t => setForm(f => ({ ...f, os_number: t.trim() }))}
+                placeholder="Digite ou selecione abaixo (ex: 2603-25)"
+                autoCapitalize="characters"
+                data-testid="project-os-input"
+              />
+              {serviceOrders.length > 0 && (
+                <>
+                  <Text style={styles.hint}>Ou selecione uma existente ({serviceOrders.length} disponíveis):</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator style={{ maxHeight: 52, marginTop: 4 }}>
+                    {serviceOrders.map((so: any) => (
+                      <TouchableOpacity
+                        key={so.id || so.os_number}
+                        style={[styles.chip, form.os_number === so.os_number && styles.chipSelected]}
+                        onPress={() => pickOS(so.os_number)}
+                        data-testid={`os-chip-${so.os_number}`}
+                      >
+                        <Text style={[styles.chipText, form.os_number === so.os_number && styles.chipTextSelected]}>{so.os_number}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              )}
+              {serviceOrders.length === 0 && (
+                <Text style={styles.hint}>Nenhuma O.S. cadastrada. Digite o número acima manualmente.</Text>
+              )}
 
               <Text style={styles.label}>Título *</Text>
               <TextInput style={styles.input} value={form.title} onChangeText={t => setForm(f => ({ ...f, title: t }))} placeholder="Ex: Amaralina Star Thruster Overhaul SN 3826" data-testid="project-title-input" />
@@ -210,10 +227,11 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
   label: { fontSize: 13, color: '#333', marginTop: 12, marginBottom: 6, fontWeight: '600' },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, fontSize: 15, backgroundColor: '#fafafa' },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: '#eee', marginRight: 8, marginTop: 4 },
-  chipSelected: { backgroundColor: '#6a1b9a' },
-  chipText: { color: '#333', fontSize: 13 },
-  chipTextSelected: { color: '#fff', fontWeight: '600' },
+  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: '#eee', marginRight: 8, marginTop: 4, borderWidth: 1, borderColor: '#ccc' },
+  chipSelected: { backgroundColor: '#6a1b9a', borderColor: '#6a1b9a' },
+  chipText: { color: '#333', fontSize: 13, fontWeight: '600' },
+  chipTextSelected: { color: '#fff', fontWeight: '700' },
+  hint: { fontSize: 12, color: '#666', marginTop: 8, fontStyle: 'italic' },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
   btn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
   btnGhost: { backgroundColor: '#f0f0f0' },

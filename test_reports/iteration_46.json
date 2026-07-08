@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend UX bug fix VERIFIED. Admin 'Novo Projeto' modal now shows a manual OS TextInput with correct placeholder, chip picker below with hint, and can create project with empty title (auto-titled). End-to-end flow from modal open -> fill OS only -> submit -> navigate to edit-project succeeded. Cleanup via API succeeded.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "IMPORTANT: data-testid props on TouchableOpacity/TextInput are NOT reaching the DOM in React Native Web (all [data-testid] selectors return 0 elements). Playwright tests must use text/placeholder/role selectors instead. Consider adding a helper or using 'testID' prop (RN Web canonical) or wrapping with View style with nativeID. This is a testability concern, not a user-facing bug.",
+    "Minor: 404 and 405 console errors observed on page load (unknown resource) - non-blocking but worth investigating in a future iteration."
+  ],
+  "critical_code_review_comments": [
+    "React Native Web (Expo) uses the 'testID' prop which is auto-mapped to data-testid attribute in most versions, but here TouchableOpacity+TextInput received 'data-testid' as JSX prop directly and it is stripped by RN. Recommend switching to testID for consistency across web/native.",
+    "Title field still shows red asterisk '*' in the label ('Título *') even though the field is now optional in code (fallback to default). Consider removing the asterisk to match actual validation."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not tested)", "frontend": "100%"},
+  "test_credentials": "admin@twasrepair.com / admin123 (worked)",
+  "seed_data_creation": "Created and deleted a project with os_number='MANUAL-TEST-01'",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Modal Novo Projeto in /admin/projects works. There are 19 pre-existing service orders. React Native Web on this app does NOT expose data-testid to DOM - use input placeholders, get_by_text('Novo Projeto'/'Criar e adicionar tarefas'/'Entrar'), or coordinate clicks for the header + button (right side ~x=1249,y=32 at 1280px width). Login via email/password inputs + 'Entrar' button works. Backend deletion uses DELETE /api/projects/{id} with Bearer token from localStorage.",
+  "rca of the issue": "N/A - fix verified. Original bug: TextInput for OS number was missing (only chips), and validation required both OS and title. Fix adds a manual TextInput above chips + default title fallback. Verified working via UI and API."
+}

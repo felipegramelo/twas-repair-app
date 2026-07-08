@@ -17,11 +17,13 @@ import io
 import uuid
 import asyncio
 import logging
+import os
 import re
+import json as jsonlib
 from datetime import datetime, date, timedelta
 from typing import List, Optional, Dict, Any
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 from bson import ObjectId
 from pydantic import BaseModel
@@ -218,6 +220,139 @@ async def list_supervisors(current_user: Dict[str, Any] = Depends(get_admin_user
         {"id": str(u["_id"]), "name": u.get("name") or u.get("email"), "email": u.get("email", "")}
         for u in users
     ]
+
+
+@router.post("/projects/{project_id}/import-pdf")
+async def import_pdf(
+    project_id: str,
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Kick off async import from a project PDF. Returns immediately.
+    Frontend should poll GET /api/projects/{id} — while import runs,
+    the project has import_status='processing'. When done, tasks appear
+    and import_status='done' (or 'error').
+    """
+    if not ObjectId.is_valid(project_id):
+        raise HTTPException(400, "Invalid project id")
+    doc = await db.projects.find_one({"_id": ObjectId(project_id)})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if not _can_edit(doc, current_user):
+        raise HTTPException(403, "Não autorizado a editar este projeto")
+
+    pdf_bytes = await file.read()
+    if not pdf_bytes:
+        raise HTTPException(400, "Empty file")
+
+    # Extract PDF text synchronously (fast)
+    try:
+        import fitz
+        pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
+        pages_text = [p.get_text("text") for p in pdf]
+        pdf.close()
+        raw_text = "\n\n".join(pages_text)[:12000]
+    except Exception as e:
+        raise HTTPException(400, f"Falha ao ler PDF: {e}")
+    if not raw_text.strip():
+        raise HTTPException(400, "PDF sem texto extraível (talvez seja imagem escaneada)")
+
+    # Mark project as processing
+    await db.projects.update_one(
+        {"_id": ObjectId(project_id)},
+        {"$set": {"import_status": "processing", "import_error": None, "updated_at": _now()}},
+    )
+    # Fire background task and return immediately
+    asyncio.create_task(_do_import(project_id, raw_text))
+    return {"ok": True, "status": "processing", "message": "Importação iniciada. Aguarde alguns segundos e recarregue."}
+
+
+async def _do_import(project_id: str, raw_text: str):
+    """Background: call Gemini, parse JSON, append tasks to project."""
+    try:
+        api_key = os.environ.get("EMERGENT_LLM_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("EMERGENT_LLM_KEY não configurada")
+
+        system_prompt = (
+            "Você é um extrator de cronogramas. Retorne APENAS um JSON válido, sem prosa nem code fences.\n"
+            "Formato: {\"tasks\":[{\"name\":str,\"parent_index\":int|null,\"duration_value\":float,\"duration_unit\":\"dias\"|\"hrs\",\"start_date\":\"YYYY-MM-DD\"|null,\"end_date\":\"YYYY-MM-DD\"|null,\"progress_percent\":0-100}]}\n"
+            "parent_index é o índice base 0 da tarefa pai NO MESMO array. null quando é fase raiz.\n"
+            "Deduza hierarquia por indentação, numeração ou títulos em maiúsculas.\n"
+            "Converta duração '7,75 days' → duration_value=7.75, duration_unit='dias'. 'hours' → 'hrs'."
+        )
+
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"import-{project_id}",
+            system_message=system_prompt,
+        ).with_model("gemini", "gemini-3-flash-preview")
+
+        response = await chat.send_message(UserMessage(text=f"Texto extraído do PDF:\n\n{raw_text}"))
+        llm_out = (response if isinstance(response, str) else str(response)).strip()
+
+        m = re.search(r"\{[\s\S]*\}", llm_out)
+        if not m:
+            raise RuntimeError("IA não retornou JSON")
+        parsed = jsonlib.loads(m.group(0))
+        raw_tasks = parsed.get("tasks") or []
+        if not isinstance(raw_tasks, list) or not raw_tasks:
+            raise RuntimeError("Nenhuma tarefa extraída")
+
+        id_by_index: Dict[int, str] = {}
+        new_tasks: List[dict] = []
+        for i, t in enumerate(raw_tasks):
+            try:
+                new_id = str(uuid.uuid4())
+                id_by_index[i] = new_id
+                pi = t.get("parent_index")
+                parent_id = id_by_index.get(pi) if isinstance(pi, int) and pi < i else None
+                unit = (t.get("duration_unit") or "dias").strip().lower()
+                if unit in ("hours", "hour", "hr", "h"):
+                    unit = "hrs"
+                if unit in ("days", "day", "d"):
+                    unit = "dias"
+                new_tasks.append({
+                    "id": new_id,
+                    "parent_id": parent_id,
+                    "name": (t.get("name") or "").strip()[:200],
+                    "duration_value": float(t.get("duration_value") or 0),
+                    "duration_unit": unit,
+                    "start_date": t.get("start_date") or None,
+                    "end_date": t.get("end_date") or None,
+                    "progress_percent": max(0.0, min(100.0, float(t.get("progress_percent") or 0))),
+                    "order": i,
+                    "notes": "",
+                })
+            except Exception:
+                continue
+        if not new_tasks:
+            raise RuntimeError("Nenhuma tarefa válida após parse")
+
+        # Append to project (re-load to avoid overwriting concurrent changes)
+        doc = await db.projects.find_one({"_id": ObjectId(project_id)})
+        if not doc:
+            return
+        existing = doc.get("tasks") or []
+        max_order = max([int(t.get("order") or 0) for t in existing], default=-1)
+        for k, nt in enumerate(new_tasks):
+            nt["order"] = max_order + 1 + k
+        existing.extend(new_tasks)
+        upd = {"tasks": existing, "import_status": "done", "import_error": None, "updated_at": _now()}
+        if not doc.get("lock_end_date"):
+            merged = {**doc, "tasks": existing}
+            auto_end = _recalc_end_date(merged)
+            if auto_end:
+                upd["end_date"] = auto_end
+        await db.projects.update_one({"_id": ObjectId(project_id)}, {"$set": upd})
+        logger.info(f"Import PDF done for project {project_id}: {len(new_tasks)} tasks")
+    except Exception as e:
+        logger.exception(f"Import PDF failed: {e}")
+        await db.projects.update_one(
+            {"_id": ObjectId(project_id)},
+            {"$set": {"import_status": "error", "import_error": str(e)[:300], "updated_at": _now()}},
+        )
 
 
 # ---------------- task subroutes ----------------

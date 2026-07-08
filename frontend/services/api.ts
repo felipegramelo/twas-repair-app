@@ -513,6 +513,8 @@ export interface Project {
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+  import_status?: 'processing' | 'done' | 'error' | null;
+  import_error?: string | null;
 }
 
 export const projectAPI = {
@@ -531,6 +533,14 @@ export const projectAPI = {
   },
   update: async (id: string, payload: Partial<Project>): Promise<Project> => {
     const response = await api.put(`/projects/${id}`, payload);
+    return response.data;
+  },
+  importPdf: async (projectId: string, file: File | Blob | any): Promise<{ ok: boolean; status: string; message: string }> => {
+    const fd = new FormData();
+    fd.append('file', file as any);
+    const response = await api.post(`/projects/${projectId}/import-pdf`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
   remove: async (id: string) => {

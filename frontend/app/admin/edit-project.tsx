@@ -41,6 +41,51 @@ export default function EditProjectScreen() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskForm, setTaskForm] = useState<TaskForm>(emptyTask());
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  const pickAndImportPdf = async () => {
+    if (!project) return;
+    if (Platform.OS !== 'web') {
+      notify('Info', 'Import de PDF disponível apenas no navegador por enquanto.');
+      return;
+    }
+    try {
+      // Web: use hidden file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/pdf,.pdf';
+      input.onchange = async (ev: any) => {
+        const file = ev.target?.files?.[0];
+        if (!file) return;
+        setImporting(true);
+        try {
+          const res = await projectAPI.importPdf(project.id, file);
+          notify('Importando', res.message || 'Processando o PDF em segundo plano. Aguarde alguns segundos.');
+          // Poll for completion
+          for (let i = 0; i < 24; i++) {
+            await new Promise(r => setTimeout(r, 3000));
+            const p = await projectAPI.getById(project.id);
+            setProject(p);
+            if (p.import_status === 'done') {
+              notify('Sucesso', `Tarefas importadas! Total: ${p.tasks?.length || 0}`);
+              break;
+            }
+            if (p.import_status === 'error') {
+              notify('Erro', p.import_error || 'Falha na importação');
+              break;
+            }
+          }
+        } catch (e: any) {
+          if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao enviar PDF');
+        } finally {
+          setImporting(false);
+        }
+      };
+      input.click();
+    } catch (e: any) {
+      notify('Erro', e?.message || 'Não foi possível abrir seletor de arquivo');
+    }
+  };
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -194,10 +239,22 @@ export default function EditProjectScreen() {
         {/* Tasks list */}
         <View style={styles.tasksHeader}>
           <Text style={styles.sectionTitle}>Cronograma de Tarefas</Text>
-          <TouchableOpacity style={styles.addTaskBtn} onPress={() => openNewTask(null)} data-testid="add-root-task-btn">
-            <Ionicons name="add" size={18} color="#fff" />
-            <Text style={styles.addTaskText}>Fase</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity style={styles.importBtn} onPress={pickAndImportPdf} disabled={importing} data-testid="import-pdf-btn">
+              {importing ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
+                  <Text style={styles.addTaskText}>Importar PDF</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addTaskBtn} onPress={() => openNewTask(null)} data-testid="add-root-task-btn">
+              <Ionicons name="add" size={18} color="#fff" />
+              <Text style={styles.addTaskText}>Fase</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {tasks.length === 0 ? (
@@ -311,6 +368,7 @@ const styles = StyleSheet.create({
   tasksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#000' },
   addTaskBtn: { flexDirection: 'row', backgroundColor: '#6a1b9a', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 4 },
+  importBtn: { flexDirection: 'row', backgroundColor: '#1976d2', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 4, minWidth: 130, justifyContent: 'center' },
   addTaskText: { color: '#fff', fontWeight: '600' },
   taskRow: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10 },
   taskName: { fontSize: 14, color: '#000' },

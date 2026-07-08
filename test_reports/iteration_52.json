@@ -1,0 +1,35 @@
+{
+  "summary": "Backend PDF import via Gemini LLM feature tested end-to-end. All 5 tests PASSED: async POST returns 200 immediately (0.2s) with status=processing; polling GET reaches import_status='done' with 99 tasks extracted from real Amaralina Star Thruster Overhaul PDF; task structure valid (name, duration_value, duration_unit, dates, progress, parent_id hierarchy); empty file → 400; invalid PDF bytes → 400; supervisor without shared_with → 403; admin with permission → 200 async.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/projects/{id} during import processing",
+        "issue": "GET requests time out (>30s) while background LLM (_do_import via asyncio.create_task) is running — suggests LiteLLM/emergentintegrations call is blocking the event loop, degrading concurrent request handling. The endpoint itself works (POST responds in 0.2s and GET works once LLM finishes), but polling from frontend needs a generous timeout. Consider running the LLM call in a thread executor or using an async LiteLLM client."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_import_pdf.py",
+    "/app/test_reports/pytest/import_pdf_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: run the Gemini LLM call in a thread executor (asyncio.to_thread) or ensure LlmChat uses a non-blocking backend, so GET /projects/{id} polling isn't starved during import (current LLM run ~60-70s blocks concurrent requests on same worker).",
+    "OPTIONAL: frontend polling interval should be >=5s with request timeout >=30s to survive backend saturation during LLM call."
+  ],
+  "critical_code_review_comments": [
+    "asyncio.create_task(_do_import(...)) — good for fire-and-forget, but the underlying LiteLLM completion() call appears to block the event loop. Consider `await asyncio.to_thread(chat.send_message, ...)` if the client is sync.",
+    "raw_text truncated to 12000 chars — reasonable safeguard against context overflow.",
+    "Exception path in _do_import correctly persists import_status='error' with import_error message.",
+    "PDF parsing with PyMuPDF (fitz) is synchronous inside the request handler; acceptable since it's fast, but for very large PDFs could be moved to thread executor."
+  ],
+  "updated_files": ["/app/backend/tests/test_import_pdf.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "admin@twasrepair.com/admin123, supervisor@twasrepair.com/super123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Test creates one TEST_ImportPDF_Amaralina project per module and deletes it at teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "PDF import feature is working. Real PDF (Amaralina Star Thruster) yields 99 hierarchical tasks via gemini-3-flash-preview (~60-70s LLM latency). Backend URL: https://twas-repair-app-1.preview.emergentagent.com. Test file: /app/backend/tests/test_import_pdf.py. PDF cached at /tmp/amaralina.pdf. If backend restarts (hot reload) mid-test, background asyncio task is lost and import_status stays 'processing'.",
+  "rca of the issue": "N/A — feature works. Minor observation: LiteLLM sync call inside asyncio.create_task appears to block event loop for ~60s (GET requests time out during that window). Not a functional bug but a scalability concern."
+}

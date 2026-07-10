@@ -15,6 +15,7 @@ The user wants to unify two separate applications (a Timesheet Tracker and a Ser
 - Emergent LLM key + `emergentintegrations` (Gemini 3 Flash) for PDF task extraction
 
 ## Implemented (recent → older)
+- **2026-06** — Fixed auto-scheduling bug (15.5-day project spanning ~56 days): `_schedule_tasks_from_start` now uses fractional-day math (8h=1d); a parent phase's own duration defines its window and children are compressed proportionally inside it (they run in parallel in practice). Phases run sequentially, so total project span = sum of phase durations. Existing projects rescheduled in DB.
 - **2026-02-08** — Project PDF redesigned to match MS Project model: bold phase headers with gray background at any depth, bold column headers, day-of-week + date format ("Qua 14/01/26"), timeline date ticks above Gantt bars, and colored Gantt bars (dark for phases, blue for leaves) with progress overlay.
 - **2026-02-08** — Fixed "Falha ao baixar PDF" in Projects: (a) `projectAPI.downloadPDF` blob helper added, (b) Content-Disposition now uses RFC 6266 UTF-8 encoding for Unicode titles (em-dash etc.).
 - **2026-02-08** — Replaced YYYY-MM-DD text inputs with cross-platform Calendar widgets (`DateField` component: native HTML date input on web, `DateTimePicker` modal on iOS/Android).

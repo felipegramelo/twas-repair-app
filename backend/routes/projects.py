@@ -21,6 +21,7 @@ import os
 import re
 import json as jsonlib
 from datetime import datetime, date, timedelta
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Request, UploadFile, File
@@ -45,6 +46,8 @@ from models import (
     ProjectProgressUpdate, UserRole,
 )
 from services.onedrive import send_pdf_to_onedrive
+
+ROOT_DIR = Path(__file__).parent.parent
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -534,21 +537,135 @@ async def project_pdf(
         raise HTTPException(404, "Project not found")
 
     buffer = io.BytesIO()
-    pdf = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=1*cm, rightMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
+    page_w, page_h = landscape(A4)
+
+    # === Margins (smaller than defaults) ===
+    border_margin = 0.4*cm          # page border distance to page edge
+    content_left = 0.7*cm            # actual usable left margin
+    content_right = 0.7*cm
+    header_h = 1.8*cm                 # header box height
+    footer_h = 1.1*cm                 # footer box height
+    top_margin = border_margin + header_h + 0.15*cm
+    bottom_margin = border_margin + footer_h + 0.15*cm
+    content_width = page_w - content_left - content_right
+
+    # === Preload TWAS logo ===
+    logo_path = ROOT_DIR / "../logo.bmp"
+    logo_image = None
+    if logo_path.exists():
+        try:
+            from PIL import Image as PILImage
+            pil_img = PILImage.open(logo_path)
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            temp_logo = io.BytesIO()
+            pil_img.save(temp_logo, format='JPEG')
+            temp_logo.seek(0)
+            logo_image = temp_logo
+        except Exception as e:
+            logging.error(f"Project PDF: error loading logo: {e}")
+
+    pdf = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=content_left,
+        rightMargin=content_right,
+        topMargin=top_margin,
+        bottomMargin=bottom_margin,
+    )
+
+    # === On-page decoration (border + header + footer) ===
+    def _draw_page(canvas_obj, _doc_obj):
+        canvas_obj.saveState()
+
+        # Page border
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(border_margin, border_margin, page_w - 2*border_margin, page_h - 2*border_margin)
+
+        # ---------- HEADER BOX ----------
+        header_top = page_h - border_margin - 0.15*cm
+        header_bottom = header_top - header_h
+        canvas_obj.setStrokeColor(colors.HexColor('#777777'))
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.rect(content_left, header_bottom, content_width, header_h)
+
+        # Logo (left)
+        if logo_image:
+            logo_image.seek(0)
+            from reportlab.lib.utils import ImageReader
+            img_reader = ImageReader(logo_image)
+            logo_h = 1.5*cm
+            logo_y = header_bottom + (header_h - logo_h) / 2
+            canvas_obj.drawImage(
+                img_reader,
+                content_left + 0.15*cm, logo_y,
+                width=3.5*cm, height=logo_h,
+                preserveAspectRatio=True, mask='auto',
+            )
+
+        # Center: title + form id
+        canvas_obj.setFont("Helvetica-Bold", 13)
+        canvas_obj.drawCentredString(page_w/2, header_bottom + 1.05*cm, "CRONOGRAMA DE PROJETO")
+        canvas_obj.setFont("Helvetica-Bold", 10)
+        proj_title = (doc.get('title') or 'Projeto')[:80]
+        canvas_obj.drawCentredString(page_w/2, header_bottom + 0.5*cm, proj_title)
+
+        # Right: Cliente / Rig / OS / Rev
+        right_x = content_left + content_width - 0.15*cm
+        detail_y = header_top - 0.32*cm
+        line_h = 0.34*cm
+
+        def _draw_right_label(label, value, y_pos):
+            canvas_obj.setFont("Helvetica", 8)
+            val_w = canvas_obj.stringWidth(value, "Helvetica", 8)
+            canvas_obj.drawRightString(right_x, y_pos, value)
+            canvas_obj.setFont("Helvetica-Bold", 8)
+            canvas_obj.drawRightString(right_x - val_w - 3, y_pos, label)
+
+        _draw_right_label("Cliente:", str(doc.get('client', '') or '-'), detail_y)
+        detail_y -= line_h
+        _draw_right_label("Rig/Vessel:", str(doc.get('embarcacao', '') or '-'), detail_y)
+        detail_y -= line_h
+        _draw_right_label("OS:", str(doc.get('os_number', '') or '-'), detail_y)
+        detail_y -= line_h
+        _draw_right_label("Rev:", "0", detail_y)
+
+        # ---------- FOOTER BOX ----------
+        footer_bottom = border_margin + 0.15*cm
+        footer_top = footer_bottom + footer_h
+        canvas_obj.rect(content_left, footer_bottom, content_width, footer_h)
+
+        center_x = page_w / 2
+        y = footer_top - 0.35*cm
+        canvas_obj.setFont("Helvetica-Bold", 8)
+        canvas_obj.drawCentredString(center_x, y, "TWAS REPAIR SERVIÇOS NAVAIS E INDUSTRIAIS LTDA")
+        y -= 0.28*cm
+        canvas_obj.setFont("Helvetica", 7.5)
+        canvas_obj.drawCentredString(center_x, y, "Travessa Frederico Marques, N° 84, Boa Vista, São Gonçalo, Rio de Janeiro - CEP.: 24.466-180.")
+        y -= 0.25*cm
+        canvas_obj.drawCentredString(center_x, y, "twas@twasrepair.com  -  www.twasrepair.com")
+
+        # Page number (bottom-right, inside footer)
+        canvas_obj.setFont("Helvetica", 7)
+        canvas_obj.drawRightString(right_x, footer_bottom + 0.1*cm, f"Pag. {canvas_obj.getPageNumber()}")
+
+        canvas_obj.restoreState()
+
     styles = getSampleStyleSheet()
-    h_style = ParagraphStyle("h", parent=styles["Heading1"], alignment=TA_CENTER, fontSize=14, fontName="Helvetica-Bold")
-    sub_style = ParagraphStyle("sub", parent=styles["Normal"], alignment=TA_CENTER, fontSize=9, fontName="Helvetica-Bold")
     cell_style = ParagraphStyle("c", parent=styles["Normal"], fontSize=8, leading=10)
     cell_bold = ParagraphStyle("cb", parent=cell_style, fontName="Helvetica-Bold")
     phase_style = ParagraphStyle("ph", parent=styles["Normal"], fontSize=9, leading=11, fontName="Helvetica-Bold")
     tick_style = ParagraphStyle("tk", parent=styles["Normal"], fontSize=6, leading=7, alignment=TA_CENTER, fontName="Helvetica-Bold")
 
     elements = []
-    elements.append(Paragraph(doc.get("title") or "Projeto", h_style))
-    header_line = f"OS: {doc.get('os_number','')} | Embarcação: {doc.get('embarcacao','')} | Cliente: {doc.get('client','')}"
-    elements.append(Paragraph(header_line, sub_style))
-    elements.append(Paragraph(f"Início: {_fmt_date_full(doc.get('start_date'))}  |  Término: {_fmt_date_full(doc.get('end_date'))}", sub_style))
-    elements.append(Spacer(1, 0.4*cm))
+    # Small summary line (dates) since title/OS/Client are now in the standard header
+    date_summary = ParagraphStyle("ds", parent=styles["Normal"], alignment=TA_CENTER, fontSize=9, fontName="Helvetica-Bold")
+    elements.append(Paragraph(
+        f"Início: {_fmt_date_full(doc.get('start_date'))}   |   Término: {_fmt_date_full(doc.get('end_date'))}",
+        date_summary,
+    ))
+    elements.append(Spacer(1, 0.2*cm))
 
     # Determine timeline extent for Gantt bars
     all_dates = []
@@ -677,7 +794,7 @@ async def project_pdf(
     tbl = Table(data, colWidths=col_widths, repeatRows=1)
     tbl.setStyle(TableStyle(table_style))
     elements.append(tbl)
-    pdf.build(elements)
+    pdf.build(elements, onFirstPage=_draw_page, onLaterPages=_draw_page)
     buffer.seek(0)
 
     def _safe(s: str) -> str:

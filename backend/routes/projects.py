@@ -680,7 +680,7 @@ async def project_pdf(
     proj_end = _parse_date(doc.get("end_date")) or (max(all_dates) if all_dates else proj_start)
     total_days = max((proj_end - proj_start).days + 1, 1)
 
-    gantt_col_width = 10 * cm  # visual bar column width
+    gantt_col_width = 13.8 * cm  # widened to match header box (landscape A4 minus margins)
 
     # Build a timeline header (date ticks) matching the Gantt column
     # Show ~9 tick labels evenly spaced across the timeline (like the model: 08 11 14 17 20 23 26 29 01)
@@ -765,7 +765,7 @@ async def project_pdf(
 
         data.append([num_para, name_para, dur_para, s_para, e_para, pct_para, gantt_table])
 
-    col_widths = [0.9*cm, 6.0*cm, 1.8*cm, 2.2*cm, 2.2*cm, 1.4*cm, gantt_col_width]
+    col_widths = [0.9*cm, 5.0*cm, 2.1*cm, 2.5*cm, 2.5*cm, 1.5*cm, gantt_col_width]
     table_style = [
         ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
         ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#0d47a1")),

@@ -30,6 +30,7 @@ export default function AdminProjectsScreen() {
     client: '',
     start_date: '',
     description: '',
+    work_regime: 8,
   });
 
   const [creating, setCreating] = useState(false);
@@ -82,11 +83,12 @@ export default function AdminProjectsScreen() {
         client: form.client || '',
         start_date: form.start_date || null,
         description: form.description || '',
+        work_regime: form.work_regime,
         tasks: [],
       };
       const p = await projectAPI.create(payload as any);
       setShowCreate(false);
-      setForm({ os_number: '', title: '', embarcacao: '', client: '', start_date: '', description: '' });
+      setForm({ os_number: '', title: '', embarcacao: '', client: '', start_date: '', description: '', work_regime: 8 });
       // give the modal a tick to close before navigating
       setTimeout(() => {
         router.push(`/admin/edit-project?id=${p.id}`);
@@ -242,6 +244,21 @@ export default function AdminProjectsScreen() {
                 testID="new-project-start-input"
               />
               <Text style={styles.hint}>A data de término será calculada automaticamente a partir das durações das tarefas.</Text>
+
+              <Text style={styles.label}>Regime de trabalho</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[8, 12, 24].map(r => (
+                  <TouchableOpacity
+                    key={r}
+                    style={[styles.chip, form.work_regime === r && styles.chipSelected]}
+                    onPress={() => setForm(f => ({ ...f, work_regime: r }))}
+                    data-testid={`regime-chip-${r}`}
+                  >
+                    <Text style={[styles.chipText, form.work_regime === r && styles.chipTextSelected]}>{r}h/dia</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.hint}>8h e 12h descontam 1h de almoço; 24h desconta 2h (dia e noite).</Text>
 
               <Text style={styles.label}>Descrição</Text>
               <TextInput style={[styles.input, { height: 60 }]} value={form.description} onChangeText={t => setForm(f => ({ ...f, description: t }))} multiline />

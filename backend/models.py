@@ -277,6 +277,7 @@ class ProjectTaskCreate(BaseModel):
     progress_percent: float = 0       # 0..100
     order: int = 0                    # sort order within siblings
     notes: Optional[str] = ""
+    work_regime: Optional[int] = None  # 8|12|24 (phase override); None = inherit
 
 
 class ProjectTaskUpdate(BaseModel):
@@ -289,6 +290,7 @@ class ProjectTaskUpdate(BaseModel):
     progress_percent: Optional[float] = None
     order: Optional[int] = None
     notes: Optional[str] = None
+    work_regime: Optional[int] = None  # 8|12|24; 0 = clear (inherit)
 
 
 class ProjectCreate(BaseModel):
@@ -303,6 +305,7 @@ class ProjectCreate(BaseModel):
     description: Optional[str] = ""
     shared_with: List[str] = []        # supervisor user_ids allowed to edit
     tasks: List[ProjectTaskCreate] = []
+    work_regime: int = 8               # daily work regime: 8|12|24
 
 
 class ProjectUpdate(BaseModel):
@@ -316,6 +319,7 @@ class ProjectUpdate(BaseModel):
     lock_end_date: Optional[bool] = None
     description: Optional[str] = None
     shared_with: Optional[List[str]] = None
+    work_regime: Optional[int] = None  # 8|12|24
 
 
 class ProjectProgressUpdate(BaseModel):

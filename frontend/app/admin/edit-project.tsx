@@ -26,11 +26,12 @@ interface TaskForm {
   progress_percent: string;
   order: number;
   notes: string;
+  work_regime: number | null;
 }
 
 const emptyTask = (): TaskForm => ({
   name: '', parent_id: null, duration_value: '', duration_unit: 'dias',
-  start_date: '', end_date: '', progress_percent: '0', order: 0, notes: '',
+  start_date: '', end_date: '', progress_percent: '0', order: 0, notes: '', work_regime: null,
 });
 
 export default function EditProjectScreen() {
@@ -44,7 +45,8 @@ export default function EditProjectScreen() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [showMetaModal, setShowMetaModal] = useState(false);
-  const [metaForm, setMetaForm] = useState({ title: '', os_number: '', client: '', embarcacao: '', start_date: '' });
+  const [metaForm, setMetaForm] = useState({ title: '', os_number: '', client: '', embarcacao: '', start_date: '', work_regime: 8 });
+  const [rescheduling, setRescheduling] = useState(false);
 
   const openMetaEditor = () => {
     if (!project) return;
@@ -54,6 +56,7 @@ export default function EditProjectScreen() {
       client: project.client || '',
       embarcacao: project.embarcacao || '',
       start_date: project.start_date || '',
+      work_regime: project.work_regime || 8,
     });
     setShowMetaModal(true);
   };
@@ -72,6 +75,7 @@ export default function EditProjectScreen() {
         client: metaForm.client.trim(),
         embarcacao: metaForm.embarcacao.trim(),
         start_date: metaForm.start_date || null,
+        work_regime: metaForm.work_regime,
       } as any);
       setProject(p);
       setShowMetaModal(false);
@@ -80,6 +84,24 @@ export default function EditProjectScreen() {
       if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao salvar projeto');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const reschedule = async () => {
+    if (!project) return;
+    const ok = Platform.OS === 'web'
+      ? window.confirm('Reagendar todas as tarefas a partir da data de início do projeto? As datas atuais serão recalculadas.')
+      : true;
+    if (!ok) return;
+    setRescheduling(true);
+    try {
+      const p = await projectAPI.reschedule(project.id);
+      setProject(p);
+      notify('Sucesso', `Cronograma reagendado. Término: ${p.end_date || '-'}`);
+    } catch (e: any) {
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao reagendar');
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -204,6 +226,7 @@ export default function EditProjectScreen() {
       duration_unit: (t.duration_unit as any) || 'dias',
       start_date: t.start_date || '', end_date: t.end_date || '',
       progress_percent: String(t.progress_percent ?? 0), order: t.order || 0, notes: t.notes || '',
+      work_regime: t.work_regime || null,
     });
     setShowTaskModal(true);
   };
@@ -224,6 +247,7 @@ export default function EditProjectScreen() {
       progress_percent: Math.max(0, Math.min(100, parseFloat(taskForm.progress_percent) || 0)),
       order: taskForm.order,
       notes: taskForm.notes,
+      work_regime: taskForm.work_regime || 0,
     };
     try {
       if (editingTaskId) {
@@ -282,6 +306,7 @@ export default function EditProjectScreen() {
           <Text style={styles.metaLine}>Embarcação: {project.embarcacao || '-'}</Text>
           <Text style={styles.metaLine}>Cliente: {project.client || '-'}</Text>
           <Text style={styles.metaLine}>Início: {project.start_date || '-'}  •  Término: {project.end_date || '-'}</Text>
+          <Text style={styles.metaLine}>Regime de trabalho: {project.work_regime || 8}h/dia</Text>
 
           <View style={styles.progressBg}>
             <View style={[styles.progressBar, { width: `${overallProgress}%` }]} />
@@ -298,6 +323,16 @@ export default function EditProjectScreen() {
         <View style={styles.tasksHeader}>
           <Text style={styles.sectionTitle}>Cronograma de Tarefas</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity style={styles.rescheduleBtn} onPress={reschedule} disabled={rescheduling} data-testid="reschedule-btn">
+              {rescheduling ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="refresh-outline" size={18} color="#fff" />
+                  <Text style={styles.addTaskText}>Reagendar</Text>
+                </>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity style={styles.importBtn} onPress={pickAndImportPdf} disabled={importing} data-testid="import-pdf-btn">
               {importing ? (
                 <ActivityIndicator color="#fff" size="small" />
@@ -324,7 +359,7 @@ export default function EditProjectScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.taskName, depth === 0 && { fontWeight: '700' }]} numberOfLines={2}>{task.name}</Text>
               <Text style={styles.taskMeta}>
-                {task.duration_value} {task.duration_unit} • {task.start_date || '-'} → {task.end_date || '-'}
+                {task.duration_value} {task.duration_unit}{task.work_regime ? ` • regime ${task.work_regime}h` : ''} • {task.start_date || '-'} → {task.end_date || '-'}
               </Text>
               <View style={styles.progressBgSm}>
                 <View style={[styles.progressBarSm, { width: `${task.progress_percent}%` }]} />
@@ -392,6 +427,19 @@ export default function EditProjectScreen() {
                 testID="task-start-input"
               />
 
+              <Text style={styles.label}>Regime de trabalho (fase)</Text>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <TouchableOpacity style={[styles.unitBtn, !taskForm.work_regime && styles.unitBtnSel]} onPress={() => setTaskForm(f => ({ ...f, work_regime: null }))} data-testid="task-regime-default">
+                  <Text style={!taskForm.work_regime ? styles.unitTxtSel : styles.unitTxt}>Padrão</Text>
+                </TouchableOpacity>
+                {[8, 12, 24].map(r => (
+                  <TouchableOpacity key={r} style={[styles.unitBtn, taskForm.work_regime === r && styles.unitBtnSel]} onPress={() => setTaskForm(f => ({ ...f, work_regime: r }))} data-testid={`task-regime-${r}`}>
+                    <Text style={taskForm.work_regime === r ? styles.unitTxtSel : styles.unitTxt}>{r}h</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={{ fontSize: 11, color: '#888', marginTop: 4, fontStyle: 'italic' }}>Padrão = usa o regime do projeto ({project.work_regime || 8}h/dia). Vale para esta fase e suas sub-tarefas.</Text>
+
               <Text style={styles.label}>Data Término</Text>
               <DateField
                 value={taskForm.end_date}
@@ -439,6 +487,16 @@ export default function EditProjectScreen() {
 
               <Text style={styles.label}>Data Início</Text>
               <DateField value={metaForm.start_date} onChange={v => setMetaForm(f => ({ ...f, start_date: v }))} testID="meta-start-input" />
+
+              <Text style={styles.label}>Regime de trabalho</Text>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {[8, 12, 24].map(r => (
+                  <TouchableOpacity key={r} style={[styles.unitBtn, metaForm.work_regime === r && styles.unitBtnSel]} onPress={() => setMetaForm(f => ({ ...f, work_regime: r }))} data-testid={`meta-regime-${r}`}>
+                    <Text style={metaForm.work_regime === r ? styles.unitTxtSel : styles.unitTxt}>{r}h/dia</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={{ fontSize: 11, color: '#888', marginTop: 4, fontStyle: 'italic' }}>8h e 12h descontam 1h de almoço; 24h desconta 2h (dia e noite). Use "Reagendar" para recalcular as datas.</Text>
               <Text style={{ fontSize: 12, color: '#666', marginTop: 6, fontStyle: 'italic' }}>
                 A data de término é calculada automaticamente a partir das durações das tarefas.
                 {project.end_date ? `\nTérmino atual: ${project.end_date}` : ''}
@@ -474,6 +532,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#000' },
   addTaskBtn: { flexDirection: 'row', backgroundColor: '#6a1b9a', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 4 },
   importBtn: { flexDirection: 'row', backgroundColor: '#1976d2', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 4, minWidth: 130, justifyContent: 'center' },
+  rescheduleBtn: { flexDirection: 'row', backgroundColor: '#00897b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 4, justifyContent: 'center' },
   addTaskText: { color: '#fff', fontWeight: '600' },
   taskRow: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 10 },
   taskName: { fontSize: 14, color: '#000' },
@@ -486,6 +545,9 @@ const styles = StyleSheet.create({
   emptyText: { color: '#888' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
+  modalCard: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
+  btnSecondary: { backgroundColor: '#f0f0f0' },
+  btnSecondaryText: { color: '#333', fontWeight: '600' },
   modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
   label: { fontSize: 13, color: '#333', marginTop: 12, marginBottom: 6, fontWeight: '600' },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, fontSize: 15, backgroundColor: '#fafafa' },

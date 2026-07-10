@@ -495,6 +495,7 @@ export interface ProjectTask {
   progress_percent: number;
   order: number;
   notes?: string;
+  work_regime?: number | null; // 8|12|24; null = herda do projeto
 }
 
 export interface Project {
@@ -562,6 +563,10 @@ export const projectAPI = {
   },
   removeTask: async (projectId: string, taskId: string) => {
     const response = await api.delete(`/projects/${projectId}/tasks/${taskId}`);
+    return response.data;
+  },
+  reschedule: async (projectId: string): Promise<Project> => {
+    const response = await api.post(`/projects/${projectId}/reschedule`);
     return response.data;
   },
   listSupervisors: async (): Promise<{ id: string; name: string; email: string }[]> => {

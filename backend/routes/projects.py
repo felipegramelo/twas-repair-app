@@ -81,7 +81,16 @@ def _task_new(task_in: dict) -> dict:
         "progress_percent": max(0.0, min(100.0, float(task_in.get("progress_percent") or 0))),
         "order": int(task_in.get("order") or 0),
         "notes": task_in.get("notes") or "",
+        "work_regime": _valid_regime(task_in.get("work_regime")),
     }
+
+
+def _valid_regime(v) -> Optional[int]:
+    try:
+        r = int(v)
+        return r if r in (8, 12, 24) else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _clean_project(doc: dict) -> dict:
@@ -115,11 +124,16 @@ def _recalc_end_date(project: dict) -> Optional[str]:
     return max(dates).isoformat()
 
 
-def _schedule_tasks_from_start(tasks: List[dict], project_start: date) -> None:
+EFFECTIVE_HOURS = {8: 7.0, 12: 11.0, 24: 22.0}
+
+
+def _schedule_tasks_from_start(tasks: List[dict], project_start: date, project_regime: int = 8) -> None:
     """Reschedule tasks sequentially starting from `project_start`.
 
     Rules:
-    - Fractional-day math (8 hrs = 1 day). Siblings run back-to-back.
+    - Fractional-day math. Effective work hours/day depend on the regime:
+      8h -> 7h, 12h -> 11h, 24h -> 22h (lunch breaks discounted).
+    - Regime resolution: task's own work_regime > inherited from parent > project.
     - A parent's own duration defines its phase window; its children are
       distributed proportionally (compressed) inside that window.
     - Parents without a duration span the sum of their children.
@@ -136,10 +150,28 @@ def _schedule_tasks_from_start(tasks: List[dict], project_start: date) -> None:
     for lst in by_parent.values():
         lst.sort(key=lambda x: int(x.get("order") or 0))
 
+    base_eff = EFFECTIVE_HOURS.get(_valid_regime(project_regime) or 8, 7.0)
+    task_by_id = {t["id"]: t for t in tasks}
+    eff_cache: Dict[str, float] = {}
+
+    def eff_hours(t: dict) -> float:
+        tid = t["id"]
+        if tid in eff_cache:
+            return eff_cache[tid]
+        r = _valid_regime(t.get("work_regime"))
+        if r:
+            v = EFFECTIVE_HOURS[r]
+        elif t.get("parent_id") in task_by_id:
+            v = eff_hours(task_by_id[t["parent_id"]])
+        else:
+            v = base_eff
+        eff_cache[tid] = v
+        return v
+
     def own_dur(t: dict) -> float:
         v = float(t.get("duration_value") or 0)
         if (t.get("duration_unit") or "dias").lower() == "hrs":
-            v = v / 8.0
+            v = v / eff_hours(t)
         return v
 
     def natural_len(t: dict) -> float:
@@ -232,6 +264,8 @@ async def update_project(project_id: str, payload: ProjectUpdate, current_user: 
     # Only admin may change shared_with
     if "shared_with" in updates and not _is_admin(current_user):
         updates.pop("shared_with")
+    if "work_regime" in updates:
+        updates["work_regime"] = _valid_regime(updates["work_regime"]) or 8
     if not updates:
         raise HTTPException(400, "No fields to update")
     updates["updated_at"] = _now()
@@ -246,6 +280,33 @@ async def delete_project(project_id: str, current_user: Dict[str, Any] = Depends
         raise HTTPException(400, "Invalid project id")
     await db.projects.delete_one({"_id": ObjectId(project_id)})
     return {"ok": True}
+
+
+@router.post("/projects/{project_id}/reschedule")
+async def reschedule_project(project_id: str, current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Re-run auto-scheduling of all tasks from the project start_date."""
+    if not ObjectId.is_valid(project_id):
+        raise HTTPException(400, "Invalid project id")
+    doc = await db.projects.find_one({"_id": ObjectId(project_id)})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if not _can_edit(doc, current_user):
+        raise HTTPException(403, "Não autorizado a editar este projeto")
+    start = _parse_date(doc.get("start_date"))
+    if not start:
+        raise HTTPException(400, "Projeto sem data de início definida")
+    tasks = doc.get("tasks") or []
+    if not tasks:
+        raise HTTPException(400, "Projeto sem tarefas para reagendar")
+    _schedule_tasks_from_start(tasks, start, _valid_regime(doc.get("work_regime")) or 8)
+    upd = {"tasks": tasks, "updated_at": _now()}
+    if not doc.get("lock_end_date"):
+        auto_end = _recalc_end_date({"tasks": tasks})
+        if auto_end:
+            upd["end_date"] = auto_end
+    await db.projects.update_one({"_id": ObjectId(project_id)}, {"$set": upd})
+    doc.update(upd)
+    return _clean_project(doc)
 
 
 class ShareRequest(BaseModel):
@@ -337,10 +398,11 @@ async def _do_import(project_id: str, raw_text: str):
 
         system_prompt = (
             "Você é um extrator de cronogramas. Retorne APENAS um JSON válido, sem prosa nem code fences.\n"
-            "Formato: {\"tasks\":[{\"name\":str,\"parent_index\":int|null,\"duration_value\":float,\"duration_unit\":\"dias\"|\"hrs\",\"start_date\":\"YYYY-MM-DD\"|null,\"end_date\":\"YYYY-MM-DD\"|null,\"progress_percent\":0-100}]}\n"
+            "Formato: {\"tasks\":[{\"name\":str,\"parent_index\":int|null,\"duration_value\":float,\"duration_unit\":\"dias\"|\"hrs\",\"start_date\":\"YYYY-MM-DD\"|null,\"end_date\":\"YYYY-MM-DD\"|null,\"progress_percent\":0-100,\"work_regime\":8|12|24|null}]}\n"
             "parent_index é o índice base 0 da tarefa pai NO MESMO array. null quando é fase raiz.\n"
             "Deduza hierarquia por indentação, numeração ou títulos em maiúsculas.\n"
-            "Converta duração '7,75 days' → duration_value=7.75, duration_unit='dias'. 'hours' → 'hrs'."
+            "Converta duração '7,75 days' → duration_value=7.75, duration_unit='dias'. 'hours' → 'hrs'.\n"
+            "work_regime é o regime diário de trabalho quando mencionado no texto (ex: 'regime de 12 horas', 'turno de 24h', '8h/dia'). Use null quando não mencionado."
         )
 
         from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -385,6 +447,7 @@ async def _do_import(project_id: str, raw_text: str):
                     "progress_percent": max(0.0, min(100.0, float(t.get("progress_percent") or 0))),
                     "order": i,
                     "notes": "",
+                    "work_regime": _valid_regime(t.get("work_regime")),
                 })
             except Exception:
                 continue
@@ -406,7 +469,7 @@ async def _do_import(project_id: str, raw_text: str):
         # from the last task automatically via _recalc_end_date below.
         proj_start = _parse_date(doc.get("start_date"))
         if proj_start and not existing:
-            _schedule_tasks_from_start(new_tasks, proj_start)
+            _schedule_tasks_from_start(new_tasks, proj_start, _valid_regime(doc.get("work_regime")) or 8)
 
         existing.extend(new_tasks)
         upd = {"tasks": existing, "import_status": "done", "import_error": None, "updated_at": _now()}
@@ -465,6 +528,8 @@ async def update_task(
             for k, v in updates.items():
                 if k == "progress_percent":
                     v = max(0.0, min(100.0, float(v)))
+                if k == "work_regime":
+                    v = _valid_regime(v)  # 0 or invalid -> None (inherit)
                 t[k] = v
             found = True
             break

@@ -667,7 +667,9 @@ async def project_pdf(
     ))
     elements.append(Spacer(1, 0.2*cm))
 
-    # Determine timeline extent for Gantt bars
+    # Determine timeline extent for Gantt bars.
+    # Use the union of project boundaries AND actual task dates so the Gantt
+    # renders correctly even if the user typed inverted project dates.
     all_dates = []
     for t in doc.get("tasks", []):
         s = _parse_date(t.get("start_date"))
@@ -676,8 +678,14 @@ async def project_pdf(
             all_dates.append(s)
         if e:
             all_dates.append(e)
-    proj_start = _parse_date(doc.get("start_date")) or (min(all_dates) if all_dates else date.today())
-    proj_end = _parse_date(doc.get("end_date")) or (max(all_dates) if all_dates else proj_start)
+    proj_start_raw = _parse_date(doc.get("start_date"))
+    proj_end_raw = _parse_date(doc.get("end_date"))
+    candidates_start = [d for d in [proj_start_raw] + all_dates if d]
+    candidates_end = [d for d in [proj_end_raw] + all_dates if d]
+    proj_start = min(candidates_start) if candidates_start else date.today()
+    proj_end = max(candidates_end) if candidates_end else proj_start
+    if proj_end < proj_start:
+        proj_start, proj_end = proj_end, proj_start
     total_days = max((proj_end - proj_start).days + 1, 1)
 
     gantt_col_width = 7.6 * cm  # narrower — more space for text columns

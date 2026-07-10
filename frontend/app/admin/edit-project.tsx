@@ -47,6 +47,7 @@ export default function EditProjectScreen() {
   const [showMetaModal, setShowMetaModal] = useState(false);
   const [metaForm, setMetaForm] = useState({ title: '', os_number: '', client: '', embarcacao: '', start_date: '', work_regime: 8 });
   const [rescheduling, setRescheduling] = useState(false);
+  const [progDrafts, setProgDrafts] = useState<Record<string, string>>({});
 
   const openMetaEditor = () => {
     if (!project) return;
@@ -273,6 +274,22 @@ export default function EditProjectScreen() {
     }
   };
 
+  const commitProgress = async (taskId: string) => {
+    if (!project) return;
+    const raw = progDrafts[taskId];
+    if (raw === undefined) return;
+    setProgDrafts(d => { const { [taskId]: _omit, ...rest } = d; return rest; });
+    const num = Math.max(0, Math.min(100, parseFloat(raw.replace(',', '.')) || 0));
+    const cur = project.tasks.find(t => t.id === taskId);
+    if (cur && Number(cur.progress_percent) === num) return;
+    try {
+      const p = await projectAPI.updateTaskProgress(project.id, taskId, num);
+      setProject(p);
+    } catch (e: any) {
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao atualizar progresso');
+    }
+  };
+
   if (loading || !project) {
     return (
       <SafeAreaView style={styles.container}>
@@ -282,9 +299,12 @@ export default function EditProjectScreen() {
   }
 
   const tasks = orderedTasks();
-  const overallProgress = project.tasks?.length
-    ? Math.round(project.tasks.reduce((a, t) => a + (Number(t.progress_percent) || 0), 0) / project.tasks.length)
-    : 0;
+  const parentIds = new Set(project.tasks.filter(t => t.parent_id).map(t => t.parent_id as string));
+  const overallProgress = project.progress !== undefined && project.progress !== null
+    ? Math.round(Number(project.progress))
+    : (project.tasks?.length
+      ? Math.round(project.tasks.reduce((a, t) => a + (Number(t.progress_percent) || 0), 0) / project.tasks.length)
+      : 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -364,7 +384,22 @@ export default function EditProjectScreen() {
               <View style={styles.progressBgSm}>
                 <View style={[styles.progressBarSm, { width: `${task.progress_percent}%` }]} />
               </View>
-              <Text style={styles.taskProgress}>{Number(task.progress_percent).toFixed(0)}%</Text>
+              {parentIds.has(task.id) ? (
+                <Text style={styles.taskProgress} data-testid={`task-progress-label-${task.id}`}>{Number(task.progress_percent).toFixed(0)}% (automático)</Text>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}>
+                  <TextInput
+                    style={styles.progInput}
+                    keyboardType="numeric"
+                    value={progDrafts[task.id] ?? String(Math.round(Number(task.progress_percent) || 0))}
+                    onChangeText={v => setProgDrafts(d => ({ ...d, [task.id]: v }))}
+                    onBlur={() => commitProgress(task.id)}
+                    onSubmitEditing={() => commitProgress(task.id)}
+                    data-testid={`task-progress-inline-${task.id}`}
+                  />
+                  <Text style={{ fontSize: 12, color: '#666' }}>%</Text>
+                </View>
+              )}
             </View>
             <View style={styles.taskActions}>
               <TouchableOpacity onPress={() => openNewTask(task.id)} data-testid={`add-child-${task.id}`}>
@@ -447,8 +482,12 @@ export default function EditProjectScreen() {
                 testID="task-end-input"
               />
 
-              <Text style={styles.label}>Progresso (%)</Text>
-              <TextInput style={styles.input} value={taskForm.progress_percent} onChangeText={t => setTaskForm(f => ({ ...f, progress_percent: t }))} keyboardType="numeric" placeholder="0-100" data-testid="task-progress-input" />
+              {!(editingTaskId && parentIds.has(editingTaskId)) && (
+                <>
+                  <Text style={styles.label}>Progresso (%)</Text>
+                  <TextInput style={styles.input} value={taskForm.progress_percent} onChangeText={t => setTaskForm(f => ({ ...f, progress_percent: t }))} keyboardType="numeric" placeholder="0-100" data-testid="task-progress-input" />
+                </>
+              )}
 
               <Text style={styles.label}>Notas</Text>
               <TextInput style={[styles.input, { height: 60 }]} value={taskForm.notes} onChangeText={t => setTaskForm(f => ({ ...f, notes: t }))} multiline />
@@ -540,6 +579,7 @@ const styles = StyleSheet.create({
   progressBgSm: { height: 6, borderRadius: 3, backgroundColor: '#eee', marginTop: 6, overflow: 'hidden' },
   progressBarSm: { height: '100%', backgroundColor: '#4caf50' },
   taskProgress: { fontSize: 11, color: '#666', marginTop: 2, textAlign: 'right' },
+  progInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, width: 56, textAlign: 'right', fontSize: 13, backgroundColor: '#fafafa' },
   taskActions: { flexDirection: 'row', gap: 8 },
   emptyBox: { padding: 30, alignItems: 'center' },
   emptyText: { color: '#888' },

@@ -516,6 +516,8 @@ export interface Project {
   updated_at?: string;
   import_status?: 'processing' | 'done' | 'error' | null;
   import_error?: string | null;
+  work_regime?: number;
+  progress?: number;
 }
 
 export const projectAPI = {

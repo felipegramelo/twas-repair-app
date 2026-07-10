@@ -97,6 +97,7 @@ def _clean_project(doc: dict) -> dict:
     doc["id"] = str(doc.pop("_id"))
     doc.setdefault("tasks", [])
     doc.setdefault("shared_with", [])
+    doc.setdefault("progress", 0)
     return doc
 
 
@@ -125,6 +126,39 @@ def _recalc_end_date(project: dict) -> Optional[str]:
 
 
 EFFECTIVE_HOURS = {8: 7.0, 12: 11.0, 24: 22.0}
+
+
+def _rollup_progress(tasks: List[dict]) -> float:
+    """Bottom-up duration-weighted progress. Mutates parent tasks' progress_percent.
+    Returns overall project progress (0-100)."""
+    if not tasks:
+        return 0.0
+    by_parent: Dict[Optional[str], List[dict]] = {}
+    for t in tasks:
+        by_parent.setdefault(t.get("parent_id") or None, []).append(t)
+
+    def node(t: dict) -> tuple:
+        kids = by_parent.get(t["id"]) or []
+        if not kids:
+            v = float(t.get("duration_value") or 0)
+            if (t.get("duration_unit") or "dias").lower() == "hrs":
+                v = v / 8.0
+            return float(t.get("progress_percent") or 0), (v if v > 0 else 1.0)
+        acc = w_total = 0.0
+        for k in kids:
+            p, w = node(k)
+            acc += p * w
+            w_total += w
+        prog = acc / w_total if w_total else 0.0
+        t["progress_percent"] = round(prog, 1)
+        return prog, w_total
+
+    acc = w_total = 0.0
+    for t in by_parent.get(None, []):
+        p, w = node(t)
+        acc += p * w
+        w_total += w
+    return round(acc / w_total, 1) if w_total else 0.0
 
 
 def _schedule_tasks_from_start(tasks: List[dict], project_start: date, project_regime: int = 8) -> None:
@@ -211,6 +245,7 @@ async def create_project(payload: ProjectCreate, current_user: Dict[str, Any] = 
     doc = payload.model_dump(exclude={"tasks"})
     doc.update({
         "tasks": tasks,
+        "progress": _rollup_progress(tasks),
         "created_by": str(current_user.get("_id") or current_user.get("id") or ""),
         "created_at": _now(),
         "updated_at": _now(),
@@ -299,7 +334,7 @@ async def reschedule_project(project_id: str, current_user: Dict[str, Any] = Dep
     if not tasks:
         raise HTTPException(400, "Projeto sem tarefas para reagendar")
     _schedule_tasks_from_start(tasks, start, _valid_regime(doc.get("work_regime")) or 8)
-    upd = {"tasks": tasks, "updated_at": _now()}
+    upd = {"tasks": tasks, "progress": _rollup_progress(tasks), "updated_at": _now()}
     if not doc.get("lock_end_date"):
         auto_end = _recalc_end_date({"tasks": tasks})
         if auto_end:
@@ -472,7 +507,7 @@ async def _do_import(project_id: str, raw_text: str):
             _schedule_tasks_from_start(new_tasks, proj_start, _valid_regime(doc.get("work_regime")) or 8)
 
         existing.extend(new_tasks)
-        upd = {"tasks": existing, "import_status": "done", "import_error": None, "updated_at": _now()}
+        upd = {"tasks": existing, "progress": _rollup_progress(existing), "import_status": "done", "import_error": None, "updated_at": _now()}
         if not doc.get("lock_end_date"):
             merged = {**doc, "tasks": existing}
             auto_end = _recalc_end_date(merged)
@@ -500,6 +535,7 @@ async def add_task(project_id: str, task: ProjectTaskCreate, current_user: Dict[
         raise HTTPException(403, "Não autorizado a editar este projeto")
     new_task = _task_new(task.model_dump())
     doc.setdefault("tasks", []).append(new_task)
+    doc["progress"] = _rollup_progress(doc["tasks"])
     if not doc.get("lock_end_date"):
         auto_end = _recalc_end_date(doc)
         if auto_end:
@@ -535,6 +571,7 @@ async def update_task(
             break
     if not found:
         raise HTTPException(404, "Task not found")
+    doc["progress"] = _rollup_progress(doc.get("tasks", []))
     if not doc.get("lock_end_date"):
         auto_end = _recalc_end_date(doc)
         if auto_end:
@@ -565,6 +602,7 @@ async def update_task_progress(
             break
     if not found:
         raise HTTPException(404, "Task not found")
+    doc["progress"] = _rollup_progress(doc.get("tasks", []))
     doc["updated_at"] = _now()
     await db.projects.replace_one({"_id": ObjectId(project_id)}, doc)
     return _clean_project(doc)
@@ -590,6 +628,7 @@ async def delete_task(project_id: str, task_id: str, current_user: Dict[str, Any
                 to_del.add(t["id"])
                 changed = True
     doc["tasks"] = [t for t in tasks if t["id"] not in to_del]
+    doc["progress"] = _rollup_progress(doc["tasks"])
     if not doc.get("lock_end_date"):
         auto_end = _recalc_end_date(doc)
         if auto_end:

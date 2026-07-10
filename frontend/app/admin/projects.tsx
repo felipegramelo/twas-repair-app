@@ -114,9 +114,9 @@ export default function AdminProjectsScreen() {
   };
 
   const overallProgress = (p: Project): number => {
+    if (p.progress !== undefined && p.progress !== null) return Math.round(Number(p.progress));
     if (!p.tasks?.length) return 0;
-    const s = p.tasks.reduce((a, t) => a + (Number(t.progress_percent) || 0), 0);
-    return Math.round(s / p.tasks.length);
+    return Math.round(p.tasks.reduce((a, t) => a + (Number(t.progress_percent) || 0), 0) / p.tasks.length);
   };
 
   const openShare = (p: Project) => {
@@ -244,21 +244,6 @@ export default function AdminProjectsScreen() {
                 testID="new-project-start-input"
               />
               <Text style={styles.hint}>A data de término será calculada automaticamente a partir das durações das tarefas.</Text>
-
-              <Text style={styles.label}>Regime de trabalho</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {[8, 12, 24].map(r => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.chip, form.work_regime === r && styles.chipSelected]}
-                    onPress={() => setForm(f => ({ ...f, work_regime: r }))}
-                    data-testid={`regime-chip-${r}`}
-                  >
-                    <Text style={[styles.chipText, form.work_regime === r && styles.chipTextSelected]}>{r}h/dia</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.hint}>8h e 12h descontam 1h de almoço; 24h desconta 2h (dia e noite).</Text>
 
               <Text style={styles.label}>Descrição</Text>
               <TextInput style={[styles.input, { height: 60 }]} value={form.description} onChangeText={t => setForm(f => ({ ...f, description: t }))} multiline />

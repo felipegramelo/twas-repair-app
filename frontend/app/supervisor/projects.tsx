@@ -35,6 +35,7 @@ export default function SupervisorProjectsScreen() {
   useEffect(() => { load(); }, [load]);
 
   const overallProgress = (p: Project) => {
+    if (p.progress !== undefined && p.progress !== null) return Math.round(Number(p.progress));
     if (!p.tasks?.length) return 0;
     return Math.round(p.tasks.reduce((a, t) => a + (Number(t.progress_percent) || 0), 0) / p.tasks.length);
   };

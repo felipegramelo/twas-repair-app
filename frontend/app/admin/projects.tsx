@@ -29,7 +29,6 @@ export default function AdminProjectsScreen() {
     embarcacao: '',
     client: '',
     start_date: '',
-    end_date: '',
     description: '',
   });
 
@@ -82,13 +81,12 @@ export default function AdminProjectsScreen() {
         embarcacao: form.embarcacao || '',
         client: form.client || '',
         start_date: form.start_date || null,
-        end_date: form.end_date || null,
         description: form.description || '',
         tasks: [],
       };
       const p = await projectAPI.create(payload as any);
       setShowCreate(false);
-      setForm({ os_number: '', title: '', embarcacao: '', client: '', start_date: '', end_date: '', description: '' });
+      setForm({ os_number: '', title: '', embarcacao: '', client: '', start_date: '', description: '' });
       // give the modal a tick to close before navigating
       setTimeout(() => {
         router.push(`/admin/edit-project?id=${p.id}`);
@@ -243,13 +241,7 @@ export default function AdminProjectsScreen() {
                 onChange={v => setForm(f => ({ ...f, start_date: v }))}
                 testID="new-project-start-input"
               />
-
-              <Text style={styles.label}>Data Término</Text>
-              <DateField
-                value={form.end_date}
-                onChange={v => setForm(f => ({ ...f, end_date: v }))}
-                testID="new-project-end-input"
-              />
+              <Text style={styles.hint}>A data de término será calculada automaticamente a partir das durações das tarefas.</Text>
 
               <Text style={styles.label}>Descrição</Text>
               <TextInput style={[styles.input, { height: 60 }]} value={form.description} onChangeText={t => setForm(f => ({ ...f, description: t }))} multiline />

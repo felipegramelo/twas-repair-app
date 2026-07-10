@@ -44,7 +44,7 @@ export default function EditProjectScreen() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [showMetaModal, setShowMetaModal] = useState(false);
-  const [metaForm, setMetaForm] = useState({ title: '', os_number: '', client: '', embarcacao: '', start_date: '', end_date: '' });
+  const [metaForm, setMetaForm] = useState({ title: '', os_number: '', client: '', embarcacao: '', start_date: '' });
 
   const openMetaEditor = () => {
     if (!project) return;
@@ -54,7 +54,6 @@ export default function EditProjectScreen() {
       client: project.client || '',
       embarcacao: project.embarcacao || '',
       start_date: project.start_date || '',
-      end_date: project.end_date || '',
     });
     setShowMetaModal(true);
   };
@@ -73,7 +72,6 @@ export default function EditProjectScreen() {
         client: metaForm.client.trim(),
         embarcacao: metaForm.embarcacao.trim(),
         start_date: metaForm.start_date || null,
-        end_date: metaForm.end_date || null,
       } as any);
       setProject(p);
       setShowMetaModal(false);
@@ -441,9 +439,10 @@ export default function EditProjectScreen() {
 
               <Text style={styles.label}>Data Início</Text>
               <DateField value={metaForm.start_date} onChange={v => setMetaForm(f => ({ ...f, start_date: v }))} testID="meta-start-input" />
-
-              <Text style={styles.label}>Data Término</Text>
-              <DateField value={metaForm.end_date} onChange={v => setMetaForm(f => ({ ...f, end_date: v }))} testID="meta-end-input" />
+              <Text style={{ fontSize: 12, color: '#666', marginTop: 6, fontStyle: 'italic' }}>
+                A data de término é calculada automaticamente a partir das durações das tarefas.
+                {project.end_date ? `\nTérmino atual: ${project.end_date}` : ''}
+              </Text>
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={() => setShowMetaModal(false)} data-testid="meta-cancel-btn">

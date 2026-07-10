@@ -15,6 +15,7 @@ Data model (single document per project):
 """
 import io
 import uuid
+import math
 import asyncio
 import logging
 import os
@@ -112,6 +113,60 @@ def _recalc_end_date(project: dict) -> Optional[str]:
     if not dates:
         return None
     return max(dates).isoformat()
+
+
+def _schedule_tasks_from_start(tasks: List[dict], project_start: date) -> None:
+    """Reschedule tasks sequentially starting from `project_start`.
+
+    Rules:
+    - Siblings run sequentially (each starts the day AFTER the previous sibling ends).
+    - A parent phase spans from the start of its first child to the end of its last child.
+    - Duration in hrs is converted using 8 hrs = 1 working day (rounded up).
+    - Leaf tasks with duration <= 0 default to 1 day so they still appear on the Gantt.
+
+    Mutates each task's `start_date` and `end_date` in place.
+    """
+    if not tasks:
+        return
+
+    by_parent: Dict[Optional[str], List[dict]] = {}
+    for t in tasks:
+        by_parent.setdefault(t.get("parent_id"), []).append(t)
+    for lst in by_parent.values():
+        lst.sort(key=lambda x: int(x.get("order") or 0))
+
+    def dur_days(t: dict) -> int:
+        v = float(t.get("duration_value") or 0)
+        if (t.get("duration_unit") or "dias").lower() == "hrs":
+            v = v / 8.0
+        return max(1, math.ceil(v))
+
+    def walk(parent_id: Optional[str], cursor: int) -> int:
+        """Schedule siblings under `parent_id` starting at day offset `cursor`.
+        Returns the offset of the last day used by the group."""
+        last_end = cursor - 1
+        for t in by_parent.get(parent_id, []):
+            children = by_parent.get(t["id"]) or []
+            if children:
+                # Phase: children run sequentially starting at cursor.
+                child_end = walk(t["id"], cursor)
+                t["_s"] = cursor
+                t["_e"] = child_end
+            else:
+                d = dur_days(t)
+                t["_s"] = cursor
+                t["_e"] = cursor + d - 1
+            last_end = t["_e"]
+            cursor = t["_e"] + 1  # next sibling starts the day after
+        return last_end
+
+    walk(None, 0)
+
+    for t in tasks:
+        if "_s" in t and "_e" in t:
+            t["start_date"] = (project_start + timedelta(days=t["_s"])).isoformat()
+            t["end_date"] = (project_start + timedelta(days=t["_e"])).isoformat()
+            del t["_s"], t["_e"]
 
 
 # ---------------- routes ----------------
@@ -341,6 +396,15 @@ async def _do_import(project_id: str, raw_text: str):
         max_order = max([int(t.get("order") or 0) for t in existing], default=-1)
         for k, nt in enumerate(new_tasks):
             nt["order"] = max_order + 1 + k
+
+        # If the project has a start_date and there are no existing tasks yet,
+        # reschedule all imported tasks sequentially from that start (ignoring
+        # whatever dates the AI inferred from the PDF). End date is then derived
+        # from the last task automatically via _recalc_end_date below.
+        proj_start = _parse_date(doc.get("start_date"))
+        if proj_start and not existing:
+            _schedule_tasks_from_start(new_tasks, proj_start)
+
         existing.extend(new_tasks)
         upd = {"tasks": existing, "import_status": "done", "import_error": None, "updated_at": _now()}
         if not doc.get("lock_end_date"):

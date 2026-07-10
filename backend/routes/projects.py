@@ -540,9 +540,9 @@ async def project_pdf(
     page_w, page_h = landscape(A4)
 
     # === Margins (smaller than defaults) ===
-    border_margin = 0.4*cm          # page border distance to page edge
-    content_left = 0.7*cm            # actual usable left margin
-    content_right = 0.7*cm
+    border_margin = 0.6*cm          # page border distance to page edge
+    content_left = 0.9*cm            # actual usable left margin
+    content_right = 0.9*cm
     header_h = 1.8*cm                 # header box height
     footer_h = 1.1*cm                 # footer box height
     top_margin = border_margin + header_h + 0.15*cm
@@ -688,7 +688,7 @@ async def project_pdf(
         proj_start, proj_end = proj_end, proj_start
     total_days = max((proj_end - proj_start).days + 1, 1)
 
-    gantt_col_width = 7.6 * cm  # narrower — more space for text columns
+    gantt_col_width = 7.2 * cm  # narrower — more space for text columns
 
     # Build a timeline header (date ticks) matching the Gantt column
     # Show fewer tick labels since the Gantt column is narrower now

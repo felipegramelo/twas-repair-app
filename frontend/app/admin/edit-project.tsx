@@ -43,6 +43,47 @@ export default function EditProjectScreen() {
   const [taskForm, setTaskForm] = useState<TaskForm>(emptyTask());
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showMetaModal, setShowMetaModal] = useState(false);
+  const [metaForm, setMetaForm] = useState({ title: '', os_number: '', client: '', embarcacao: '', start_date: '', end_date: '' });
+
+  const openMetaEditor = () => {
+    if (!project) return;
+    setMetaForm({
+      title: project.title || '',
+      os_number: project.os_number || '',
+      client: project.client || '',
+      embarcacao: project.embarcacao || '',
+      start_date: project.start_date || '',
+      end_date: project.end_date || '',
+    });
+    setShowMetaModal(true);
+  };
+
+  const saveMeta = async () => {
+    if (!project) return;
+    if (!metaForm.title.trim()) {
+      notify('Aviso', 'Título é obrigatório.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const p = await projectAPI.update(project.id, {
+        title: metaForm.title.trim(),
+        os_number: metaForm.os_number.trim(),
+        client: metaForm.client.trim(),
+        embarcacao: metaForm.embarcacao.trim(),
+        start_date: metaForm.start_date || null,
+        end_date: metaForm.end_date || null,
+      } as any);
+      setProject(p);
+      setShowMetaModal(false);
+      notify('Sucesso', 'Projeto salvo com sucesso.');
+    } catch (e: any) {
+      if (!e?.sessionExpired) notify('Erro', e?.response?.data?.detail || 'Falha ao salvar projeto');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const pickAndImportPdf = async () => {
     if (!project) return;
@@ -230,7 +271,10 @@ export default function EditProjectScreen() {
           <Ionicons name="arrow-back" size={26} color="#000" />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>{project.title}</Text>
-        <View style={{ width: 26 }} />
+        <TouchableOpacity onPress={openMetaEditor} data-testid="edit-project-meta-btn" style={styles.headerSaveBtn}>
+          <Ionicons name="create-outline" size={18} color="#fff" />
+          <Text style={styles.headerSaveText}>Editar</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -375,6 +419,44 @@ export default function EditProjectScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Project meta edit modal */}
+      <Modal visible={showMetaModal} animationType="slide" transparent onRequestClose={() => setShowMetaModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <ScrollView>
+              <Text style={styles.modalTitle}>Editar dados do projeto</Text>
+
+              <Text style={styles.label}>Título *</Text>
+              <TextInput style={styles.input} value={metaForm.title} onChangeText={t => setMetaForm(f => ({ ...f, title: t }))} placeholder="Título do projeto" data-testid="meta-title-input" />
+
+              <Text style={styles.label}>OS</Text>
+              <TextInput style={styles.input} value={metaForm.os_number} onChangeText={t => setMetaForm(f => ({ ...f, os_number: t }))} placeholder="Número da OS" data-testid="meta-os-input" />
+
+              <Text style={styles.label}>Cliente</Text>
+              <TextInput style={styles.input} value={metaForm.client} onChangeText={t => setMetaForm(f => ({ ...f, client: t }))} placeholder="Nome do cliente" data-testid="meta-client-input" />
+
+              <Text style={styles.label}>Embarcação / Rig</Text>
+              <TextInput style={styles.input} value={metaForm.embarcacao} onChangeText={t => setMetaForm(f => ({ ...f, embarcacao: t }))} placeholder="Nome da embarcação ou rig" data-testid="meta-vessel-input" />
+
+              <Text style={styles.label}>Data Início</Text>
+              <DateField value={metaForm.start_date} onChange={v => setMetaForm(f => ({ ...f, start_date: v }))} testID="meta-start-input" />
+
+              <Text style={styles.label}>Data Término</Text>
+              <DateField value={metaForm.end_date} onChange={v => setMetaForm(f => ({ ...f, end_date: v }))} testID="meta-end-input" />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={() => setShowMetaModal(false)} data-testid="meta-cancel-btn">
+                  <Text style={styles.btnSecondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={saveMeta} disabled={saving} data-testid="meta-save-btn">
+                  {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>Salvar</Text>}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -422,4 +504,6 @@ const styles = StyleSheet.create({
   btnGhostText: { color: '#333', fontWeight: '600' },
   btnPrimary: { backgroundColor: '#6a1b9a' },
   btnPrimaryText: { color: '#fff', fontWeight: '700' },
+  headerSaveBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#6a1b9a', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  headerSaveText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });

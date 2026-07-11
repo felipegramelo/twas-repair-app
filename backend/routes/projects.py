@@ -46,7 +46,7 @@ from models import (
     ProjectCreate, ProjectUpdate, ProjectTaskCreate, ProjectTaskUpdate,
     ProjectProgressUpdate, UserRole,
 )
-from services.onedrive import send_pdf_to_onedrive
+from services.onedrive import send_pdf_to_onedrive, build_folder_name
 
 ROOT_DIR = Path(__file__).parent.parent
 
@@ -988,11 +988,18 @@ async def project_pdf(
         pdf_bytes = buffer.getvalue()
         buffer.seek(0)
         os_num = (str(doc.get("os_number") or "").strip() or "SEM-OS")
+        so = await db.service_orders.find_one({"os_number": doc.get("os_number")}) or {}
         asyncio.create_task(send_pdf_to_onedrive(
             pdf_bytes=pdf_bytes,
             filename=filename,
             os_number=os_num,
             kind="project",
+            folder=build_folder_name(
+                os_num,
+                doc.get("client") or so.get("client"),
+                doc.get("embarcacao") or so.get("embarcacao"),
+                so.get("service"),
+            ),
         ))
 
     disposition = "attachment" if download else "inline"

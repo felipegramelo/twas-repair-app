@@ -1,19 +1,27 @@
 """OneDrive integration via Make.com webhook.
 
-Sends generated PDFs (Reports / Timesheets) to a Make.com Custom Webhook
-which then uploads the file to the user's personal OneDrive.
+Sends generated PDFs (Reports / Timesheets / Projects) to a Make.com Custom
+Webhook which then uploads the file to the user's personal OneDrive.
 
 Payload: multipart/form-data with fields:
   - file: the PDF (binary)
   - filename: target filename
-  - os_number: OS reference (used for folder grouping in Make.com)
-  - kind: "report" | "timesheet"
+  - os_number: OS reference (legacy folder grouping)
+  - folder: target folder name "OS - CLIENTE - EMBARCAÇÃO - SERVIÇO"
+  - kind: "report" | "timesheet" | "project"
 """
 import logging
 import os
+import re
 import httpx
 
 logger = logging.getLogger(__name__)
+
+
+def build_folder_name(os_number: str, client: str = "", vessel: str = "", service: str = "") -> str:
+    """Folder format: 'OS - CLIENTE - EMBARCAÇÃO - SERVIÇO' (upper-case, sanitized)."""
+    parts = [re.sub(r'[<>:"/\\|?*]', '', str(p or '')).strip() for p in (os_number, client, vessel, service)]
+    return " - ".join(p for p in parts if p).upper()
 
 
 async def send_pdf_to_onedrive(
@@ -21,6 +29,7 @@ async def send_pdf_to_onedrive(
     filename: str,
     os_number: str,
     kind: str,
+    folder: str = "",
 ) -> bool:
     """Fire-and-forget upload of a PDF to OneDrive via Make.com webhook.
 
@@ -45,11 +54,12 @@ async def send_pdf_to_onedrive(
             data = {
                 "filename": filename,
                 "os_number": os_number or "",
+                "folder": folder or (os_number or ""),
                 "kind": kind,
             }
             resp = await client.post(webhook_url, files=files, data=data)
             if 200 <= resp.status_code < 300:
-                logger.info(f"OneDrive upload OK [{kind}] {filename} -> {resp.status_code}")
+                logger.info(f"OneDrive upload OK [{kind}] {filename} -> folder '{data['folder']}' ({resp.status_code})")
                 return True
             logger.warning(
                 f"OneDrive upload failed [{kind}] {filename}: "

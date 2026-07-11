@@ -24,7 +24,7 @@ from config import SECRET_KEY, ALGORITHM, put_object, get_object, APP_NAME
 from dependencies import get_current_user, get_admin_user
 from models import ReportCreate, ReportUpdate, UserRole
 from utils import parse_date_sortable
-from services.onedrive import send_pdf_to_onedrive
+from services.onedrive import send_pdf_to_onedrive, build_folder_name
 
 router = APIRouter()
 
@@ -1441,6 +1441,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             filename=filename,
             os_number=os_num,
             kind="report",
+            folder=build_folder_name(os_num, report.get("client"), report.get("embarcacao"), report.get("service")),
         ))
 
     disposition = "attachment" if download else "inline"

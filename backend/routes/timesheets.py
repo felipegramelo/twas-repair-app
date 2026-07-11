@@ -21,7 +21,7 @@ from database import db
 from config import SECRET_KEY, ALGORITHM, get_object
 from dependencies import get_current_user, get_admin_user
 from models import TimesheetCreate, UserRole, _validate_timesheet_entries
-from services.onedrive import send_pdf_to_onedrive
+from services.onedrive import send_pdf_to_onedrive, build_folder_name
 
 router = APIRouter()
 
@@ -657,6 +657,7 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
             filename=filename,
             os_number=os_num,
             kind="timesheet",
+            folder=build_folder_name(os_num, ts.get("client"), ts.get("embarcacao"), ts.get("service")),
         ))
 
     disposition = "attachment" if download else "inline"

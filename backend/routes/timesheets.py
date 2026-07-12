@@ -661,11 +661,14 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         ))
 
     disposition = "attachment" if download else "inline"
+    from urllib.parse import quote
+    ascii_filename = filename.encode('ascii', 'ignore').decode('ascii') or "timesheet.pdf"
+    utf8_filename = quote(filename, safe='')
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Content-Disposition": f"{disposition}; filename=\"{ascii_filename}\"; filename*=UTF-8''{utf8_filename}",
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",

@@ -1445,11 +1445,14 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         ))
 
     disposition = "attachment" if download else "inline"
+    from urllib.parse import quote
+    ascii_filename = filename.encode('ascii', 'ignore').decode('ascii') or "report.pdf"
+    utf8_filename = quote(filename, safe='')
     return StreamingResponse(
         final_buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Content-Disposition": f"{disposition}; filename=\"{ascii_filename}\"; filename*=UTF-8''{utf8_filename}",
             "Cache-Control": "no-cache, no-store, must-revalidate",
         }
     )

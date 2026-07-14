@@ -122,6 +122,23 @@ export default function BMScreen() {
 
     // Auto-fill proposal data from the selected OS
     const so = serviceOrders.find((s: any) => s.id === osId);
+
+    // Pre-select client price table & logistics table (user can change)
+    if (so) {
+      const norm = (v: string) => (v || '').trim().toLowerCase();
+      const clientKey = norm(so.client);
+      const findByClient = (arr: any[]) =>
+        arr.find((x: any) => norm(x.client_name) === clientKey) ||
+        (clientKey ? arr.find((x: any) => norm(x.client_name) && (norm(x.client_name).includes(clientKey) || clientKey.includes(norm(x.client_name)))) : undefined);
+      const pt = findByClient(prices);
+      setSelectedPriceTableId(pt?.id || '');
+      const lt = findByClient(logistics);
+      setBmLogisticsItems(lt ? (lt.routes || []).map((r: any) => {
+        const unit_price = Number(r.price) || 0;
+        return { description: r.description, unit_price, quantity: 1, total: unit_price, table_id: lt.id };
+      }) : []);
+    }
+
     if (so && so.proposal_id) {
       try {
         const proposta = await api.get(`/proposals/${so.proposal_id}`);
@@ -208,35 +225,13 @@ export default function BMScreen() {
 
     setShowCreate(true);
 
-    // Load timesheets for the OS, then auto-recalculate so the user always sees
-    // an up-to-date calculation (which may differ from the saved items if the
-    // calculation rules have changed since the BM was created).
+    // Load timesheets for the OS only for a possible MANUAL recalculation.
+    // The saved calculation is kept as-is; nothing is recalculated automatically.
     setLoadingTimesheets(true);
     try {
       const ts = await bmAPI.getTimesheets(bm.os_id);
       setAvailableTimesheets(ts);
-      const tsIds = ts.map((t: any) => t.id);
-      setSelectedTimesheets(tsIds);
-
-      // Auto-recalculate in background (non-blocking — user can stop and adjust)
-      if (tsIds.length > 0) {
-        try {
-          setCalcLoading(true);
-          const calcMode = 'onshore'; // default; user can toggle
-          const result = await bmAPI.calculate(bm.os_id, {
-            timesheet_ids: tsIds,
-            data_inicio: inicio,
-            data_fim: fim,
-            calc_mode: calcMode,
-            price_table_id: bm.price_table_id || undefined,
-          });
-          setCalcResult(result);
-        } catch {
-          // Keep the saved calcResult as fallback — no error popup to avoid noise
-        } finally {
-          setCalcLoading(false);
-        }
-      }
+      setSelectedTimesheets(ts.map((t: any) => t.id));
     } catch {}
     finally { setLoadingTimesheets(false); }
   };

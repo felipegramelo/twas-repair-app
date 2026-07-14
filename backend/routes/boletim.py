@@ -173,6 +173,7 @@ class BMCalculateRequest(BaseModel):
     data_fim: str = ""
     calc_mode: str = "onshore"  # "onshore" (8h base, /7) or "offshore" (12h base, /11)
     price_table_id: str = ""  # Optional: override auto-detected price table
+    daily_only: bool = False  # Diária fechada: ignora horas extras e noturno
 
 
 def _time_to_minutes_safe(s: str) -> int:
@@ -296,7 +297,7 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
             #   2) Total work time > 12h (720 min)
             # Otherwise DAY (covers 06:30-18:30, 16:00-18:30 short embarques,
             # 06:30-22:00 day shift with overtime, exact 12h overnight 19:00-07:00).
-            is_night_shift = (start_hour >= 16 and total_min > 720)
+            is_night_shift = (start_hour >= 16 and total_min > 720) and not body.daily_only
             shift = "night" if is_night_shift else "day"
             key = f"{func}_{shift}"
 
@@ -313,8 +314,8 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
             emp_date = f"{entry.get('employee_id', '')}_{date}"
             function_data[key]["diaria_emp_dates"].add(emp_date)
 
-            # Extra hours beyond base
-            if total_min > base_minutes:
+            # Extra hours beyond base (skipped in daily-only mode)
+            if total_min > base_minutes and not body.daily_only:
                 extra_min = total_min - base_minutes
                 weekday = _date_to_weekday(date)
                 is_holiday = date in holidays_set
@@ -414,6 +415,7 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
         "location": so.get("location", ""),
         "service": so.get("service", ""),
         "calc_mode": body.calc_mode,
+        "daily_only": body.daily_only,
         "base_hours": base_hours,
         "hour_divisor": hour_divisor,
         "data_inicial": data_inicial,

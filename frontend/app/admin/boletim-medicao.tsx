@@ -45,7 +45,7 @@ export default function BMScreen() {
   const [priceTableSearch, setPriceTableSearch] = useState('');
   const [showOSModal, setShowOSModal] = useState(false);
   const [osSearch, setOsSearch] = useState('');
-  const [calcMode, setCalcMode] = useState<'onshore' | 'offshore'>('onshore');
+  const [calcMode, setCalcMode] = useState<'onshore' | 'offshore' | 'diaria'>('onshore');
   const [showDatePicker, setShowDatePicker] = useState<null | 'inicio' | 'fim'>(null);
 
   // Helpers to convert "DD/MM/YYYY" <-> Date
@@ -182,7 +182,8 @@ export default function BMScreen() {
         timesheet_ids: selectedTimesheets,
         data_inicio: dataInicio,
         data_fim: dataFim,
-        calc_mode: calcMode,
+        calc_mode: calcMode === 'diaria' ? 'onshore' : calcMode,
+        daily_only: calcMode === 'diaria',
         price_table_id: selectedPriceTableId || undefined,
       });
       setCalcResult(result);
@@ -236,6 +237,13 @@ export default function BMScreen() {
     finally { setLoadingTimesheets(false); }
   };
 
+  const removeCalcItem = (idx: number) => {
+    if (!calcResult) return;
+    const items = calcResult.items.filter((_: any, i: number) => i !== idx);
+    const subtotal = Math.round(items.reduce((a: number, it: any) => a + (Number(it.valor_total) || 0), 0) * 100) / 100;
+    setCalcResult({ ...calcResult, items, subtotal });
+  };
+
   const handleCreateBM = async () => {
     if (!calcResult) return showMsg('Calcule primeiro os itens');
     const items = calcResult.items;
@@ -258,7 +266,7 @@ export default function BMScreen() {
       cod: bmForm.cod,
       price_table_id: selectedPriceTableId || '',
       items,
-      logistics_items: bmLogisticsItems,
+      logistics_items: bmLogisticsItems.map((li: any) => ({ ...li, data_inicial: periodoStart, data_final: periodoEnd })),
       subtotal: Math.round(subtotal * 100) / 100,
       impostos,
       valor_total: Math.round((subtotal + impostos) * 100) / 100,
@@ -1007,6 +1015,7 @@ export default function BMScreen() {
                 {([
                   { key: 'onshore', label: 'Onshore (8h)' },
                   { key: 'offshore', label: 'Offshore (12h)' },
+                  { key: 'diaria', label: 'Diária Fechada' },
                 ] as const).map(opt => (
                   <TouchableOpacity
                     key={opt.key}
@@ -1028,6 +1037,11 @@ export default function BMScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+              {calcMode === 'diaria' && (
+                <Text style={{ fontSize: 12, color: '#666', marginTop: -4, marginBottom: 10, fontStyle: 'italic' }}>
+                  Diária fechada: cobra apenas o valor da diária por dia trabalhado — sem horas extras e sem adicional noturno.
+                </Text>
+              )}
 
               <Text style={s.sectionTitle}>Tabela de Preço</Text>
               <Text style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
@@ -1067,8 +1081,15 @@ export default function BMScreen() {
                   <Text style={s.sectionTitle}>Itens Calculados ({calcResult.items.length})</Text>
                   {calcResult.items.map((item: any, i: number) => (
                     <View key={i} style={s.calcItem}>
-                      <Text style={s.calcFunc}>{item.function_name}</Text>
-                      <Text style={s.calcDetail}>{item.qtd} {item.unit_label || 'dia'}(s) x {formatCurrency(item.valor_und)} = {formatCurrency(item.valor_total)}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={s.calcFunc}>{item.function_name}</Text>
+                          <Text style={s.calcDetail}>{item.qtd} {item.unit_label || 'dia'}(s) x {formatCurrency(item.valor_und)} = {formatCurrency(item.valor_total)}</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => removeCalcItem(i)} testID={`bm-calc-item-remove-${i}`}>
+                          <Ionicons name="close-circle" size={22} color="#d32f2f" />
+                        </TouchableOpacity>
+                      </View>
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
                         <View style={{ flex: 1 }}>
                           <Text style={[s.label, { marginTop: 0, fontSize: 12 }]}>Cod.</Text>

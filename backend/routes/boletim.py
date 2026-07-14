@@ -837,14 +837,24 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
 
     # Logistics items appear after regular items, before Subtotal
     logistics_items = bm.get("logistics_items", []) or []
+    _per = [p.strip() for p in (bm.get("periodo") or "").split(" a ")]
+    bm_di = _per[0] if _per and _per[0] else ""
+    bm_df = _per[1] if len(_per) > 1 and _per[1] else bm_di
+    # Fallback: smallest/biggest date across calculated items
+    _dis = [it.get("data_inicial", "") for it in items if it.get("data_inicial")]
+    _dfs = [it.get("data_final", "") for it in items if it.get("data_final")]
+    if not bm_di and _dis:
+        bm_di = min(_dis, key=parse_date_sortable)
+    if not bm_df and (_dfs or _dis):
+        bm_df = max(_dfs or _dis, key=parse_date_sortable)
     for lidx, litem in enumerate(logistics_items):
         desc = litem.get("description", "")
         unit_price = float(litem.get("unit_price", 0) or 0)
         qty = int(litem.get("quantity", 0) or 0)
         total = float(litem.get("total", unit_price * qty) or 0)
         table_data.append([
-            Paragraph("", td_style),
-            Paragraph("", td_style),
+            Paragraph(litem.get("data_inicial") or bm_di, td_style),
+            Paragraph(litem.get("data_final") or bm_df, td_style),
             Paragraph(str(len(items) + lidx + 1), td_style),
             Paragraph(litem.get("cod", ""), td_style),
             Paragraph(desc, td_left),

@@ -434,6 +434,7 @@ class BMCreate(BaseModel):
     po_number: str = ""
     proposta: str = ""
     cod: str = ""
+    price_table_id: str = ""
     items: List[dict]
     logistics_items: List[dict] = []
     logistics_table_id: str = ""

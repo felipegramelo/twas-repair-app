@@ -81,8 +81,6 @@ export default function BMScreen() {
   const [bmLogisticsItems, setBmLogisticsItems] = useState<any[]>([]);  // { description, unit_price, quantity, total, table_id? }
   const [showLogisticsPickerModal, setShowLogisticsPickerModal] = useState(false);
   const [logisticsPickerTableId, setLogisticsPickerTableId] = useState<string>('');
-  const [logisticsPickerRouteIdx, setLogisticsPickerRouteIdx] = useState<number>(-1);
-  const [logisticsPickerQty, setLogisticsPickerQty] = useState<string>('1');
 
   // Holidays state
   const [holidays, setHolidays] = useState<any[]>([]);
@@ -467,30 +465,28 @@ export default function BMScreen() {
     const so = serviceOrders.find((s: any) => s.id === selectedOS);
     const matching = so ? logistics.find((lt: any) => (lt.client_name || '').trim().toLowerCase() === (so.client || '').trim().toLowerCase()) : null;
     setLogisticsPickerTableId(matching?.id || (logistics[0]?.id || ''));
-    setLogisticsPickerRouteIdx(-1);
-    setLogisticsPickerQty('1');
     setShowLogisticsPickerModal(true);
   };
 
   const confirmAddLogistics = () => {
     if (!logisticsPickerTableId) return showMsg('Selecione uma tabela');
-    if (logisticsPickerRouteIdx < 0) return showMsg('Selecione um trecho');
-    const qty = parseInt(logisticsPickerQty, 10) || 0;
-    if (qty <= 0) return showMsg('Quantidade deve ser maior que zero');
     const table = logistics.find((lt: any) => lt.id === logisticsPickerTableId);
     if (!table) return;
-    const route = (table.routes || [])[logisticsPickerRouteIdx];
-    if (!route) return;
-    const unit_price = Number(route.price) || 0;
-    const total = Math.round(unit_price * qty * 100) / 100;
-    setBmLogisticsItems(prev => [...prev, {
-      description: route.description,
-      unit_price,
-      quantity: qty,
-      total,
-      table_id: logisticsPickerTableId,
-    }]);
+    const newItems = (table.routes || []).map((r: any) => {
+      const unit_price = Number(r.price) || 0;
+      return { description: r.description, unit_price, quantity: 1, total: unit_price, table_id: logisticsPickerTableId };
+    });
+    if (newItems.length === 0) return showMsg('Essa tabela não tem trechos cadastrados');
+    setBmLogisticsItems(prev => [...prev, ...newItems]);
     setShowLogisticsPickerModal(false);
+  };
+
+  const updateBmLogisticsQty = (idx: number, v: string) => {
+    setBmLogisticsItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const qty = parseInt(v, 10) || 0;
+      return { ...it, quantity: qty, total: Math.round((Number(it.unit_price) || 0) * qty * 100) / 100 };
+    }));
   };
 
   const removeBmLogisticsItem = (idx: number) => {
@@ -1127,12 +1123,22 @@ export default function BMScreen() {
                       <View style={{ flex: 1, marginRight: 8 }}>
                         <Text style={s.calcFunc} numberOfLines={2}>{li.description}</Text>
                         <Text style={s.calcDetail}>
-                          Qtd: {li.quantity} × {formatCurrency(li.unit_price)} = {formatCurrency(li.total)}
+                          {formatCurrency(li.unit_price)} × {li.quantity} = {formatCurrency(li.total)}
                         </Text>
                       </View>
-                      <TouchableOpacity onPress={() => removeBmLogisticsItem(i)} testID={`bm-logistics-remove-${i}`}>
-                        <Ionicons name="close-circle" size={22} color="#d32f2f" />
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 11, color: '#666' }}>Qtd</Text>
+                        <TextInput
+                          style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, width: 52, textAlign: 'center', fontSize: 13, backgroundColor: '#fafafa' }}
+                          value={String(li.quantity)}
+                          onChangeText={v => updateBmLogisticsQty(i, v)}
+                          keyboardType="numeric"
+                          testID={`bm-logistics-qty-${i}`}
+                        />
+                        <TouchableOpacity onPress={() => removeBmLogisticsItem(i)} testID={`bm-logistics-remove-${i}`}>
+                          <Ionicons name="close-circle" size={22} color="#d32f2f" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ))}
                   {bmLogisticsItems.length > 0 && (
@@ -1500,13 +1506,14 @@ export default function BMScreen() {
               </View>
 
               <Text style={s.label}>Tabela de Logística</Text>
+              <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>Ao confirmar, todos os trechos da tabela entram no boletim (qtd. 1). Você pode ajustar a quantidade ou remover itens depois.</Text>
               {logistics.length === 0 && (
                 <Text style={{ color: '#999', fontSize: 13, fontStyle: 'italic' }}>Nenhuma tabela cadastrada</Text>
               )}
               {logistics.map((lt: any) => (
                 <TouchableOpacity
                   key={lt.id}
-                  onPress={() => { setLogisticsPickerTableId(lt.id); setLogisticsPickerRouteIdx(-1); }}
+                  onPress={() => setLogisticsPickerTableId(lt.id)}
                   testID={`logistics-picker-table-${lt.id}`}
                   style={{
                     paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, marginBottom: 6,
@@ -1523,56 +1530,24 @@ export default function BMScreen() {
                 </TouchableOpacity>
               ))}
 
-              {logisticsPickerTableId ? (
-                <>
-                  <Text style={s.label}>Trecho</Text>
-                  {((logistics.find((lt: any) => lt.id === logisticsPickerTableId) || {}).routes || []).map((r: any, i: number) => (
-                    <TouchableOpacity
-                      key={i}
-                      onPress={() => setLogisticsPickerRouteIdx(i)}
-                      testID={`logistics-picker-route-${i}`}
-                      style={{
-                        paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, marginBottom: 6,
-                        backgroundColor: logisticsPickerRouteIdx === i ? '#000' : '#f5f5f5',
-                        borderWidth: 1, borderColor: logisticsPickerRouteIdx === i ? '#000' : '#e0e0e0',
-                      }}
-                    >
-                      <Text style={{ color: logisticsPickerRouteIdx === i ? '#fff' : '#000', fontWeight: '600', fontSize: 13 }}>
-                        {r.description}
-                      </Text>
-                      <Text style={{ color: logisticsPickerRouteIdx === i ? '#ddd' : '#666', fontSize: 12, marginTop: 2 }}>
-                        {formatCurrency(r.price)} / colaborador
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </>
-              ) : null}
-
-              {logisticsPickerRouteIdx >= 0 && (() => {
+              {logisticsPickerTableId ? (() => {
                 const table = logistics.find((lt: any) => lt.id === logisticsPickerTableId);
-                const route = table?.routes?.[logisticsPickerRouteIdx];
-                const unit = Number(route?.price) || 0;
-                const qty = parseInt(logisticsPickerQty, 10) || 0;
+                const routes = table?.routes || [];
                 return (
                   <>
-                    <Text style={s.label}>Quantidade de Colaboradores</Text>
-                    <TextInput
-                      style={s.input}
-                      value={logisticsPickerQty}
-                      onChangeText={setLogisticsPickerQty}
-                      keyboardType="numeric"
-                      placeholder="1"
-                      testID="logistics-picker-qty"
-                    />
-                    <Text style={s.calcSubtotal}>
-                      Total: {formatCurrency(unit * qty)}
-                    </Text>
+                    <Text style={s.label}>Itens que serão adicionados ({routes.length})</Text>
+                    {routes.map((r: any, i: number) => (
+                      <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+                        <Text style={{ fontSize: 13, flex: 1, marginRight: 8 }} numberOfLines={2}>{r.description}</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '600' }}>{formatCurrency(r.price)}</Text>
+                      </View>
+                    ))}
                   </>
                 );
-              })()}
+              })() : null}
 
               <TouchableOpacity style={s.saveBtn} onPress={confirmAddLogistics} testID="logistics-picker-confirm">
-                <Text style={s.saveBtnText}>Adicionar ao Boletim</Text>
+                <Text style={s.saveBtnText}>Adicionar todos ao Boletim</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.cancelBtn} onPress={() => setShowLogisticsPickerModal(false)}>
                 <Text style={s.cancelBtnText}>Cancelar</Text>

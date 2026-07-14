@@ -453,8 +453,8 @@ export default function BMScreen() {
     setLogisticsForm({ ...logisticsForm, routes: updated });
   };
 
-  const addLogisticsRoute = () => {
-    setLogisticsForm({ ...logisticsForm, routes: [...logisticsForm.routes, { description: '', price: '' }] });
+  const addLogisticsRoute = (description: string = '') => {
+    setLogisticsForm({ ...logisticsForm, routes: [...logisticsForm.routes, { description, price: '' }] });
   };
 
   const removeLogisticsRoute = (idx: number) => {
@@ -1425,13 +1425,27 @@ export default function BMScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
                 <Text style={[s.sectionTitle, { marginTop: 0 }]}>Trechos ({logisticsForm.routes.length})</Text>
                 <TouchableOpacity
-                  onPress={addLogisticsRoute}
+                  onPress={() => addLogisticsRoute()}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#000' }}
                   testID="logistics-form-add-route"
                 >
                   <Ionicons name="add" size={16} color="#fff" />
                   <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Adicionar Trecho</Text>
                 </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {['Hotel', 'Alimentação', 'Consumíveis'].map(label => (
+                  <TouchableOpacity
+                    key={label}
+                    onPress={() => addLogisticsRoute(label)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#000', backgroundColor: '#fff' }}
+                    testID={`logistics-form-add-${label.toLowerCase()}`}
+                  >
+                    <Ionicons name="add" size={14} color="#000" />
+                    <Text style={{ color: '#000', fontSize: 12, fontWeight: '600' }}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
 
               {logisticsForm.routes.map((r: any, i: number) => (

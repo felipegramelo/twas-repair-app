@@ -330,7 +330,11 @@ async def calculate_bm(os_id: str, body: BMCalculateRequest, current_user: Dict[
     data_final = body.data_fim if body.data_fim else (sorted_dates[-1] if sorted_dates else "")
 
     client_name = so.get("client", "")
-    price_table = await db.client_prices.find_one({"client_name": client_name})
+    price_table = None
+    if body.price_table_id and ObjectId.is_valid(body.price_table_id):
+        price_table = await db.client_prices.find_one({"_id": ObjectId(body.price_table_id)})
+    if not price_table:
+        price_table = await db.client_prices.find_one({"client_name": client_name})
 
     items = []
     for key in sorted(function_data.keys()):

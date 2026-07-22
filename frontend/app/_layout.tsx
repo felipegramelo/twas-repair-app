@@ -3,6 +3,7 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { OfflineProvider } from '../contexts/OfflineContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { UpdateChecker } from '../components/UpdateChecker';
 import React from 'react';
 
 export default function RootLayout() {
@@ -12,6 +13,7 @@ export default function RootLayout() {
         <OfflineProvider>
           <AuthProvider>
             <Stack screenOptions={{ headerShown: false }} />
+            <UpdateChecker />
           </AuthProvider>
         </OfflineProvider>
       </SafeAreaProvider>

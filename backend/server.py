@@ -35,6 +35,15 @@ app.include_router(translate_router, prefix=api_prefix)
 app.include_router(holidays_router, prefix=api_prefix)
 app.include_router(projects_router, prefix=api_prefix)
 
+# Bump together with APP_VERSION in frontend/constants/appVersion.ts at every release
+APP_VERSION = "2.0.0"
+
+
+@app.get(f"{api_prefix}/version")
+async def get_app_version():
+    return {"version": APP_VERSION}
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

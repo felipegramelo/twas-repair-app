@@ -1,0 +1,25 @@
+{
+  "summary": "Verified OneDrive-on-download fix for native (Android/iOS) PDF downloads. Backend PDF endpoints correctly trigger the Make.com OneDrive webhook only when ?download=1 is passed, and native frontend URLs now include &download=1 for downloads while handleOpenPDF (preview) does NOT. All 10 tests passed (5 backend, 5 static frontend).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_53_onedrive_download.py",
+    "/app/test_reports/pytest/test_iteration_53.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PDF endpoints use asyncio.create_task(send_pdf_to_onedrive(...)) fire-and-forget: if the request handler completes and the event loop task gets cancelled during shutdown, the upload may be lost. Consider using BackgroundTasks or logging failures. Currently service catches all exceptions internally (no raise), which is fine but silent failures rely purely on log inspection.",
+    "reports.py generate_report_pdf accepts token via header only via manual parsing; timesheets.py uses HTTPBearer(auto_error=False) — inconsistent style, both work.",
+    "Backend log shows OneDrive uploads returning HTTP 200 from Make.com — end-to-end path is REAL and working."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_53_onedrive_download.py (new)"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend_static": "100% (5/5)"},
+  "test_credentials": "admin@twasrepair.com/admin123, supervisor@twasrepair.com/super123",
+  "seed_data_creation": "None — used existing timesheets and reports from DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_iteration_53_onedrive_download.py can be reused. It only makes 1 download=1 call per kind (timesheet + report) which triggers real OneDrive uploads via Make.com — keep the number of runs limited to avoid clutter in the user's OneDrive.",
+  "rca of the issue": "User reported 'baixei no app android e nao salvou na pasta do one drive'. Backend only fires send_pdf_to_onedrive when the PDF endpoint receives ?download=1 (see routes/timesheets.py L651 and routes/reports.py PDF endpoint). Native download handlers in admin/timesheets.tsx (L114), supervisor/index.tsx (L150 timesheet, L215 report) and supervisor/edit-report.tsx (handleSharePDF L189) previously built the PDF URL WITHOUT &download=1, so OneDrive webhook never fired on Android. Fix applied by main agent: added &download=1 to those native URLs plus reportAPI.downloadPDF(id, true) in handleSharePDF. Verified: (1) GET /api/timesheets/{id}/pdf?download=1 → 200 PDF + 'OneDrive upload OK [timesheet] ... (200)' logged; (2) GET /api/reports/{id}/pdf?download=1 → 200 PDF + 'OneDrive upload OK [report] ... (200)' logged; (3) same endpoints without download=1 → 200 PDF but NO webhook log; (4) token= query param works on both endpoints (native supervisor uses this); (5) handleOpenPDF preview handlers do NOT contain download=1 (preview does not upload)."
+}

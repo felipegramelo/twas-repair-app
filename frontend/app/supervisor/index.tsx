@@ -147,7 +147,7 @@ export default function SupervisorDashboard() {
         const fileName = buildPdfFilename('TM', timesheet.os_number, timesheet.client, timesheet.service);
         const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
-          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
+          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}&download=1`,
           fileUri,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -212,7 +212,7 @@ export default function SupervisorDashboard() {
         const fileName = buildPdfFilename('REL', report.os_number, report.client, report.service);
         const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
-          `${baseURL}/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}`,
+          `${baseURL}/reports/${report.id}/pdf?token=${encodeURIComponent(token || '')}&t=${Date.now()}&download=1`,
           fileUri
         );
         if (result.status === 200) {

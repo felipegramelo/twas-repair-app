@@ -111,7 +111,7 @@ export default function AdminTimesheetsScreen() {
         const fileName = buildPdfFilename('TM', timesheet.os_number, timesheet.client, timesheet.service);
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
         const result = await FileSystem.downloadAsync(
-          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}`,
+          `${baseURL}/timesheets/${timesheet.id}/pdf?t=${Date.now()}&download=1`,
           fileUri,
           { headers: { Authorization: `Bearer ${token}` } }
         );

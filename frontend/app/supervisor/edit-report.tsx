@@ -187,14 +187,14 @@ export default function EditReportScreen() {
   };
 
   const handleSharePDF = async () => {
-    const url = getPdfUrl();
+    const url = getPdfUrl() + '&download=1';
     if (Platform.OS === 'web') {
       window.location.href = url;
     } else {
       try {
         const fileName = buildPdfFilename('REL', report?.os_number, report?.client, report?.service);
         await downloadAndSharePDF(
-          () => reportAPI.downloadPDF(id!),
+          () => reportAPI.downloadPDF(id!, true),
           url,
           fileName,
         );

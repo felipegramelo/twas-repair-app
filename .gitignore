@@ -83,3 +83,6 @@ credentials.json
 *.key
 .credentials
 -e 
+.env
+.env.*
+*.env

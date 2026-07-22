@@ -1,51 +1,49 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Platform, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Platform, StyleSheet, AppState, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BACKEND_URL } from '../services/config';
-import { APP_VERSION } from '../constants/appVersion';
+import * as Updates from 'expo-updates';
 
+// Native-only (iOS/Android) OTA update banner via expo-updates.
+// Web is excluded on purpose: browsers already get the latest deploy on refresh.
 export const UpdateChecker = () => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
-  const checkVersion = async () => {
+  const checkForUpdate = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/version?t=${Date.now()}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data?.version && data.version !== APP_VERSION) setUpdateAvailable(true);
+      if (!Updates.isEnabled) return; // Expo Go / dev builds
+      const result = await Updates.checkForUpdateAsync();
+      if (result.isAvailable) setUpdateAvailable(true);
     } catch {}
   };
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    checkVersion();
-    const interval = setInterval(checkVersion, 5 * 60 * 1000);
-    const onFocus = () => checkVersion();
-    window.addEventListener('focus', onFocus);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-    };
+    if (Platform.OS === 'web') return;
+    checkForUpdate();
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') checkForUpdate();
+    });
+    return () => sub.remove();
   }, []);
 
-  if (!updateAvailable || Platform.OS !== 'web') return null;
+  if (Platform.OS === 'web' || !updateAvailable) return null;
 
   const doUpdate = async () => {
+    setUpdating(true);
     try {
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(k => caches.delete(k)));
-      }
-    } catch {}
-    window.location.reload();
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync();
+    } catch {
+      setUpdating(false);
+    }
   };
 
   return (
     <View style={styles.banner} data-testid="update-banner">
       <Ionicons name="cloud-download-outline" size={18} color="#fff" />
       <Text style={styles.text}>Nova versão disponível!</Text>
-      <TouchableOpacity style={styles.btn} onPress={doUpdate} data-testid="update-app-btn">
-        <Text style={styles.btnText}>Atualizar</Text>
+      <TouchableOpacity style={styles.btn} onPress={doUpdate} disabled={updating} data-testid="update-app-btn">
+        {updating ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.btnText}>Atualizar</Text>}
       </TouchableOpacity>
       <TouchableOpacity onPress={() => setUpdateAvailable(false)} data-testid="update-dismiss-btn">
         <Ionicons name="close" size={18} color="#fff" />
@@ -57,11 +55,9 @@ export const UpdateChecker = () => {
 const styles = StyleSheet.create({
   banner: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 24,
     left: 16,
     right: 16,
-    maxWidth: 480,
-    alignSelf: 'center',
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
     paddingVertical: 12,
@@ -76,6 +72,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   text: { color: '#fff', fontSize: 13, fontWeight: '600', flex: 1 },
-  btn: { backgroundColor: '#4caf50', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8 },
+  btn: { backgroundColor: '#4caf50', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8, minWidth: 84, alignItems: 'center' },
   btnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });

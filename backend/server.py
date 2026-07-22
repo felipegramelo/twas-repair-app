@@ -35,7 +35,7 @@ app.include_router(translate_router, prefix=api_prefix)
 app.include_router(holidays_router, prefix=api_prefix)
 app.include_router(projects_router, prefix=api_prefix)
 
-# Bump together with APP_VERSION in frontend/constants/appVersion.ts at every release
+# App version (diagnostics)
 APP_VERSION = "2.0.0"
 
 

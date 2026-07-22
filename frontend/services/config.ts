@@ -21,16 +21,18 @@ const EMERGENT_PREVIEW_BACKEND = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 const override = process.env.EXPO_PUBLIC_BACKEND_URL_OVERRIDE;
 
-// Runtime detection: when running inside the Emergent preview (served under
-// *.preview.emergentagent.com), use the preview backend so the dev can test
-// pending features. Mobile/web production builds don't match this hostname
-// and therefore continue hitting Railway.
+// Runtime detection:
+// - Emergent preview (*.preview.emergentagent.com) → env backend (preview container)
+// - Emergent production deploy (*.emergent.host / *.emergentagent.com) → env backend
+//   (the deployment system injects the correct EXPO_PUBLIC_BACKEND_URL)
+// - Anything else (Vercel web, iOS/Android builds) → Railway production backend.
 function _detectBackendUrl(): string {
   if (override && override.trim()) return override;
   try {
     if (typeof window !== 'undefined' && window.location && window.location.hostname) {
       const host = window.location.hostname;
-      if (host.endsWith('.preview.emergentagent.com') && EMERGENT_PREVIEW_BACKEND) {
+      const isEmergentHost = host.endsWith('.emergentagent.com') || host.endsWith('.emergent.host');
+      if (isEmergentHost && EMERGENT_PREVIEW_BACKEND) {
         return EMERGENT_PREVIEW_BACKEND;
       }
     }

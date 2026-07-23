@@ -6,6 +6,14 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
+    "updates": {
+      "url": "https://u.expo.dev/67451cae-7886-49ff-a69b-46c310f079ae"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "67451cae-7886-49ff-a69b-46c310f079ae"
+      }
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "twas",

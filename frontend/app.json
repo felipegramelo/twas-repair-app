@@ -2,7 +2,10 @@
   "expo": {
     "name": "TWAS",
     "slug": "frontend",
-    "version": "1.0.19",
+    "version": "1.0.20",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "twas",

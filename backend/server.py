@@ -79,6 +79,19 @@ async def startup_event():
     except Exception as e:
         logging.error(f"Index creation failed: {e}")
 
+    # One-time normalization: remove spaces around hyphens in os_number
+    try:
+        import re as _re
+        from database import db
+        for col in ("service_orders", "timesheets", "reports", "projects", "propostas"):
+            async for doc in db[col].find({"os_number": {"$regex": r"\s"}}, {"os_number": 1}):
+                clean = _re.sub(r"\s*-\s*", "-", str(doc["os_number"]).strip())
+                if clean != doc["os_number"]:
+                    await db[col].update_one({"_id": doc["_id"]}, {"$set": {"os_number": clean}})
+        logging.info("OS number normalization done")
+    except Exception as e:
+        logging.error(f"OS number normalization failed: {e}")
+
     # Seed admin user if not exists
     try:
         from database import db

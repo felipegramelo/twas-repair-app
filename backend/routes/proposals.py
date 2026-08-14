@@ -1,4 +1,5 @@
 import logging
+import re
 from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import Response
@@ -447,7 +448,8 @@ async def generate_os_number_from_proposal(numero_proposta: str) -> str:
         "created_at": {"$gte": year_start, "$lt": year_end}
     })
     seq = count + 1
-    return f"{seq:02d} - {numero_proposta}"
+    proposta_clean = re.sub(r'\s*-\s*', '-', str(numero_proposta or '').strip())
+    return f"{seq:02d}-{proposta_clean}"
 
 @router.put("/proposals/{proposal_id}/informar-po")
 async def informar_po(proposal_id: str, data: InformarPORequest, current_user: Dict[str, Any] = Depends(get_admin_user)):

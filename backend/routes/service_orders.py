@@ -4,6 +4,7 @@ from fastapi.responses import Response
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime
+import re
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -24,9 +25,14 @@ from models import ServiceOrder, ServiceOrderCreate
 router = APIRouter()
 ROOT_DIR = Path(__file__).parent.parent
 
+
+def normalize_os_number(value: str) -> str:
+    return re.sub(r'\s*-\s*', '-', str(value or '').strip())
+
 @router.post("/service-orders", response_model=ServiceOrder)
 async def create_service_order(so_data: ServiceOrderCreate, current_user: Dict[str, Any] = Depends(get_admin_user)):
     so_dict = so_data.model_dump()
+    so_dict["os_number"] = normalize_os_number(so_dict.get("os_number", ""))
     so_dict["created_at"] = datetime.utcnow()
     
     result = await db.service_orders.insert_one(so_dict)
@@ -73,6 +79,7 @@ async def get_service_order(so_id: str, current_user: Dict[str, Any] = Depends(g
 @router.put("/service-orders/{so_id}", response_model=ServiceOrder)
 async def update_service_order(so_id: str, so_data: ServiceOrderCreate, current_user: Dict[str, Any] = Depends(get_admin_user)):
     so_dict = so_data.model_dump()
+    so_dict["os_number"] = normalize_os_number(so_dict.get("os_number", ""))
     
     result = await db.service_orders.update_one(
         {"_id": ObjectId(so_id)},

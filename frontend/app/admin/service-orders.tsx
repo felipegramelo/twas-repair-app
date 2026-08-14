@@ -257,7 +257,7 @@ export default function ServiceOrdersScreen() {
         <View style={s.modalOverlay}><View style={s.modalContent}><ScrollView>
           <Text style={s.modalTitle}>{editingSO ? 'Editar O.S.' : 'Nova O.S.'}</Text>
           <Text style={s.label}>Número da O.S. *</Text>
-          <TextInput style={s.input} value={osNumber} onChangeText={setOsNumber} placeholder="Ex: 2602-14" />
+          <TextInput style={s.input} value={osNumber} onChangeText={(v) => setOsNumber(v.replace(/\s/g, ''))} placeholder="Ex: 2602-14" autoCapitalize="characters" data-testid="os-number-input" />
           <Text style={s.label}>Cliente *</Text>
           <TextInput style={s.input} value={client} onChangeText={setClient} placeholder="Nome do cliente" />
           <Text style={s.label}>Embarcacao</Text>

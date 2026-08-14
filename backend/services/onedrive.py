@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 def build_folder_name(os_number: str, client: str = "", vessel: str = "", service: str = "") -> str:
     """Folder format: 'OS - CLIENTE - EMBARCAÇÃO - SERVIÇO' (upper-case, sanitized)."""
-    parts = [re.sub(r'[<>:"/\\|?*]', '', str(p or '')).strip() for p in (os_number, client, vessel, service)]
+    os_clean = re.sub(r'\s*-\s*', '-', str(os_number or ''))
+    parts = [re.sub(r'[<>:"/\\|?*]', '', str(p or '')).strip() for p in (os_clean, client, vessel, service)]
     return " - ".join(p for p in parts if p).upper()
 
 

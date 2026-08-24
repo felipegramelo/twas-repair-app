@@ -462,7 +462,7 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         ('LEFTPADDING', (0, 0), (-1, -1), 0.2*cm),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0.2*cm),
         ('TOPPADDING', (0, 0), (-1, -1), 0.1*cm),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0.2*cm),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0.1*cm),
     ]))
     
     elements.append(info_table)
@@ -524,8 +524,8 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 0.15*cm),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.15*cm),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.08*cm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.08*cm),
         ]))
         
         elements.append(entries_table)
@@ -596,7 +596,7 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         obs_content = obs_content.replace('\n', '<br/>')
         obs_data = [[Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]]
         
-        obs_table = Table(obs_data, colWidths=[content_width], rowHeights=[4.0*cm])
+        obs_table = Table(obs_data, colWidths=[content_width], rowHeights=[3.4*cm])
         obs_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),

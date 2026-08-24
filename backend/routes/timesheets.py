@@ -476,8 +476,11 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
     for page_num in range(total_pages):
         if page_num > 0:
             elements.append(PageBreak())
+            page_start_idx = len(elements)
             elements.append(info_table)
             elements.append(Spacer(1, 0.15*cm))
+        else:
+            page_start_idx = 0
         
         # Table header
         table_data = [
@@ -596,7 +599,13 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         obs_content = obs_content.replace('\n', '<br/>')
         obs_data = [[Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]]
         
-        obs_table = Table(obs_data, colWidths=[content_width], rowHeights=[3.4*cm])
+        # Stretch obs box so the signature block ends near the footer
+        frame_h = page_height - content_top - content_bottom - 0.45*cm
+        used_h = sum(e.wrap(content_width, 10000)[1] for e in elements[page_start_idx:])
+        obs_min = obs_data[0][0].wrap(content_width - 0.5*cm, 10000)[1] + 0.35*cm
+        obs_height = max(frame_h - used_h - 0.1*cm - 1.7*cm, 3.4*cm, obs_min)
+
+        obs_table = Table(obs_data, colWidths=[content_width], rowHeights=[obs_height])
         obs_table.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),

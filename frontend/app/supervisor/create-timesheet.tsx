@@ -371,7 +371,7 @@ export default function CreateTimesheetScreen() {
             <Text style={styles.label}>Ordem de Serviço *</Text>
             <TouchableOpacity style={styles.selectButton} onPress={() => setSOModalVisible(true)}>
               <Text style={selectedSO ? styles.selectTextSelected : styles.selectText}>
-                {selectedSO ? `${selectedSO.os_number} - ${selectedSO.client}` : 'Selecionar O.S.'}
+                {selectedSO ? `${selectedSO.os_number} - ${selectedSO.client}${selectedSO.embarcacao ? ` - ${selectedSO.embarcacao}` : ''}` : 'Selecionar O.S.'}
               </Text>
               <Ionicons name="chevron-down" size={20} color="#666" />
             </TouchableOpacity>
@@ -461,7 +461,7 @@ export default function CreateTimesheetScreen() {
               {serviceOrders.map(so => (
                 <TouchableOpacity key={so.id} style={styles.modalItem} onPress={() => { setSelectedSO(so); setSOModalVisible(false); }}>
                   <Text style={styles.modalItemTitle}>{so.os_number}</Text>
-                  <Text style={styles.modalItemSubtitle}>{so.client}</Text>
+                  <Text style={styles.modalItemSubtitle}>{so.embarcacao ? `${so.client} - ${so.embarcacao}` : so.client}</Text>
                   <Text style={styles.modalItemDetail}>{so.location}</Text>
                   <Text style={styles.modalItemService} numberOfLines={1}>{so.service || ''}</Text>
                 </TouchableOpacity>

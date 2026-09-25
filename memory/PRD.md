@@ -56,3 +56,8 @@ The user wants to unify two separate applications (a Timesheet Tracker and a Ser
 - `/app/frontend/app/admin/projects.tsx` — project creation (uses DateField)
 - `/app/backend/routes/projects.py` — Project CRUD + AI PDF import
 - `/app/backend/services/onedrive.py` — Make.com webhook helper
+
+
+## 2026-06 - Seletor de O.S. mostra embarcação
+- Modal de seleção de O.S. (Novo Timesheet e Novo Relatório) e campo selecionado agora exibem `CLIENTE - EMBARCAÇÃO` quando a O.S. possui embarcação cadastrada.
+- Arquivos: `frontend/app/supervisor/create-timesheet.tsx`, `frontend/app/supervisor/create-report.tsx`.

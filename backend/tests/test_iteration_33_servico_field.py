@@ -49,7 +49,7 @@ class TestServicoField:
         for proposal_id in self.created_proposal_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/proposals/{proposal_id}")
-            except:
+            except Exception:
                 pass
     
     def test_create_proposal_with_servico(self):
@@ -339,7 +339,7 @@ class TestProposalPhotoUpload:
         for proposal_id in self.created_proposal_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/proposals/{proposal_id}")
-            except:
+            except Exception:
                 pass
     
     def test_photo_upload_endpoint_exists(self):

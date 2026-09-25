@@ -1302,7 +1302,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                         continue
                 if not date_str:
                     date_str = periodo_fim
-            except:
+            except Exception:
                 date_str = periodo_fim
         if date_str:
             elements.append(Paragraph(date_str, ParagraphStyle('AvalDate', parent=styles['Normal'], fontSize=9, textColor=colors.black, spaceAfter=8)))

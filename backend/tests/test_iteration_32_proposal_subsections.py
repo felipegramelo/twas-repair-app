@@ -38,7 +38,7 @@ class TestProposalSubsections:
         if self.created_proposal_id:
             try:
                 requests.delete(f"{BASE_URL}/api/proposals/{self.created_proposal_id}", headers=self.headers)
-            except:
+            except Exception:
                 pass
     
     def test_01_create_proposal_with_subsections(self):
@@ -573,7 +573,7 @@ class TestProposalValidation:
         if self.created_proposal_id:
             try:
                 requests.delete(f"{BASE_URL}/api/proposals/{self.created_proposal_id}", headers=self.headers)
-            except:
+            except Exception:
                 pass
     
     def test_11_create_proposal_requires_empresa(self):

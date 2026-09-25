@@ -54,7 +54,7 @@ class TestBMFeature:
         for bm_id in self.created_bm_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/bm/{bm_id}")
-            except:
+            except Exception:
                 pass
     
     def test_01_bm_list_endpoint(self):
@@ -456,7 +456,7 @@ class TestBMPDFContent:
         for bm_id in self.created_bm_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/bm/{bm_id}")
-            except:
+            except Exception:
                 pass
     
     def test_pdf_title_centered_in_code(self):

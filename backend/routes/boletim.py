@@ -138,7 +138,7 @@ def parse_date_sortable(d: str) -> str:
         parts = d.split("/")
         if len(parts) == 3:
             return f"{parts[2]}-{parts[1]}-{parts[0]}"
-    except:
+    except Exception:
         pass
     return d
 

@@ -201,13 +201,13 @@ export default function CreateReportScreen() {
               >
                 <option value="">Selecione uma O.S...</option>
                 {serviceOrders.map(os => (
-                  <option key={os.id} value={os.id}>{os.os_number} - {os.client} - {os.service}</option>
+                  <option key={os.id} value={os.id}>{os.os_number} - {os.client}{os.embarcacao ? ` - ${os.embarcacao}` : ''} - {os.service}</option>
                 ))}
               </select>
             ) : (
               <TouchableOpacity style={styles.dropdownBtn} onPress={() => setOsModalVisible(true)} data-testid="select-os-native-btn">
                 <Text style={[styles.dropdownText, !selectedOS && { color: '#999' }]}>
-                  {selectedOSData ? `${selectedOSData.os_number} - ${selectedOSData.client}` : 'Selecione uma O.S...'}
+                  {selectedOSData ? `${selectedOSData.os_number} - ${selectedOSData.client}${selectedOSData.embarcacao ? ` - ${selectedOSData.embarcacao}` : ''}` : 'Selecione uma O.S...'}
                 </Text>
                 <Ionicons name="chevron-down" size={18} color="#666" />
               </TouchableOpacity>
@@ -335,7 +335,7 @@ export default function CreateReportScreen() {
               {serviceOrders.map(os => (
                 <TouchableOpacity key={os.id} style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }} onPress={() => { setSelectedOS(os.id); setOsModalVisible(false); }}>
                   <Text style={{ fontSize: 16, fontWeight: '600', color: '#212121' }}>{os.os_number}</Text>
-                  <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>{os.client}</Text>
+                  <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>{os.embarcacao ? `${os.client} - ${os.embarcacao}` : os.client}</Text>
                   <Text style={{ fontSize: 13, color: '#999', marginTop: 2 }}>{os.service}</Text>
                 </TouchableOpacity>
               ))}

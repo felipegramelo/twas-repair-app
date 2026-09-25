@@ -710,7 +710,6 @@ async def generate_proposal_pdf(proposal_id: str, tipo: str = Query(default="com
             elements.append(Paragraph(desc_escaped, body_style))
 
         # Images from item.images (inline URLs) + proposal_photos collection
-        from reportlab.platypus import Image as RLImage
         all_images = list(item.get("images", []))
 
         # Also fetch photos from DB for this section index

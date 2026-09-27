@@ -237,9 +237,9 @@ export default function EditTimesheetScreen() {
           </View>
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.label} data-testid="entries-count-label">Entradas ({entries.length}){pages > 1 ? ` · ${pages} páginas` : ''}</Text>
+              <Text style={s.label} testID="entries-count-label">Entradas ({entries.length}){pages > 1 ? ` · ${pages} páginas` : ''}</Text>
               {pages < MAX_PAGES ? (
-                <TouchableOpacity onPress={addPage} style={s.addEntryBtn} data-testid="add-page-btn">
+                <TouchableOpacity onPress={addPage} style={s.addEntryBtn} testID="add-page-btn">
                   <Ionicons name="document-text-outline" size={18} color="#000000" />
                   <Text style={s.addEntryText}>Adicionar página</Text>
                 </TouchableOpacity>
@@ -251,15 +251,15 @@ export default function EditTimesheetScreen() {
               )}
             </View>
             {Array.from({ length: pages }, (_, k) => k + 1).map(p => (
-              <View key={`page-${p}`} style={s.pageBlock} data-testid={`page-block-${p}`}>
+              <View key={`page-${p}`} style={s.pageBlock} testID={`page-block-${p}`}>
                 <View style={s.pageHeader}>
-                  <Text style={s.pageDivider} data-testid={`page-divider-${p}`}>Página {p} de {pages} · {pageCount(p)}/{ENTRIES_PER_PAGE}</Text>
+                  <Text style={s.pageDivider} testID={`page-divider-${p}`}>Página {p} de {pages} · {pageCount(p)}/{ENTRIES_PER_PAGE}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                     {p === pages && lastPageEmpty && (
-                      <TouchableOpacity onPress={removeLastPage} data-testid={`remove-page-${p}-btn`}><Ionicons name="trash-outline" size={18} color="#d32f2f" /></TouchableOpacity>
+                      <TouchableOpacity onPress={removeLastPage} testID={`remove-page-${p}-btn`}><Ionicons name="trash-outline" size={18} color="#d32f2f" /></TouchableOpacity>
                     )}
                     {pageCount(p) < ENTRIES_PER_PAGE ? (
-                      <TouchableOpacity onPress={() => { setTargetPage(p); setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn} data-testid={`add-entry-page-${p}-btn`}>
+                      <TouchableOpacity onPress={() => { setTargetPage(p); setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn} testID={`add-entry-page-${p}-btn`}>
                         <Ionicons name="add" size={20} color="#000000" />
                         <Text style={s.addEntryText}>Adicionar</Text>
                       </TouchableOpacity>
@@ -338,7 +338,7 @@ export default function EditTimesheetScreen() {
 
             {/* Date */}
             <Text style={s.inputLabel}>Data *</Text>
-            <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('calendar')} data-testid="entry-date-btn">
+            <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('calendar')} testID="entry-date-btn">
               <Text style={entryDate ? s.selectTextSelected : s.selectText}>{entryDate || 'Selecionar data'}</Text>
               <Ionicons name={calendarVisible ? 'chevron-up' : 'calendar'} size={20} color="#000000" />
             </TouchableOpacity>
@@ -346,7 +346,7 @@ export default function EditTimesheetScreen() {
 
             {/* Employee */}
             <Text style={s.inputLabel}>Funcionário *</Text>
-            <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('employee')} data-testid="entry-employee-btn">
+            <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('employee')} testID="entry-employee-btn">
               <Text style={selectedEmployee ? s.selectTextSelected : s.selectText}>{selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.function})` : 'Selecionar'}</Text>
               <Ionicons name={employeePickerVisible ? 'chevron-up' : 'chevron-down'} size={20} color="#666" />
             </TouchableOpacity>
@@ -373,7 +373,7 @@ export default function EditTimesheetScreen() {
 
             {/* Service Start */}
             <Text style={s.inputLabel}>Serviço - Início</Text>
-            <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('serviceStart')} data-testid="entry-service-start-btn">
+            <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('serviceStart')} testID="entry-service-start-btn">
               <Text style={serviceStart ? s.selectTextSelected : s.selectText}>{serviceStart || 'Selecionar horário'}</Text>
               <Ionicons name="time" size={20} color="#000000" />
             </TouchableOpacity>
@@ -381,14 +381,14 @@ export default function EditTimesheetScreen() {
 
             {/* Service End */}
             <Text style={s.inputLabel}>Serviço - Fim</Text>
-            <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('serviceEnd')} data-testid="entry-service-end-btn">
+            <TouchableOpacity style={s.selectButton} onPress={() => openInlinePicker('serviceEnd')} testID="entry-service-end-btn">
               <Text style={serviceEnd ? s.selectTextSelected : s.selectText}>{serviceEnd || 'Selecionar horário'}</Text>
               <Ionicons name="time" size={20} color="#000000" />
             </TouchableOpacity>
             {timePickerField === 'serviceEnd' && <InlineTimePicker allowNone onSelect={(t: string) => { setServiceEnd(t); if (!t) setServiceStart(''); setTimePickerField(null); }} />}
 
             {/* Travel */}
-            <TouchableOpacity style={s.travelCheckRow} onPress={() => { setHasTravel(!hasTravel); if (hasTravel) { setTravelStart(''); setTravelEnd(''); } }} data-testid="has-travel-checkbox">
+            <TouchableOpacity style={s.travelCheckRow} onPress={() => { setHasTravel(!hasTravel); if (hasTravel) { setTravelStart(''); setTravelEnd(''); } }} testID="has-travel-checkbox">
               <Ionicons name={hasTravel ? 'checkbox' : 'square-outline'} size={24} color="#000000" />
               <Text style={s.travelCheckText}>Tem viagem?</Text>
             </TouchableOpacity>

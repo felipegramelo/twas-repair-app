@@ -61,3 +61,5 @@ The user wants to unify two separate applications (a Timesheet Tracker and a Ser
 ## 2026-06 - Seletor de O.S. mostra embarcação
 - Modal de seleção de O.S. (Novo Timesheet e Novo Relatório) e campo selecionado agora exibem `CLIENTE - EMBARCAÇÃO` quando a O.S. possui embarcação cadastrada.
 - Arquivos: `frontend/app/supervisor/create-timesheet.tsx`, `frontend/app/supervisor/create-report.tsx`.
+
+- **2026-06** — ✅ EAS Update publicado (branch production, runtime 1.0.22, commit db01f49f) com o seletor de O.S. mostrando `CLIENTE - EMBARCAÇÃO`. Lição: no MacBook, se `git pull` falhar por alterações locais em app.json/eas.json, rodar `git checkout -- frontend/app.json frontend/eas.json` antes; sempre conferir a linha `Commit` do eas update. Deploy Emergent (backend/web) é disparado pelo usuário via botão Deploy.

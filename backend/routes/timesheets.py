@@ -29,8 +29,8 @@ ROOT_DIR = Path(__file__).parent.parent
 
 @router.post("/timesheets", response_model=dict)
 async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
-    if len(ts_data.entries) > 12:
-        raise HTTPException(status_code=400, detail="Máximo de 12 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
+    if len(ts_data.entries) > 14:
+        raise HTTPException(status_code=400, detail="Máximo de 14 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
     _validate_timesheet_entries(ts_data.entries)
     # Get service order details
     so = await db.service_orders.find_one({"_id": ObjectId(ts_data.os_id)})
@@ -135,8 +135,8 @@ async def update_timesheet(ts_id: str, ts_data: TimesheetCreate, current_user: D
     existing = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if existing and existing.get("status") == "finalized":
         raise HTTPException(status_code=403, detail="Timesheet finalizada. Não é possível editar.")
-    if len(ts_data.entries) > 12:
-        raise HTTPException(status_code=400, detail="Máximo de 12 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
+    if len(ts_data.entries) > 14:
+        raise HTTPException(status_code=400, detail="Máximo de 14 entradas por timesheet. Crie um novo timesheet para mais funcionários.")
     _validate_timesheet_entries(ts_data.entries)
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not ts:
@@ -329,7 +329,7 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
     current_date = dt.now().strftime("%d/%m/%Y")
     
     # Calculate total pages
-    entries_per_page = 12
+    entries_per_page = 14
     total_entries = len(ts["entries"])
     total_pages = (total_entries + entries_per_page - 1) // entries_per_page if total_entries > 0 else 1
     

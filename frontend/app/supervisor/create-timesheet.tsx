@@ -178,14 +178,14 @@ export default function CreateTimesheetScreen() {
     }
   };
 
-  const MAX_ENTRIES = 12;
+  const MAX_ENTRIES = 14;
 
   const openAddEntryModal = () => {
     if (entries.length >= MAX_ENTRIES) {
       if (Platform.OS === 'web') {
-        window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+        window.alert('Limite de 14 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
       } else {
-        Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+        Alert.alert('Limite atingido', 'Limite de 14 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
       }
       return;
     }
@@ -220,9 +220,9 @@ export default function CreateTimesheetScreen() {
     }
     if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) {
       if (Platform.OS === 'web') {
-        window.alert('Limite de 12 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+        window.alert('Limite de 14 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
       } else {
-        Alert.alert('Limite atingido', 'Limite de 12 funcionários por timesheet. Crie um novo.');
+        Alert.alert('Limite atingido', 'Limite de 14 funcionários por timesheet. Crie um novo.');
       }
       return;
     }
@@ -300,7 +300,7 @@ export default function CreateTimesheetScreen() {
   const handleSave = async () => {
     if (!selectedSO) { if (Platform.OS === 'web') window.alert('Selecione uma Ordem de Serviço'); else Alert.alert('Erro', 'Selecione uma Ordem de Serviço'); return; }
     if (entries.length === 0) { if (Platform.OS === 'web') window.alert('Adicione pelo menos uma entrada'); else Alert.alert('Erro', 'Adicione pelo menos uma entrada'); return; }
-    if (entries.length > 12) { if (Platform.OS === 'web') window.alert('Máximo de 12 funcionários por timesheet. Remova entradas extras ou crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Máximo de 12 funcionários por timesheet.'); return; }
+    if (entries.length > 14) { if (Platform.OS === 'web') window.alert('Máximo de 14 funcionários por timesheet. Remova entradas extras ou crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Máximo de 14 funcionários por timesheet.'); return; }
     setSaving(true);
     try {
       if (!isOnline) {
@@ -385,8 +385,8 @@ export default function CreateTimesheetScreen() {
           {/* Entries */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.label}>Entradas ({entries.length}/12)</Text>
-              {entries.length < 12 ? (
+              <Text style={styles.label}>Entradas ({entries.length}/14)</Text>
+              {entries.length < 14 ? (
                 <TouchableOpacity onPress={openAddEntryModal} style={styles.addEntryButton}>
                   <Ionicons name="add" size={20} color="#000000" />
                   <Text style={styles.addEntryText}>Adicionar</Text>
@@ -398,9 +398,9 @@ export default function CreateTimesheetScreen() {
                 </View>
               )}
             </View>
-            {entries.length >= 12 && (
+            {entries.length >= 14 && (
               <View style={{ backgroundColor: '#fff3e0', padding: 10, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#ffb74d' }}>
-                <Text style={{ color: '#e65100', fontSize: 13, textAlign: 'center' }}>Máximo de 12 funcionários atingido. Para adicionar mais, crie um novo timesheet.</Text>
+                <Text style={{ color: '#e65100', fontSize: 13, textAlign: 'center' }}>Máximo de 14 funcionários atingido. Para adicionar mais, crie um novo timesheet.</Text>
               </View>
             )}
             {entries.map((entry, index) => (
@@ -441,9 +441,9 @@ export default function CreateTimesheetScreen() {
           <View style={styles.section}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={styles.label}>Observações</Text>
-              <Text style={{ fontSize: 12, color: (() => { const chars = 100; const vl = observations.split(/\r\n|\r|\n/).reduce((t, l) => t + Math.max(1, Math.ceil(l.length / chars)), 0); return vl > 9 || observations.length >= 1200 ? '#d32f2f' : '#999'; })() }}>{observations.length}/1200 ({(() => { const chars = 100; return observations.split(/\r\n|\r|\n/).reduce((t, l) => t + Math.max(1, Math.ceil(l.length / chars)), 0); })()}/9 linhas)</Text>
+              <Text style={{ fontSize: 12, color: (() => { const chars = 115; const vl = observations.split(/\r\n|\r|\n/).reduce((t, l) => t + Math.max(1, Math.ceil(l.length / chars)), 0); return vl > 11 || observations.length >= 1300 ? '#d32f2f' : '#999'; })() }}>{observations.length}/1300 ({(() => { const chars = 115; return observations.split(/\r\n|\r|\n/).reduce((t, l) => t + Math.max(1, Math.ceil(l.length / chars)), 0); })()}/11 linhas)</Text>
             </View>
-            <TextInput style={[styles.input, styles.textArea]} placeholder="Adicione observações (opcional)" value={observations} onChangeText={(text) => { const charsPerLine = 100; const lines = text.split(/\r\n|\r|\n/); const visualLines = lines.reduce((t, l) => t + Math.max(1, Math.ceil(l.length / charsPerLine)), 0); if (visualLines > 9 || text.length > 1200) { if (Platform.OS === 'web') window.alert('Limite atingido: máximo de 1200 caracteres ou 9 linhas visuais.'); else Alert.alert('Limite atingido', 'Máximo de 1200 caracteres ou 9 linhas visuais.'); const trimmedLines: string[] = []; let count = 0; for (const line of lines) { const needed = Math.max(1, Math.ceil(line.length / charsPerLine)); if (count + needed <= 9) { trimmedLines.push(line); count += needed; } else { const remaining = 9 - count; if (remaining > 0) { trimmedLines.push(line.substring(0, remaining * charsPerLine)); } break; } } text = trimmedLines.join('\n'); if (text.length > 1200) text = text.substring(0, 1200); } setObservations(text); }} multiline numberOfLines={9} blurOnSubmit={false} />
+            <TextInput style={[styles.input, styles.textArea]} placeholder="Adicione observações (opcional)" value={observations} onChangeText={(text) => { const charsPerLine = 115; const lines = text.split(/\r\n|\r|\n/); const visualLines = lines.reduce((t, l) => t + Math.max(1, Math.ceil(l.length / charsPerLine)), 0); if (visualLines > 11 || text.length > 1300) { if (Platform.OS === 'web') window.alert('Limite atingido: máximo de 1300 caracteres ou 11 linhas visuais.'); else Alert.alert('Limite atingido', 'Máximo de 1300 caracteres ou 11 linhas visuais.'); const trimmedLines: string[] = []; let count = 0; for (const line of lines) { const needed = Math.max(1, Math.ceil(line.length / charsPerLine)); if (count + needed <= 11) { trimmedLines.push(line); count += needed; } else { const remaining = 11 - count; if (remaining > 0) { trimmedLines.push(line.substring(0, remaining * charsPerLine)); } break; } } text = trimmedLines.join('\n'); if (text.length > 1300) text = text.substring(0, 1300); } setObservations(text); }} multiline numberOfLines={11} blurOnSubmit={false} />
           </View>
 
           <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>

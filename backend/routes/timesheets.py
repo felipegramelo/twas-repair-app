@@ -29,8 +29,6 @@ ROOT_DIR = Path(__file__).parent.parent
 
 @router.post("/timesheets", response_model=dict)
 async def create_timesheet(ts_data: TimesheetCreate, current_user: Dict[str, Any] = Depends(get_current_user)):
-    if len(ts_data.entries) > 70:
-        raise HTTPException(status_code=400, detail="Máximo de 70 entradas (5 páginas) por timesheet.")
     _validate_timesheet_entries(ts_data.entries)
     # Get service order details
     so = await db.service_orders.find_one({"_id": ObjectId(ts_data.os_id)})
@@ -135,8 +133,6 @@ async def update_timesheet(ts_id: str, ts_data: TimesheetCreate, current_user: D
     existing = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if existing and existing.get("status") == "finalized":
         raise HTTPException(status_code=403, detail="Timesheet finalizada. Não é possível editar.")
-    if len(ts_data.entries) > 70:
-        raise HTTPException(status_code=400, detail="Máximo de 70 entradas (5 páginas) por timesheet.")
     _validate_timesheet_entries(ts_data.entries)
     ts = await db.timesheets.find_one({"_id": ObjectId(ts_id)})
     if not ts:
@@ -330,8 +326,9 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
     
     # Calculate total pages
     entries_per_page = 14
-    total_entries = len(ts["entries"])
-    total_pages = (total_entries + entries_per_page - 1) // entries_per_page if total_entries > 0 else 1
+    def _pg(e):
+        return max(1, int(e.get("page") or 1))
+    total_pages = max([_pg(e) for e in ts["entries"]] + [1])
     
     def draw_page_template(canvas_obj, doc_obj, page_num):
         canvas_obj.saveState()
@@ -495,11 +492,8 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
             ]
         ]
         
-        start_idx = page_num * entries_per_page
-        end_idx = min(start_idx + entries_per_page, total_entries)
-        
-        for i in range(start_idx, end_idx):
-            entry = ts["entries"][i]
+        page_entries = [e for e in ts["entries"] if _pg(e) == page_num + 1][:entries_per_page]
+        for entry in page_entries:
             svc_start = entry.get("service_start") or "-"
             svc_end = entry.get("service_end") or "-"
             travel_start = entry.get("travel_start") or "-"

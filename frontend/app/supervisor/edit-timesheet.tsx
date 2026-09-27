@@ -95,6 +95,7 @@ export default function EditTimesheetScreen() {
   const [selectedSO, setSelectedSO] = useState<ServiceOrder | null>(null);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
   const [pagesState, setPagesState] = useState(1);
+  const [targetPage, setTargetPage] = useState(1);
   const [observations, setObservations] = useState('');
   const [supervisorFunction, setSupervisorFunction] = useState('Supervisor');
   const [functionPickerVisible, setFunctionPickerVisible] = useState(false);
@@ -146,15 +147,26 @@ export default function EditTimesheetScreen() {
 
   const ENTRIES_PER_PAGE = 14;
   const MAX_PAGES = 5;
-  const pages = Math.max(Math.ceil(entries.length / ENTRIES_PER_PAGE) || 1, pagesState);
-  const MAX_ENTRIES = pages * ENTRIES_PER_PAGE;
+  const pageOf = (e: TimesheetEntry) => Math.max(1, e.page || 1);
+  const pages = Math.max(...entries.map(pageOf), 1, pagesState);
+  const pageCount = (p: number) => entries.filter(e => pageOf(e) === p).length;
+  const lastPageEmpty = pages > 1 && pageCount(pages) === 0;
+  const sortEntries = (a: TimesheetEntry, b: TimesheetEntry) => {
+    if (pageOf(a) !== pageOf(b)) return pageOf(a) - pageOf(b);
+    const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/');
+    const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`);
+    return dc || a.employee_name.localeCompare(b.employee_name);
+  };
+  const pageFullMsg = (p: number) => `Página ${p} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`;
+  const addPage = () => { if (pages < MAX_PAGES) { setPagesState(pages + 1); } };
+  const removeLastPage = () => { if (lastPageEmpty) setPagesState(pages - 1); };
 
   const handleAddEntry = () => {
     if (!entryDate || !selectedEmployee) { if (Platform.OS === 'web') window.alert('Preencha data e funcionário'); else Alert.alert('Erro', 'Preencha data e funcionário'); return; }
     const hasService = !!(serviceStart && serviceEnd);
     const hasTravelHours = !!(hasTravel && travelStart && travelEnd);
     if (!hasService && !hasTravelHours) { if (Platform.OS === 'web') window.alert('Informe ao menos hora de serviço OU hora de viagem'); else Alert.alert('Erro', 'Informe ao menos hora de serviço OU hora de viagem'); return; }
-    if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) { if (Platform.OS === 'web') window.alert(`Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`); else Alert.alert('Limite atingido', `Página ${pages} cheia. Toque em "Adicionar página" para continuar.`); return; }
+    if (editingEntryIndex === null && pageCount(targetPage) >= ENTRIES_PER_PAGE) { if (Platform.OS === 'web') window.alert(pageFullMsg(targetPage)); else Alert.alert('Limite atingido', pageFullMsg(targetPage)); return; }
     if (hasService && hasTravelHours) {
       const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
       const ss = toMin(serviceStart), se = toMin(serviceEnd), ts = toMin(travelStart), te = toMin(travelEnd);
@@ -164,8 +176,8 @@ export default function EditTimesheetScreen() {
         return;
       }
     }
-    const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart || '', service_end: serviceEnd || '', travel_start: hasTravelHours ? travelStart : '-', travel_end: hasTravelHours ? travelEnd : '-' };
-    if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u.sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); } else { setEntries([...entries, newEntry].sort((a, b) => { const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/'); const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`); return dc || a.employee_name.localeCompare(b.employee_name); })); }
+    const newEntry: TimesheetEntry = { date: entryDate, employee_id: selectedEmployee.id, employee_name: selectedEmployee.name, employee_function: selectedEmployee.function || 'T', service_start: serviceStart || '', service_end: serviceEnd || '', travel_start: hasTravelHours ? travelStart : '-', travel_end: hasTravelHours ? travelEnd : '-', page: editingEntryIndex !== null ? pageOf(entries[editingEntryIndex]) : targetPage };
+    if (editingEntryIndex !== null) { const u = [...entries]; u[editingEntryIndex] = newEntry; setEntries(u.sort(sortEntries)); } else { setEntries([...entries, newEntry].sort(sortEntries)); }
     setEmployeeModalVisible(false); resetEntryForm();
   };
 
@@ -225,49 +237,62 @@ export default function EditTimesheetScreen() {
           </View>
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.label} data-testid="entries-count-label">Entradas ({entries.length}/{MAX_ENTRIES}){pages > 1 ? ` · ${pages} páginas` : ''}</Text>
-              {entries.length < MAX_ENTRIES ? (
-                <TouchableOpacity onPress={() => { setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn}><Ionicons name="add" size={20} color="#000000" /><Text style={s.addEntryText}>Adicionar</Text></TouchableOpacity>
-              ) : pages < MAX_PAGES ? (
-                <TouchableOpacity onPress={() => setPagesState(pages + 1)} style={s.addEntryBtn} data-testid="add-page-btn">
+              <Text style={s.label} data-testid="entries-count-label">Entradas ({entries.length}){pages > 1 ? ` · ${pages} páginas` : ''}</Text>
+              {pages < MAX_PAGES ? (
+                <TouchableOpacity onPress={addPage} style={s.addEntryBtn} data-testid="add-page-btn">
                   <Ionicons name="document-text-outline" size={18} color="#000000" />
                   <Text style={s.addEntryText}>Adicionar página</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={s.addEntryBtn}>
                   <Ionicons name="lock-closed" size={16} color="#999" />
-                  <Text style={{ fontSize: 14, color: '#999' }}>Limite atingido</Text>
+                  <Text style={{ fontSize: 14, color: '#999' }}>Máx. {MAX_PAGES} páginas</Text>
                 </View>
               )}
             </View>
-            {entries.length >= MAX_ENTRIES && (
-              <View style={{ backgroundColor: '#fff3e0', padding: 10, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#ffb74d' }}>
-                <Text style={{ color: '#e65100', fontSize: 13, textAlign: 'center' }}>{pages < MAX_PAGES ? `Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.` : `Máximo de ${ENTRIES_PER_PAGE * MAX_PAGES} funcionários (${MAX_PAGES} páginas) atingido.`}</Text>
-              </View>
-            )}
-            {entries.map((entry, i) => (
-              <View key={i}>
-              {pages > 1 && i % ENTRIES_PER_PAGE === 0 && (
-                <Text style={s.pageDivider} data-testid={`page-divider-${i / ENTRIES_PER_PAGE + 1}`}>Página {i / ENTRIES_PER_PAGE + 1} de {pages}</Text>
-              )}
-              <View style={s.entryCard}>
-                <View style={s.entryCardContent}>
-                  <View style={s.entryBadge}><Text style={s.entryBadgeText}>{entry.employee_function}</Text></View>
-                  <View style={s.entryInfo}>
-                    <Text style={s.entryName}>{entry.employee_name}</Text>
-                    <Text style={s.entryDetail}>Data: {entry.date}</Text>
-                    <Text style={s.entryDetail}>Serviço: {entry.service_start || '-'} - {entry.service_end || '-'}</Text>
-                    {entry.travel_start && entry.travel_start !== '0' && entry.travel_start !== '' ? <Text style={s.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
+            {Array.from({ length: pages }, (_, k) => k + 1).map(p => (
+              <View key={`page-${p}`} style={s.pageBlock} data-testid={`page-block-${p}`}>
+                <View style={s.pageHeader}>
+                  <Text style={s.pageDivider} data-testid={`page-divider-${p}`}>Página {p} de {pages} · {pageCount(p)}/{ENTRIES_PER_PAGE}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                    {p === pages && lastPageEmpty && (
+                      <TouchableOpacity onPress={removeLastPage} data-testid={`remove-page-${p}-btn`}><Ionicons name="trash-outline" size={18} color="#d32f2f" /></TouchableOpacity>
+                    )}
+                    {pageCount(p) < ENTRIES_PER_PAGE ? (
+                      <TouchableOpacity onPress={() => { setTargetPage(p); setEditingEntryIndex(null); resetEntryForm(); setEmployeeModalVisible(true); }} style={s.addEntryBtn} data-testid={`add-entry-page-${p}-btn`}>
+                        <Ionicons name="add" size={20} color="#000000" />
+                        <Text style={s.addEntryText}>Adicionar</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={{ fontSize: 13, color: '#e65100', fontWeight: '600' }}>Página cheia</Text>
+                    )}
                   </View>
                 </View>
-                <View style={s.entryActions}>
-                  <TouchableOpacity onPress={() => handleEditEntry(i)}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteEntry(i)}><Ionicons name="trash" size={20} color="#d32f2f" /></TouchableOpacity>
+                {entries.map((entry, i) => pageOf(entry) === p && (
+                <View key={i} style={s.entryCard}>
+                  <View style={s.entryCardContent}>
+                    <View style={s.entryBadge}><Text style={s.entryBadgeText}>{entry.employee_function}</Text></View>
+                    <View style={s.entryInfo}>
+                      <Text style={s.entryName}>{entry.employee_name}</Text>
+                      <Text style={s.entryDetail}>Data: {entry.date}</Text>
+                      <Text style={s.entryDetail}>Serviço: {entry.service_start || '-'} - {entry.service_end || '-'}</Text>
+                      {entry.travel_start && entry.travel_start !== '0' && entry.travel_start !== '' ? <Text style={s.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
+                    </View>
+                  </View>
+                  <View style={s.entryActions}>
+                    <TouchableOpacity onPress={() => handleEditEntry(i)}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteEntry(i)}><Ionicons name="trash" size={20} color="#d32f2f" /></TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+                ))}
+                {pageCount(p) === 0 && (
+                  <View style={s.emptyEntries}>
+                    <Ionicons name="people-outline" size={36} color="#ccc" />
+                    <Text style={s.emptyText}>Nenhuma entrada nesta página</Text>
+                  </View>
+                )}
               </View>
             ))}
-            {entries.length === 0 && <View style={s.emptyEntries}><Ionicons name="people-outline" size={48} color="#ccc" /><Text style={s.emptyText}>Nenhuma entrada</Text></View>}
           </View>
           {/* Supervisor Function */}
           <View style={s.section}>
@@ -423,7 +448,9 @@ const s = StyleSheet.create({
   selectTextSelected: { fontSize: 16, color: '#212121' },
   addEntryBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addEntryText: { fontSize: 16, color: '#000000', fontWeight: '600' },
-  pageDivider: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase', letterSpacing: 1, marginTop: 4, marginBottom: 8 },
+  pageDivider: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase', letterSpacing: 1 },
+  pageBlock: { marginBottom: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e0e0e0' },
+  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   entryCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   entryCardContent: { flexDirection: 'row', flex: 1 },
   entryBadge: { backgroundColor: '#f0f0f0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginRight: 12 },

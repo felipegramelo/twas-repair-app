@@ -123,6 +123,7 @@ class TimesheetEntry(BaseModel):
     service_end: Optional[str] = ""  # HH:MM (empty when only travel hours)
     travel_start: Optional[str] = ""  # HH:MM
     travel_end: Optional[str] = ""  # HH:MM
+    page: Optional[int] = 1
 
 
 def _time_to_minutes(t: str) -> int:
@@ -151,6 +152,17 @@ def _validate_timesheet_entries(entries):
     A day must have either service hours OR travel hours (or both).
     If service hours are present, they must not overlap with travel.
     """
+    if len(entries) > 70:
+        raise HTTPException(status_code=400, detail="Máximo de 70 entradas (5 páginas) por timesheet.")
+    per_page: dict = {}
+    for entry in entries:
+        pg = max(1, int(entry.page or 1))
+        per_page[pg] = per_page.get(pg, 0) + 1
+    if per_page and max(per_page) > 5:
+        raise HTTPException(status_code=400, detail="Máximo de 5 páginas por timesheet.")
+    full = [pg for pg, n in per_page.items() if n > 14]
+    if full:
+        raise HTTPException(status_code=400, detail=f"Máximo de 14 linhas por página (página {full[0]}).")
     for i, entry in enumerate(entries):
         travel_s = entry.travel_start if hasattr(entry, 'travel_start') else entry.get("travel_start", "")
         travel_e = entry.travel_end if hasattr(entry, 'travel_end') else entry.get("travel_end", "")

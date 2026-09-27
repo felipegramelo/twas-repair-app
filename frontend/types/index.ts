@@ -101,6 +101,7 @@ export interface TimesheetEntry {
   service_end: string;
   travel_start?: string;
   travel_end?: string;
+  page?: number;
 }
 
 export interface Timesheet {

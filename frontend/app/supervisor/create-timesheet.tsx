@@ -111,6 +111,7 @@ export default function CreateTimesheetScreen() {
   const [selectedSO, setSelectedSO] = useState<ServiceOrder | null>(null);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
   const [pagesState, setPagesState] = useState(1);
+  const [targetPage, setTargetPage] = useState(1);
   const [observations, setObservations] = useState('');
   const [supervisorFunction, setSupervisorFunction] = useState('Supervisor');
   const [functionPickerVisible, setFunctionPickerVisible] = useState(false);
@@ -181,15 +182,27 @@ export default function CreateTimesheetScreen() {
 
   const ENTRIES_PER_PAGE = 14;
   const MAX_PAGES = 5;
-  const pages = Math.max(Math.ceil(entries.length / ENTRIES_PER_PAGE) || 1, pagesState);
-  const MAX_ENTRIES = pages * ENTRIES_PER_PAGE;
+  const pageOf = (e: TimesheetEntry) => Math.max(1, e.page || 1);
+  const pages = Math.max(...entries.map(pageOf), 1, pagesState);
+  const pageCount = (p: number) => entries.filter(e => pageOf(e) === p).length;
+  const lastPageEmpty = pages > 1 && pageCount(pages) === 0;
+  const sortEntries = (a: TimesheetEntry, b: TimesheetEntry) => {
+    if (pageOf(a) !== pageOf(b)) return pageOf(a) - pageOf(b);
+    const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/');
+    const dc = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`);
+    return dc || a.employee_name.localeCompare(b.employee_name);
+  };
+  const pageFullMsg = (p: number) => `Página ${p} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`;
+  const addPage = () => { if (pages < MAX_PAGES) { setPagesState(pages + 1); } };
+  const removeLastPage = () => { if (lastPageEmpty) setPagesState(pages - 1); };
 
-  const openAddEntryModal = () => {
-    if (entries.length >= MAX_ENTRIES) {
+  const openAddEntryModal = (p: number) => {
+    setTargetPage(p);
+    if (pageCount(p) >= ENTRIES_PER_PAGE) {
       if (Platform.OS === 'web') {
-        window.alert(`Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`);
+        window.alert(pageFullMsg(p));
       } else {
-        Alert.alert('Limite atingido', `Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`);
+        Alert.alert('Limite atingido', pageFullMsg(p));
       }
       return;
     }
@@ -222,11 +235,11 @@ export default function CreateTimesheetScreen() {
       Alert.alert('Erro', 'Informe ao menos hora de serviço OU hora de viagem');
       return;
     }
-    if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) {
+    if (editingEntryIndex === null && pageCount(targetPage) >= ENTRIES_PER_PAGE) {
       if (Platform.OS === 'web') {
-        window.alert(`Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`);
+        window.alert(pageFullMsg(targetPage));
       } else {
-        Alert.alert('Limite atingido', `Página ${pages} cheia. Toque em "Adicionar página" para continuar.`);
+        Alert.alert('Limite atingido', pageFullMsg(targetPage));
       }
       return;
     }
@@ -249,21 +262,14 @@ export default function CreateTimesheetScreen() {
       service_end: serviceEnd || '',
       travel_start: hasTravelHours ? travelStart : '-',
       travel_end: hasTravelHours ? travelEnd : '-',
+      page: editingEntryIndex !== null ? pageOf(entries[editingEntryIndex]) : targetPage,
     };
     if (editingEntryIndex !== null) {
       const newEntries = [...entries];
       newEntries[editingEntryIndex] = newEntry;
-      setEntries(newEntries.sort((a, b) => {
-        const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/');
-        const dateComp = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`);
-        return dateComp || a.employee_name.localeCompare(b.employee_name);
-      }));
+      setEntries(newEntries.sort(sortEntries));
     } else {
-      setEntries([...entries, newEntry].sort((a, b) => {
-        const [ad, am, ay] = a.date.split('/'); const [bd, bm, by] = b.date.split('/');
-        const dateComp = `${ay}-${am}-${ad}`.localeCompare(`${by}-${bm}-${bd}`);
-        return dateComp || a.employee_name.localeCompare(b.employee_name);
-      }));
+      setEntries([...entries, newEntry].sort(sortEntries));
     }
     setEmployeeModalVisible(false);
     resetEntryForm();
@@ -389,57 +395,62 @@ export default function CreateTimesheetScreen() {
           {/* Entries */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.label} data-testid="entries-count-label">Entradas ({entries.length}/{MAX_ENTRIES}){pages > 1 ? ` · ${pages} páginas` : ''}</Text>
-              {entries.length < MAX_ENTRIES ? (
-                <TouchableOpacity onPress={openAddEntryModal} style={styles.addEntryButton}>
-                  <Ionicons name="add" size={20} color="#000000" />
-                  <Text style={styles.addEntryText}>Adicionar</Text>
-                </TouchableOpacity>
-              ) : pages < MAX_PAGES ? (
-                <TouchableOpacity onPress={() => setPagesState(pages + 1)} style={styles.addEntryButton} data-testid="add-page-btn">
+              <Text style={styles.label} data-testid="entries-count-label">Entradas ({entries.length}){pages > 1 ? ` · ${pages} páginas` : ''}</Text>
+              {pages < MAX_PAGES ? (
+                <TouchableOpacity onPress={addPage} style={styles.addEntryButton} data-testid="add-page-btn">
                   <Ionicons name="document-text-outline" size={18} color="#000000" />
                   <Text style={styles.addEntryText}>Adicionar página</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.addEntryButton}>
                   <Ionicons name="lock-closed" size={16} color="#999" />
-                  <Text style={{ fontSize: 14, color: '#999' }}>Limite atingido</Text>
+                  <Text style={{ fontSize: 14, color: '#999' }}>Máx. {MAX_PAGES} páginas</Text>
                 </View>
               )}
             </View>
-            {entries.length >= MAX_ENTRIES && (
-              <View style={{ backgroundColor: '#fff3e0', padding: 10, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#ffb74d' }}>
-                <Text style={{ color: '#e65100', fontSize: 13, textAlign: 'center' }}>{pages < MAX_PAGES ? `Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.` : `Máximo de ${ENTRIES_PER_PAGE * MAX_PAGES} funcionários (${MAX_PAGES} páginas) atingido.`}</Text>
-              </View>
-            )}
-            {entries.map((entry, index) => (
-              <View key={index}>
-              {pages > 1 && index % ENTRIES_PER_PAGE === 0 && (
-                <Text style={styles.pageDivider} data-testid={`page-divider-${index / ENTRIES_PER_PAGE + 1}`}>Página {index / ENTRIES_PER_PAGE + 1} de {pages}</Text>
-              )}
-              <View style={styles.entryCard}>
-                <View style={styles.entryCardContent}>
-                  <View style={styles.entryBadge}><Text style={styles.entryBadgeText}>{entry.employee_function}</Text></View>
-                  <View style={styles.entryInfo}>
-                    <Text style={styles.entryName}>{entry.employee_name}</Text>
-                    <Text style={styles.entryDetail}>Data: {entry.date}</Text>
-                    <Text style={styles.entryDetail}>Serviço: {entry.service_start || '-'} - {entry.service_end || '-'}</Text>
-                    {entry.travel_start && entry.travel_start !== '0' && entry.travel_start !== '' ? <Text style={styles.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
+            {Array.from({ length: pages }, (_, k) => k + 1).map(p => (
+              <View key={`page-${p}`} style={styles.pageBlock} data-testid={`page-block-${p}`}>
+                <View style={styles.pageHeader}>
+                  <Text style={styles.pageDivider} data-testid={`page-divider-${p}`}>Página {p} de {pages} · {pageCount(p)}/{ENTRIES_PER_PAGE}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                    {p === pages && lastPageEmpty && (
+                      <TouchableOpacity onPress={removeLastPage} data-testid={`remove-page-${p}-btn`}><Ionicons name="trash-outline" size={18} color="#d32f2f" /></TouchableOpacity>
+                    )}
+                    {pageCount(p) < ENTRIES_PER_PAGE ? (
+                      <TouchableOpacity onPress={() => openAddEntryModal(p)} style={styles.addEntryButton} data-testid={`add-entry-page-${p}-btn`}>
+                        <Ionicons name="add" size={20} color="#000000" />
+                        <Text style={styles.addEntryText}>Adicionar</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={{ fontSize: 13, color: '#e65100', fontWeight: '600' }}>Página cheia</Text>
+                    )}
                   </View>
                 </View>
-                <View style={styles.entryActions}>
-                  <TouchableOpacity onPress={() => handleEditEntry(index)}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteEntry(index)}><Ionicons name="trash" size={20} color="#d32f2f" /></TouchableOpacity>
+                {entries.map((entry, index) => pageOf(entry) === p && (
+                <View key={index} style={styles.entryCard}>
+                  <View style={styles.entryCardContent}>
+                    <View style={styles.entryBadge}><Text style={styles.entryBadgeText}>{entry.employee_function}</Text></View>
+                    <View style={styles.entryInfo}>
+                      <Text style={styles.entryName}>{entry.employee_name}</Text>
+                      <Text style={styles.entryDetail}>Data: {entry.date}</Text>
+                      <Text style={styles.entryDetail}>Serviço: {entry.service_start || '-'} - {entry.service_end || '-'}</Text>
+                      {entry.travel_start && entry.travel_start !== '0' && entry.travel_start !== '' ? <Text style={styles.entryDetail}>Viagem: {entry.travel_start} - {entry.travel_end}</Text> : null}
+                    </View>
+                  </View>
+                  <View style={styles.entryActions}>
+                    <TouchableOpacity onPress={() => handleEditEntry(index)}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteEntry(index)}><Ionicons name="trash" size={20} color="#d32f2f" /></TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+                ))}
+                {pageCount(p) === 0 && (
+                  <View style={styles.emptyEntries}>
+                    <Ionicons name="people-outline" size={36} color="#ccc" />
+                    <Text style={styles.emptyText}>Nenhuma entrada nesta página</Text>
+                  </View>
+                )}
               </View>
             ))}
-            {entries.length === 0 && (
-              <View style={styles.emptyEntries}>
-                <Ionicons name="people-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyText}>Nenhuma entrada adicionada</Text>
-              </View>
-            )}
           </View>
 
           {/* Supervisor Function */}
@@ -641,7 +652,9 @@ const styles = StyleSheet.create({
   selectTextSelected: { fontSize: 16, color: '#212121' },
   addEntryButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addEntryText: { fontSize: 16, color: '#000000', fontWeight: '600' },
-  pageDivider: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase', letterSpacing: 1, marginTop: 4, marginBottom: 8 },
+  pageDivider: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase', letterSpacing: 1 },
+  pageBlock: { marginBottom: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e0e0e0' },
+  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   entryCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   entryCardContent: { flexDirection: 'row', flex: 1 },
   entryBadge: { backgroundColor: '#f0f0f0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginRight: 12 },

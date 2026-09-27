@@ -26,5 +26,5 @@ ts = json.loads(req("/timesheets", {"os_id": so["id"], "entries": entries, "obse
 pdf = req(f"/timesheets/{ts['id']}/pdf?token={tok}")
 docp = fitz.open(stream=pdf, filetype="pdf")
 print("pages:", len(docp))
-docp[0].get_pixmap(dpi=60).save("/tmp/ts_layout.png")
+[docp[i].get_pixmap(dpi=60).save(f"/tmp/ts_layout_{i+1}.png") for i in range(len(docp))]
 urllib.request.urlopen(urllib.request.Request(BASE + f"/timesheets/{ts['id']}", headers={"Authorization": f"Bearer {tok}"}, method="DELETE")).read()

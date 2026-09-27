@@ -110,6 +110,7 @@ export default function CreateTimesheetScreen() {
 
   const [selectedSO, setSelectedSO] = useState<ServiceOrder | null>(null);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
+  const [pagesState, setPagesState] = useState(1);
   const [observations, setObservations] = useState('');
   const [supervisorFunction, setSupervisorFunction] = useState('Supervisor');
   const [functionPickerVisible, setFunctionPickerVisible] = useState(false);
@@ -178,14 +179,17 @@ export default function CreateTimesheetScreen() {
     }
   };
 
-  const MAX_ENTRIES = 14;
+  const ENTRIES_PER_PAGE = 14;
+  const MAX_PAGES = 5;
+  const pages = Math.max(Math.ceil(entries.length / ENTRIES_PER_PAGE) || 1, pagesState);
+  const MAX_ENTRIES = pages * ENTRIES_PER_PAGE;
 
   const openAddEntryModal = () => {
     if (entries.length >= MAX_ENTRIES) {
       if (Platform.OS === 'web') {
-        window.alert('Limite de 14 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+        window.alert(`Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`);
       } else {
-        Alert.alert('Limite atingido', 'Limite de 14 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+        Alert.alert('Limite atingido', `Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`);
       }
       return;
     }
@@ -220,9 +224,9 @@ export default function CreateTimesheetScreen() {
     }
     if (editingEntryIndex === null && entries.length >= MAX_ENTRIES) {
       if (Platform.OS === 'web') {
-        window.alert('Limite de 14 funcionários por timesheet atingido. Crie um novo timesheet para adicionar mais funcionários.');
+        window.alert(`Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`);
       } else {
-        Alert.alert('Limite atingido', 'Limite de 14 funcionários por timesheet. Crie um novo.');
+        Alert.alert('Limite atingido', `Página ${pages} cheia. Toque em "Adicionar página" para continuar.`);
       }
       return;
     }
@@ -300,7 +304,7 @@ export default function CreateTimesheetScreen() {
   const handleSave = async () => {
     if (!selectedSO) { if (Platform.OS === 'web') window.alert('Selecione uma Ordem de Serviço'); else Alert.alert('Erro', 'Selecione uma Ordem de Serviço'); return; }
     if (entries.length === 0) { if (Platform.OS === 'web') window.alert('Adicione pelo menos uma entrada'); else Alert.alert('Erro', 'Adicione pelo menos uma entrada'); return; }
-    if (entries.length > 14) { if (Platform.OS === 'web') window.alert('Máximo de 14 funcionários por timesheet. Remova entradas extras ou crie um novo timesheet.'); else Alert.alert('Limite atingido', 'Máximo de 14 funcionários por timesheet.'); return; }
+    if (entries.length > ENTRIES_PER_PAGE * MAX_PAGES) { if (Platform.OS === 'web') window.alert(`Máximo de ${ENTRIES_PER_PAGE * MAX_PAGES} funcionários (${MAX_PAGES} páginas) por timesheet.`); else Alert.alert('Limite atingido', `Máximo de ${ENTRIES_PER_PAGE * MAX_PAGES} funcionários por timesheet.`); return; }
     setSaving(true);
     try {
       if (!isOnline) {
@@ -385,11 +389,16 @@ export default function CreateTimesheetScreen() {
           {/* Entries */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.label}>Entradas ({entries.length}/14)</Text>
-              {entries.length < 14 ? (
+              <Text style={styles.label} data-testid="entries-count-label">Entradas ({entries.length}/{MAX_ENTRIES}){pages > 1 ? ` · ${pages} páginas` : ''}</Text>
+              {entries.length < MAX_ENTRIES ? (
                 <TouchableOpacity onPress={openAddEntryModal} style={styles.addEntryButton}>
                   <Ionicons name="add" size={20} color="#000000" />
                   <Text style={styles.addEntryText}>Adicionar</Text>
+                </TouchableOpacity>
+              ) : pages < MAX_PAGES ? (
+                <TouchableOpacity onPress={() => setPagesState(pages + 1)} style={styles.addEntryButton} data-testid="add-page-btn">
+                  <Ionicons name="document-text-outline" size={18} color="#000000" />
+                  <Text style={styles.addEntryText}>Adicionar página</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.addEntryButton}>
@@ -398,13 +407,17 @@ export default function CreateTimesheetScreen() {
                 </View>
               )}
             </View>
-            {entries.length >= 14 && (
+            {entries.length >= MAX_ENTRIES && (
               <View style={{ backgroundColor: '#fff3e0', padding: 10, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#ffb74d' }}>
-                <Text style={{ color: '#e65100', fontSize: 13, textAlign: 'center' }}>Máximo de 14 funcionários atingido. Para adicionar mais, crie um novo timesheet.</Text>
+                <Text style={{ color: '#e65100', fontSize: 13, textAlign: 'center' }}>{pages < MAX_PAGES ? `Página ${pages} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.` : `Máximo de ${ENTRIES_PER_PAGE * MAX_PAGES} funcionários (${MAX_PAGES} páginas) atingido.`}</Text>
               </View>
             )}
             {entries.map((entry, index) => (
-              <View key={index} style={styles.entryCard}>
+              <View key={index}>
+              {pages > 1 && index % ENTRIES_PER_PAGE === 0 && (
+                <Text style={styles.pageDivider} data-testid={`page-divider-${index / ENTRIES_PER_PAGE + 1}`}>Página {index / ENTRIES_PER_PAGE + 1} de {pages}</Text>
+              )}
+              <View style={styles.entryCard}>
                 <View style={styles.entryCardContent}>
                   <View style={styles.entryBadge}><Text style={styles.entryBadgeText}>{entry.employee_function}</Text></View>
                   <View style={styles.entryInfo}>
@@ -418,6 +431,7 @@ export default function CreateTimesheetScreen() {
                   <TouchableOpacity onPress={() => handleEditEntry(index)}><Ionicons name="pencil" size={20} color="#000000" /></TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDeleteEntry(index)}><Ionicons name="trash" size={20} color="#d32f2f" /></TouchableOpacity>
                 </View>
+              </View>
               </View>
             ))}
             {entries.length === 0 && (
@@ -627,6 +641,7 @@ const styles = StyleSheet.create({
   selectTextSelected: { fontSize: 16, color: '#212121' },
   addEntryButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addEntryText: { fontSize: 16, color: '#000000', fontWeight: '600' },
+  pageDivider: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase', letterSpacing: 1, marginTop: 4, marginBottom: 8 },
   entryCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   entryCardContent: { flexDirection: 'row', flex: 1 },
   entryBadge: { backgroundColor: '#f0f0f0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginRight: 12 },

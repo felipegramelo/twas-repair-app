@@ -26,12 +26,28 @@ const PDF_UPLOAD_SECTIONS = new Set(['ndt', 'pressure_test', 'certificate']);
 const isPhotoOnlySection = (key: string) => key.endsWith('_photos') || key.includes('fotos') || IMAGE_ONLY_SECTIONS.includes(key);
 const showMsg = (msg: string) => { if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Aviso', msg); };
 
-const PlainTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
+const PlainTextArea = ({ value, onChangeText, placeholder, style: cs, onCursorChange }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; onCursorChange?: (pos: number) => void; }) => {
   if (Platform.OS === 'web') {
-    return <textarea value={value} onChange={(e: any) => onChangeText(e.target.value)} placeholder={placeholder}
+    const track = (e: any) => onCursorChange?.(e.target.selectionStart ?? 0);
+    return <textarea value={value} onChange={(e: any) => { onChangeText(e.target.value); track(e); }} onSelect={track} onKeyUp={track} onClick={track} placeholder={placeholder}
       style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #e0e0e0', backgroundColor: '#f8f9fa', color: '#333', fontFamily: 'inherit', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', ...(cs || {}) }} />;
   }
-  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={onChangeText} placeholder={placeholder} multiline textAlignVertical="top" />;
+  return <TextInput style={[{ backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#e0e0e0', padding: 12, fontSize: 14, color: '#333', minHeight: 100 }, cs]} value={value} onChangeText={onChangeText} onSelectionChange={(e) => onCursorChange?.(e.nativeEvent.selection.start)} placeholder={placeholder} multiline textAlignVertical="top" />;
+};
+
+// Toggle the bullet only on the line where the cursor is (defaults to last line)
+const toggleBulletAtCursor = (content: string, pos?: number): string => {
+  const lines = content.split('\n');
+  let idx = lines.length - 1;
+  if (pos !== undefined) {
+    let acc = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (pos <= acc + lines[i].length) { idx = i; break; }
+      acc += lines[i].length + 1;
+    }
+  }
+  lines[idx] = lines[idx].startsWith('• ') ? lines[idx].substring(2) : '• ' + lines[idx];
+  return lines.join('\n');
 };
 
 const BulletTextArea = ({ value, onChangeText, placeholder, style: cs }: { value: string; onChangeText: (t: string) => void; placeholder?: string; style?: any; }) => {
@@ -95,6 +111,7 @@ export default function EditReportScreen() {
   const [saving, setSaving] = useState(false);
   const [report, setReport] = useState<any>(null);
   const [sections, setSections] = useState<Section[]>([]);
+  const [cursorPos, setCursorPos] = useState<Record<string, number>>({});
   const [periodoInicio, setPeriodoInicio] = useState('');
   const [periodoFim, setPeriodoFim] = useState('');
   const [executadoPor, setExecutadoPor] = useState('');
@@ -469,6 +486,16 @@ export default function EditReportScreen() {
             </Text>
           </TouchableOpacity>
         )}
+        {!isHidden && !NO_BULLET_SECTIONS.includes(sectionKey) && (
+          <TouchableOpacity
+            onPress={() => updateSectionContent(sectionKey, toggleBulletAtCursor(content, cursorPos[sectionKey]))}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: '#e3f2fd', borderRadius: 6 }}
+            data-testid={`toggle-line-bullet-${sectionKey}`}
+          >
+            <Ionicons name="ellipse" size={10} color="#1565c0" />
+            <Text style={{ fontSize: 11, marginLeft: 4, color: '#1565c0', fontWeight: '500' }}>Marcador na linha</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -476,7 +503,7 @@ export default function EditReportScreen() {
   const renderSmartTextArea = (sectionKey: string, content: string, placeholder: string) => {
     if (hiddenTextAreas.has(sectionKey)) return null;
     // Always use PlainTextArea - user freely edits text and toggles bullets via button
-    return <PlainTextArea value={content} onChangeText={(t) => updateSectionContent(sectionKey, t)} placeholder={placeholder} />;
+    return <PlainTextArea value={content} onChangeText={(t) => updateSectionContent(sectionKey, t)} placeholder={placeholder} onCursorChange={(pos) => setCursorPos(prev => ({ ...prev, [sectionKey]: pos }))} />;
   };
 
   const addSubsection = (parentKey: string) => {
@@ -911,8 +938,17 @@ export default function EditReportScreen() {
                             {(entry.description || '').split('\n').filter(l => l.startsWith('• ')).length > (entry.description || '').split('\n').filter(l => l.trim().length > 0).length / 2 ? 'Remover Marcadores' : 'Adicionar Marcadores'}
                           </Text>
                         </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setDailyEntries(prev => prev.map(de => de.id === entry.id ? { ...de, description: toggleBulletAtCursor(de.description || '', cursorPos[`daily_${entry.id}`]) } : de))}
+                          style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: '#e3f2fd', borderRadius: 6 }}
+                          data-testid={`toggle-line-bullet-daily-${entry.id}`}
+                        >
+                          <Ionicons name="ellipse" size={10} color="#1565c0" />
+                          <Text style={{ fontSize: 11, marginLeft: 4, color: '#1565c0', fontWeight: '500' }}>Marcador na linha</Text>
+                        </TouchableOpacity>
                       </View>
                       <PlainTextArea
+                        onCursorChange={(pos) => setCursorPos(prev => ({ ...prev, [`daily_${entry.id}`]: pos }))}
                         value={entry.description}
                         onChangeText={(t) => setDailyEntries(prev => prev.map(de => de.id === entry.id ? { ...de, description: t } : de))}
                         placeholder="Descreva as atividades realizadas neste dia..."

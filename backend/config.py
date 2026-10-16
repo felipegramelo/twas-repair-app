@@ -48,7 +48,31 @@ def _reset_storage_key():
     _storage_key = None
 
 
-def put_object(path: str, data: bytes, content_type: str) -> dict:
+_objects_coll = None
+
+
+def _objects():
+    global _objects_coll
+    if _objects_coll is None:
+        from pymongo import MongoClient
+        from bson import Binary  # noqa: F401
+        coll = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]["stored_objects"]
+        coll.create_index("path", unique=True)
+        _objects_coll = coll
+    return _objects_coll
+
+
+def _put_object_mongo(path: str, data: bytes, content_type: str) -> dict:
+    from bson import Binary
+    _objects().replace_one(
+        {"path": path},
+        {"path": path, "data": Binary(data), "content_type": content_type, "size": len(data), "created_at": datetime.utcnow()},
+        upsert=True,
+    )
+    return {"path": path, "size": len(data), "backend": "mongo"}
+
+
+def _put_object_emergent(path: str, data: bytes, content_type: str) -> dict:
     for attempt in range(2):
         key = init_storage()
         resp = requests.put(
@@ -65,29 +89,52 @@ def put_object(path: str, data: bytes, content_type: str) -> dict:
         return resp.json()
 
 
-def storage_health() -> dict:
-    info = {"emergent_key_configured": bool(EMERGENT_KEY), "init_ok": False, "put_ok": False, "error": None}
+def put_object(path: str, data: bytes, content_type: str) -> dict:
     try:
-        _reset_storage_key()
-        init_storage()
-        info["init_ok"] = True
-        put_object(f"{APP_NAME}/_health/probe.txt", b"ok", "text/plain")
-        info["put_ok"] = True
+        return _put_object_emergent(path, data, content_type)
     except Exception as e:
-        info["error"] = str(e)[:300]
-    return info
+        logging.warning(f"Emergent storage indisponível ({str(e)[:120]}); salvando no MongoDB")
+        return _put_object_mongo(path, data, content_type)
 
 
 def get_object(path: str):
-    key = init_storage()
-    resp = requests.get(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key},
-        timeout=60
-    )
-    if resp.status_code == 200:
-        return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+    try:
+        doc = _objects().find_one({"path": path})
+        if doc:
+            return bytes(doc["data"]), doc.get("content_type", "application/octet-stream")
+    except Exception as e:
+        logging.warning(f"Mongo object lookup failed: {e}")
+    try:
+        key = init_storage()
+        resp = requests.get(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key},
+            timeout=60
+        )
+        if resp.status_code == 200:
+            return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+    except Exception as e:
+        logging.warning(f"Emergent storage get failed: {e}")
     return None, None
+
+
+
+def storage_health() -> dict:
+    info = {"emergent_key_configured": bool(EMERGENT_KEY), "emergent_ok": False, "mongo_ok": False, "active_backend": None, "error": None}
+    try:
+        _reset_storage_key()
+        init_storage()
+        _put_object_emergent(f"{APP_NAME}/_health/probe.txt", b"ok", "text/plain")
+        info["emergent_ok"] = True
+    except Exception as e:
+        info["error"] = str(e)[:300]
+    try:
+        _put_object_mongo(f"{APP_NAME}/_health/probe.txt", b"ok", "text/plain")
+        info["mongo_ok"] = True
+    except Exception as e:
+        info["error"] = (info["error"] or "") + f" | mongo: {str(e)[:200]}"
+    info["active_backend"] = "emergent" if info["emergent_ok"] else ("mongo" if info["mongo_ok"] else None)
+    return info
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

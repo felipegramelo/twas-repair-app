@@ -28,26 +28,54 @@ def init_storage():
     global _storage_key
     if _storage_key:
         return _storage_key
+    if not EMERGENT_KEY:
+        raise RuntimeError("EMERGENT_LLM_KEY não configurada no servidor")
     resp = requests.post(
         f"{STORAGE_URL}/init",
         json={"emergent_key": EMERGENT_KEY},
         timeout=30
     )
-    resp.raise_for_status()
+    if not resp.ok:
+        raise RuntimeError(f"storage init failed: HTTP {resp.status_code} {resp.text[:200]}")
     _storage_key = resp.json().get("storage_key")
+    if not _storage_key:
+        raise RuntimeError("storage init sem storage_key na resposta")
     return _storage_key
 
 
+def _reset_storage_key():
+    global _storage_key
+    _storage_key = None
+
+
 def put_object(path: str, data: bytes, content_type: str) -> dict:
-    key = init_storage()
-    resp = requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key, "Content-Type": content_type},
-        data=data,
-        timeout=120
-    )
-    resp.raise_for_status()
-    return resp.json()
+    for attempt in range(2):
+        key = init_storage()
+        resp = requests.put(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key, "Content-Type": content_type},
+            data=data,
+            timeout=120
+        )
+        if resp.status_code in (401, 403) and attempt == 0:
+            _reset_storage_key()
+            continue
+        if not resp.ok:
+            raise RuntimeError(f"storage put failed: HTTP {resp.status_code} {resp.text[:200]}")
+        return resp.json()
+
+
+def storage_health() -> dict:
+    info = {"emergent_key_configured": bool(EMERGENT_KEY), "init_ok": False, "put_ok": False, "error": None}
+    try:
+        _reset_storage_key()
+        init_storage()
+        info["init_ok"] = True
+        put_object(f"{APP_NAME}/_health/probe.txt", b"ok", "text/plain")
+        info["put_ok"] = True
+    except Exception as e:
+        info["error"] = str(e)[:300]
+    return info
 
 
 def get_object(path: str):

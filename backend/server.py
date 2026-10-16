@@ -1,9 +1,11 @@
-from fastapi import FastAPI
+import asyncio
+from fastapi import FastAPI, Depends
 from starlette.middleware.cors import CORSMiddleware
 import logging
 
 from database import client
-from config import init_storage
+from config import init_storage, storage_health
+from dependencies import get_admin_user
 
 from routes.auth import router as auth_router
 from routes.employees import router as employees_router
@@ -42,6 +44,11 @@ APP_VERSION = "2.0.0"
 @app.get(f"{api_prefix}/version")
 async def get_app_version():
     return {"version": APP_VERSION}
+
+
+@app.get(f"{api_prefix}/storage/health")
+async def get_storage_health(user: dict = Depends(get_admin_user)):
+    return await asyncio.to_thread(storage_health)
 
 
 app.add_middleware(

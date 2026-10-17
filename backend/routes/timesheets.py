@@ -520,9 +520,9 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 0.08*cm),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.08*cm),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('TOPPADDING', (0, 0), (-1, -1), 0.05*cm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0.05*cm),
         ]))
         
         elements.append(entries_table)
@@ -591,7 +591,7 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         
         obs_content = (ts.get("observations", "") or "") if page_num == 0 else ""
         obs_content = obs_content.replace('\n', '<br/>')
-        obs_data = [[Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=9, leading=12))]]
+        obs_data = [[Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=10, leading=13))]]
         
         # Stretch obs box so the signature block ends near the footer
         frame_h = page_height - content_top - content_bottom - 0.45*cm

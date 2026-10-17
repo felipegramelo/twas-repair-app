@@ -767,7 +767,7 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     elements = []
 
     # ---- CLIENT INFO ----
-    client_style = ParagraphStyle('ClientInfo', fontSize=9, leading=12, textColor=colors.black)
+    client_style = ParagraphStyle('ClientInfo', fontSize=10, leading=13, textColor=colors.black)
     client_info = Table([
         [Paragraph(f"<b>Cliente:</b> {bm.get('client', '')}", client_style),
          Paragraph(f"<b>P.O.:</b> {bm.get('po_number', '')}", client_style),
@@ -785,7 +785,7 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     elements.append(Spacer(1, 6))
 
     # ---- SERVICE SCOPE ----
-    scope_style = ParagraphStyle('ScopeStyle', fontSize=9, fontName='Helvetica-Bold', textColor=colors.black)
+    scope_style = ParagraphStyle('ScopeStyle', fontSize=10, fontName='Helvetica-Bold', textColor=colors.black)
     scope_table = Table([
         [Paragraph("<b>ESCOPO DE SERVIÇOS:</b>", scope_style),
          Paragraph(f"<b>{bm.get('service', '')}</b>", scope_style)]
@@ -802,10 +802,10 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     elements.append(Spacer(1, 4))
 
     # ---- MAIN TABLE ----
-    th_style = ParagraphStyle('TH', fontSize=8, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black)
-    td_style = ParagraphStyle('TD', fontSize=8, alignment=TA_CENTER, textColor=colors.black)
-    td_right = ParagraphStyle('TDRight', fontSize=8, alignment=TA_RIGHT, textColor=colors.black)
-    td_left = ParagraphStyle('TDLeft', fontSize=8, alignment=TA_LEFT, textColor=colors.black)
+    th_style = ParagraphStyle('TH', fontSize=9, fontName='Helvetica-Bold', alignment=TA_CENTER, textColor=colors.black)
+    td_style = ParagraphStyle('TD', fontSize=9, alignment=TA_CENTER, textColor=colors.black)
+    td_right = ParagraphStyle('TDRight', fontSize=9, alignment=TA_RIGHT, textColor=colors.black)
+    td_left = ParagraphStyle('TDLeft', fontSize=9, alignment=TA_LEFT, textColor=colors.black)
 
     col_widths = [
         content_width * 0.10, content_width * 0.10, content_width * 0.07,
@@ -868,7 +868,7 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     for _ in range(empty_rows_needed):
         table_data.append([Paragraph("", td_style)] * 7 + [Paragraph("", td_right)])
 
-    bold_right = ParagraphStyle('BoldRight', fontSize=9, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=colors.black)
+    bold_right = ParagraphStyle('BoldRight', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=colors.black)
     table_data.append(["", "", "", "", Paragraph("<b>Subtotal</b>", bold_right), "", "", Paragraph(f"<b>{format_currency(bm.get('subtotal', 0))}</b>", bold_right)])
     table_data.append(["", "", "", "", Paragraph("<b>Impostos</b>", bold_right), "", "", Paragraph(format_currency(bm.get("impostos", 0)), td_right)])
     table_data.append(["", "", "", "", Paragraph("<b>Valor Total</b>", bold_right), "", "", Paragraph(f"<b>{format_currency(bm.get('valor_total', 0))}</b>", bold_right)])
@@ -878,7 +878,7 @@ async def generate_bm_pdf(bm_id: str, token: Optional[str] = Query(None), creden
     table_style_cmds = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E8EAF6')),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('BOX', (0, 0), (-1, -1), 0.5, border_color),

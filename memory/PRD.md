@@ -83,3 +83,5 @@ The user wants to unify two separate applications (a Timesheet Tracker and a Ser
 - **2026-06** — ✅ Negrito em trechos do relatório: botão 'B Negrito' (edit-report.tsx, seções + atividades diárias) envolve a seleção (ou a palavra no cursor) com `**...**`; clicar de novo remove. PlainTextArea agora reporta (start,end); cursorPos: Record<string,{start,end}>. Backend reports.py format_content converte `**x**` → `<b>x</b>` após escape (válido em todas as seções/atividades). Testado: UI web (seleção, palavra, desfazer) e PDF (span Helvetica-Bold). Linhas de controles com flexWrap para telas pequenas.
 
 - **2026-06** — ✅ Tamanho das fontes no PDF do relatório (reports.py ~680): seção 10→11, subseção 9→10.5, corpo 9→10 (leading 14). Verificado visualmente.
+
+- **2026-06** — ✅ Fontes PDF Timesheet: linhas da tabela 8→9pt (padding 0.08→0.05cm para caber), observações 9/12→10/13; limite de chars/linha no app 115→105 (total 1200) para não quebrar linha a 10pt. Validado: 14 linhas + 11 linhas de obs em 1 página (gen_ts_layout.py 14 11 105). Boletim de Medição: cliente/escopo 9→10, tabela 8→9, totais 9→10 (landscape, cabe).

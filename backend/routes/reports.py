@@ -677,9 +677,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.black, alignment=TA_CENTER, spaceAfter=8, fontName='Helvetica-Bold')
-    section_style = ParagraphStyle('RSec', parent=styles['Heading2'], fontSize=10, textColor=colors.black, spaceBefore=12, spaceAfter=5, fontName='Helvetica-Bold')
-    subsec_style = ParagraphStyle('RSubSec', parent=styles['Heading3'], fontSize=9, textColor=colors.black, spaceBefore=8, spaceAfter=3, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=9, leading=13, spaceAfter=3, alignment=TA_JUSTIFY, textColor=colors.black)
+    section_style = ParagraphStyle('RSec', parent=styles['Heading2'], fontSize=11, textColor=colors.black, spaceBefore=12, spaceAfter=5, fontName='Helvetica-Bold')
+    subsec_style = ParagraphStyle('RSubSec', parent=styles['Heading3'], fontSize=10.5, textColor=colors.black, spaceBefore=8, spaceAfter=3, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('RBody', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=3, alignment=TA_JUSTIFY, textColor=colors.black)
     
     def format_content(text):
         """Convert plain text with line breaks and bullet markers to HTML for reportlab."""

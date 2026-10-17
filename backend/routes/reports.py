@@ -686,7 +686,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         if not text:
             return ""
         import html as html_mod
+        import re as re_mod
         text = html_mod.escape(text)
+        text = re_mod.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
         text = text.replace('\n', '<br/>')
         return text
     label_style = ParagraphStyle('RLabel', parent=styles['Normal'], fontSize=9, textColor=colors.black, fontName='Helvetica-Bold')

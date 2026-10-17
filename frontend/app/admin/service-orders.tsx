@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { serviceOrderAPI, employeeAPI } from '../../services/api';
+import { BACKEND_URL } from '../../services/config';
 import { ServiceOrder, Employee, SOEmployee } from '../../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';

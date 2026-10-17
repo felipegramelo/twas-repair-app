@@ -89,3 +89,5 @@ The user wants to unify two separate applications (a Timesheet Tracker and a Ser
 - **2026-06** — ✅ OTA 'Negrito e fontes PDF' publicado (runtime 1.2.0, commit 9a9fae38). Railway confirmado com PDF novo (corpo 10pt). Emergent prod em republicação (botão 'Republicar' = Deploy) no momento da verificação.
 
 - **2026-06** — Android: adicionado perfil `production-apk` no eas.json (extends production, buildType apk) para distribuição direta (fora da Play Store); versionCode 1→2. Celulares Android com build antigo (runtime 1.0.x) não recebem OTA do runtime 1.2.0 — precisam instalar o APK novo uma vez.
+
+- **2026-06** — ✅ APK Android gerado (perfil production-apk, versionCode 3, runtime 1.2.0): https://expo.dev/artifacts/eas/uvOp9DGNQiiKAgErOAs-I--Mdy6DkAUUXYkBYYZT31g.apk — distribuir aos colaboradores Android; depois disso recebem OTA. Emergent Implantação 38 OK (storage/health emergent_ok).

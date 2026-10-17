@@ -85,3 +85,5 @@ The user wants to unify two separate applications (a Timesheet Tracker and a Ser
 - **2026-06** — ✅ Tamanho das fontes no PDF do relatório (reports.py ~680): seção 10→11, subseção 9→10.5, corpo 9→10 (leading 14). Verificado visualmente.
 
 - **2026-06** — ✅ Fontes PDF Timesheet: linhas da tabela 8→9pt (padding 0.08→0.05cm para caber), observações 9/12→10/13; limite de chars/linha no app 115→105 (total 1200) para não quebrar linha a 10pt. Validado: 14 linhas + 11 linhas de obs em 1 página (gen_ts_layout.py 14 11 105). Boletim de Medição: cliente/escopo 9→10, tabela 8→9, totais 9→10 (landscape, cabe).
+
+- **2026-06** — ✅ OTA 'Negrito e fontes PDF' publicado (runtime 1.2.0, commit 9a9fae38). Railway confirmado com PDF novo (corpo 10pt). Emergent prod em republicação (botão 'Republicar' = Deploy) no momento da verificação.

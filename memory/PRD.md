@@ -91,3 +91,5 @@ The user wants to unify two separate applications (a Timesheet Tracker and a Ser
 - **2026-06** — Android: adicionado perfil `production-apk` no eas.json (extends production, buildType apk) para distribuição direta (fora da Play Store); versionCode 1→2. Celulares Android com build antigo (runtime 1.0.x) não recebem OTA do runtime 1.2.0 — precisam instalar o APK novo uma vez.
 
 - **2026-06** — ✅ APK Android gerado (perfil production-apk, versionCode 3, runtime 1.2.0): https://expo.dev/artifacts/eas/uvOp9DGNQiiKAgErOAs-I--Mdy6DkAUUXYkBYYZT31g.apk — distribuir aos colaboradores Android; depois disso recebem OTA. Emergent Implantação 38 OK (storage/health emergent_ok).
+
+- **2026-06** — ✅ AAB Android gerado (perfil production, versionCode 4, runtime 1.2.0) para Google Play: https://expo.dev/artifacts/eas/TvTWFOGXY4i3gvy__GcRTTzlw6XPJjBnZnE653PXzAM.aab — usuário distribui Android pela Google Play. app.json versionCode=4.

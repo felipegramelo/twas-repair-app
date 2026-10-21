@@ -427,9 +427,10 @@ async def import_pdf(
 async def _do_import(project_id: str, raw_text: str):
     """Background: call Gemini, parse JSON, append tasks to project."""
     try:
-        api_key = os.environ.get("EMERGENT_LLM_KEY", "").strip()
+        # Prefer the user's own Gemini key (needed on external hosts like Railway)
+        api_key = os.environ.get("GEMINI_API_KEY", "").strip() or os.environ.get("EMERGENT_LLM_KEY", "").strip()
         if not api_key:
-            raise RuntimeError("EMERGENT_LLM_KEY não configurada")
+            raise RuntimeError("GEMINI_API_KEY/EMERGENT_LLM_KEY não configurada")
 
         system_prompt = (
             "Você é um extrator de cronogramas. Retorne APENAS um JSON válido, sem prosa nem code fences.\n"

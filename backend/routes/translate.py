@@ -13,7 +13,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 router = APIRouter()
 
-EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+EMERGENT_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
 
 
 class TranslateRequest(BaseModel):

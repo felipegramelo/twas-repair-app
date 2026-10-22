@@ -9,7 +9,7 @@ from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, PageBreak, Frame, PageTemplate, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, PageBreak, Frame, PageTemplate, KeepTogether, CondPageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 from PIL import Image as PILImage
@@ -988,6 +988,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 first_sub_with_photos = sub
                 break
         
+        # Never leave a heading alone at the bottom of a page
+        elements_list.append(CondPageBreak(3.5*cm))
         if is_fp and sec_photos:
             first_group = [Paragraph(f"{sec['number']}. {sec['title']}", style)]
             content = sec.get("content", "")
@@ -1026,6 +1028,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             else:
                 sub_is_fp = sub_key in FULL_PAGE_KEYS or sub_key.startswith('sub_') or sub_key.startswith('subsub_') or sub_key.startswith('custom_')
             
+            elements_list.append(CondPageBreak(3.5*cm))
             if sub_is_fp and sub_photos:
                 first_group = []
                 # Include parent section title in first subsection's KeepTogether
@@ -1068,6 +1071,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                     else:
                         ss_is_fp = ss_key in FULL_PAGE_KEYS or ss_key.startswith('sub_') or ss_key.startswith('subsub_') or ss_key.startswith('custom_')
                     
+                    elements_list.append(CondPageBreak(3.5*cm))
                     if ss_is_fp and ss_photos:
                         first_group = [Paragraph(f"{subsub['number']}. {subsub['title']}", subsec_style)]
                         ss_content = subsub.get("content", "")

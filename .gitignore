@@ -85,3 +85,4 @@ credentials.json
 .env
 .env.*
 *.env
+frontend/public/tmp-pdf/

@@ -842,6 +842,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     elements.append(Spacer(1, 0.5*cm))
     
     sections = report.get("sections", [])
+    if is_service:
+        # Empty "AVALIAÇÃO DO CLIENTE" section is redundant with the auto-generated evaluation form
+        sections = [s for s in sections if not (s.get("key") == "client_eval" and not (s.get("content") or "").strip() and not s.get("subsections"))]
     
     # Renumber all enabled sections dynamically
     main_idx = 0

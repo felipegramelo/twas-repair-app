@@ -427,11 +427,6 @@ async def import_pdf(
 async def _do_import(project_id: str, raw_text: str):
     """Background: call Gemini, parse JSON, append tasks to project."""
     try:
-        # Prefer the user's own Gemini key (needed on external hosts like Railway)
-        api_key = os.environ.get("GEMINI_API_KEY", "").strip() or os.environ.get("EMERGENT_LLM_KEY", "").strip()
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY/EMERGENT_LLM_KEY não configurada")
-
         system_prompt = (
             "Você é um extrator de cronogramas. Retorne APENAS um JSON válido, sem prosa nem code fences.\n"
             "Formato: {\"tasks\":[{\"name\":str,\"parent_index\":int|null,\"duration_value\":float,\"duration_unit\":\"dias\"|\"hrs\",\"start_date\":\"YYYY-MM-DD\"|null,\"end_date\":\"YYYY-MM-DD\"|null,\"progress_percent\":0-100,\"work_regime\":8|12|24|null}]}\n"
@@ -441,14 +436,8 @@ async def _do_import(project_id: str, raw_text: str):
             "work_regime é o regime diário de trabalho quando mencionado no texto (ex: 'regime de 12 horas', 'turno de 24h', '8h/dia'). Use null quando não mencionado."
         )
 
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"import-{project_id}",
-            system_message=system_prompt,
-        ).with_model("gemini", "gemini-3-flash-preview")
-
-        response = await chat.send_message(UserMessage(text=f"Texto extraído do PDF:\n\n{raw_text}"))
+        from services.llm import generate_text
+        response = await generate_text(system_prompt, f"Texto extraído do PDF:\n\n{raw_text}", session_id=f"import-{project_id}")
         llm_out = (response if isinstance(response, str) else str(response)).strip()
 
         m = re.search(r"\{[\s\S]*\}", llm_out)

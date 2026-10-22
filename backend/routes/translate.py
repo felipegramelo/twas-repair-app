@@ -5,15 +5,15 @@ from pydantic import BaseModel
 from bson import ObjectId
 from datetime import datetime
 import os
+import json
+import re
 import uuid
 
 from database import db
 from dependencies import get_current_user
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 router = APIRouter()
 
-EMERGENT_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
 
 
 class TranslateRequest(BaseModel):
@@ -39,17 +39,47 @@ async def translate_document(data: TranslateRequest, current_user: Dict[str, Any
         raise HTTPException(status_code=400, detail="Tipo de documento não suportado.")
 
 
-async def call_llm(text: str, target_lang: str) -> str:
-    if not text or not text.strip():
-        return text
-    chat = LlmChat(
-        api_key=EMERGENT_KEY,
-        session_id=f"translate-{uuid.uuid4().hex[:8]}",
-        system_message=f"You are a professional translator. Translate the following text from Portuguese to {target_lang}. Keep the same formatting, bullet points, and line breaks. Only return the translated text, nothing else."
-    ).with_model("gemini", "gemini-3-flash-preview")
+TRANSLATE_SYSTEM = (
+    "You are a professional translator. You receive a JSON array of strings in Portuguese. "
+    "Translate EACH string to {lang}. Return ONLY a JSON array with the same length and order. "
+    "Preserve formatting: bullet points (•), line breaks (\\n) and **bold** markers. Do not add explanations."
+)
 
-    response = await chat.send_message(UserMessage(text=text))
-    return response
+
+async def translate_texts(texts: list, target_lang: str) -> list:
+    """Translate many strings in few LLM calls (free Gemini tier allows ~5 req/min)."""
+    from services.llm import generate_text
+    result = list(texts)
+    idx = [i for i, t in enumerate(texts) if isinstance(t, str) and t.strip()]
+    batch_size = 40
+    for b in range(0, len(idx), batch_size):
+        chunk = idx[b:b + batch_size]
+        payload = json.dumps([texts[i] for i in chunk], ensure_ascii=False)
+        out = await generate_text(TRANSLATE_SYSTEM.format(lang=target_lang), payload, session_id=f"translate-{uuid.uuid4().hex[:8]}")
+        m = re.search(r"\[[\s\S]*\]", out)
+        parsed = json.loads(m.group(0)) if m else None
+        if not isinstance(parsed, list) or len(parsed) != len(chunk):
+            raise HTTPException(status_code=502, detail="A IA não retornou a tradução no formato esperado. Tente novamente.")
+        for i, t in zip(chunk, parsed):
+            result[i] = t if isinstance(t, str) else texts[i]
+    return result
+
+
+class _Batch:
+    """Collect (container, field) pairs, translate all at once, then write back."""
+
+    def __init__(self, target_lang: str):
+        self.target_lang = target_lang
+        self.refs = []
+
+    def add(self, container: dict, field: str):
+        self.refs.append((container, field))
+
+    async def run(self):
+        texts = [c.get(f, "") or "" for c, f in self.refs]
+        translated = await translate_texts(texts, self.target_lang)
+        for (c, f), t in zip(self.refs, translated):
+            c[f] = t
 
 
 async def translate_report(doc_id: str, target_lang: str, lang_code: str, current_user: dict):
@@ -57,38 +87,33 @@ async def translate_report(doc_id: str, target_lang: str, lang_code: str, curren
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
 
-    # Translate sections
+    batch = _Batch(target_lang)
     translated_sections = []
     for section in report.get("sections", []):
-        translated_content = await call_llm(section.get("content", ""), target_lang)
-        translated_title = await call_llm(section.get("title", ""), target_lang)
-        new_section = {**section, "content": translated_content, "title": translated_title}
-        # Translate subsections
+        new_section = {**section, "key": section.get("key", "") + f"_{lang_code}"}
+        batch.add(new_section, "content"); batch.add(new_section, "title")
         new_subsections = []
         for sub in section.get("subsections", []):
-            t_sub_content = await call_llm(sub.get("content", ""), target_lang)
-            t_sub_title = await call_llm(sub.get("title", ""), target_lang)
-            new_sub = {**sub, "content": t_sub_content, "title": t_sub_title, "key": sub.get("key", "") + f"_{lang_code}"}
-            # Translate nested subsections
+            new_sub = {**sub, "key": sub.get("key", "") + f"_{lang_code}"}
+            batch.add(new_sub, "content"); batch.add(new_sub, "title")
             nested = []
             for nsub in sub.get("subsections", []):
-                t_nsub_content = await call_llm(nsub.get("content", ""), target_lang)
-                t_nsub_title = await call_llm(nsub.get("title", ""), target_lang)
-                nested.append({**nsub, "content": t_nsub_content, "title": t_nsub_title, "key": nsub.get("key", "") + f"_{lang_code}"})
+                new_nsub = {**nsub, "key": nsub.get("key", "") + f"_{lang_code}"}
+                batch.add(new_nsub, "content"); batch.add(new_nsub, "title")
+                nested.append(new_nsub)
             new_sub["subsections"] = nested
             new_subsections.append(new_sub)
         new_section["subsections"] = new_subsections
-        new_section["key"] = section.get("key", "") + f"_{lang_code}"
         translated_sections.append(new_section)
 
-    # Translate daily entries
     translated_daily = []
     for entry in report.get("daily_entries", []):
-        t_desc = await call_llm(entry.get("description", ""), target_lang)
-        translated_daily.append({**entry, "description": t_desc, "id": str(uuid.uuid4().hex[:8])})
+        new_entry = {**entry, "id": str(uuid.uuid4().hex[:8])}
+        batch.add(new_entry, "description")
+        translated_daily.append(new_entry)
 
-    # Create copy
-    lang_label = {"en": "EN", "es": "ES"}.get(lang_code, lang_code.upper())
+    await batch.run()
+
     copy_doc = {
         "os_id": report.get("os_id", ""),
         "os_number": report.get("os_number", ""),
@@ -113,23 +138,23 @@ async def translate_proposal(doc_id: str, target_lang: str, lang_code: str, curr
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposta não encontrada")
 
-    # Translate text fields
-    t_servico = await call_llm(proposal.get("servico", ""), target_lang)
-    t_observacoes = await call_llm(proposal.get("observacoes", ""), target_lang)
-    t_termos = await call_llm(proposal.get("termos_gerais", ""), target_lang)
-
-    # Translate items descriptions
+    batch = _Batch(target_lang)
+    fields = {"servico": proposal.get("servico", ""), "observacoes": proposal.get("observacoes", ""), "termos_gerais": proposal.get("termos_gerais", "")}
+    for f in fields:
+        batch.add(fields, f)
     translated_itens = []
     for item in proposal.get("itens", []):
-        t_desc = await call_llm(item.get("descricao", ""), target_lang)
-        new_item = {**item, "descricao": t_desc}
-        # Translate subsections
+        new_item = {**item}
+        batch.add(new_item, "descricao")
         new_subs = []
         for sub in item.get("subsections", []):
-            t_sub_desc = await call_llm(sub.get("descricao", ""), target_lang)
-            new_subs.append({**sub, "descricao": t_sub_desc})
+            new_sub = {**sub}
+            batch.add(new_sub, "descricao")
+            new_subs.append(new_sub)
         new_item["subsections"] = new_subs
         translated_itens.append(new_item)
+    await batch.run()
+    t_servico, t_observacoes, t_termos = fields["servico"], fields["observacoes"], fields["termos_gerais"]
 
     lang_label = {"en": "EN", "es": "ES"}.get(lang_code, lang_code.upper())
     
@@ -174,16 +199,17 @@ async def translate_timesheet(doc_id: str, target_lang: str, lang_code: str, cur
     if not ts:
         raise HTTPException(status_code=404, detail="Timesheet não encontrada")
 
-    # Translate observations and entry descriptions
-    t_obs = await call_llm(ts.get("observations", ""), target_lang)
-
+    batch = _Batch(target_lang)
+    obs_holder = {"observations": ts.get("observations", "")}
+    batch.add(obs_holder, "observations")
     translated_entries = []
     for entry in ts.get("entries", []):
-        t_service_desc = await call_llm(entry.get("service_description", ""), target_lang)
-        new_entry = {**entry, "service_description": t_service_desc}
+        new_entry = {**entry}
+        batch.add(new_entry, "service_description")
         translated_entries.append(new_entry)
+    await batch.run()
+    t_obs = obs_holder["observations"]
 
-    lang_label = {"en": "EN", "es": "ES"}.get(lang_code, lang_code.upper())
     copy_doc = {
         "os_id": ts.get("os_id", ""),
         "os_number": ts.get("os_number", ""),

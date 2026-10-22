@@ -734,6 +734,19 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
 
     caption_style = ParagraphStyle('PhotoCaption', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.black, spaceAfter=3, leading=9)
 
+    def _headers_height(flowables):
+        total = 0
+        for f in flowables:
+            _, h = f.wrap(content_width, frame_available_height)
+            st = getattr(f, 'style', None)
+            total += h + (getattr(st, 'spaceBefore', 0) or 0) + (getattr(st, 'spaceAfter', 0) or 0)
+        return total
+
+    def load_first_photo(storage_path, headers):
+        """Size the first photo so it shares the page with the title(s) above it."""
+        max_h = frame_available_height - _headers_height(headers) - 0.3*cm
+        return load_photo_image(storage_path, content_width, max(max_h, 6*cm))
+
     # ===== COVER PAGE =====
     service_name = report.get("service", "").upper()
     vessel_name = report.get("location", "").upper()
@@ -980,7 +993,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             content = sec.get("content", "")
             if content:
                 first_group.append(Paragraph(format_content(content), body_style))
-            first_img = load_photo_image(sec_photos[0]["storage_path"], content_width, max_first_photo_height)
+            first_img = load_first_photo(sec_photos[0]["storage_path"], first_group)
             if first_img:
                 first_group.append(first_img)
             elements_list.append(KeepTogether(first_group))
@@ -1026,7 +1039,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 sub_content = sub.get("content", "")
                 if sub_content:
                     first_group.append(Paragraph(format_content(sub_content), body_style))
-                first_img = load_photo_image(sub_photos[0]["storage_path"], content_width, max_first_photo_height)
+                first_img = load_first_photo(sub_photos[0]["storage_path"], first_group)
                 if first_img:
                     first_group.append(first_img)
                 elements_list.append(KeepTogether(first_group))
@@ -1060,7 +1073,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                         ss_content = subsub.get("content", "")
                         if ss_content:
                             first_group.append(Paragraph(format_content(ss_content), body_style))
-                        first_img = load_photo_image(ss_photos[0]["storage_path"], content_width, max_first_photo_height)
+                        first_img = load_first_photo(ss_photos[0]["storage_path"], first_group)
                         if first_img:
                             first_group.append(first_img)
                         elements_list.append(KeepTogether(first_group))

@@ -7,7 +7,9 @@ from datetime import datetime, timedelta
 import jwt
 
 # JWT Configuration
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "").strip()
+if len(SECRET_KEY) < 32:
+    raise RuntimeError("JWT_SECRET_KEY ausente ou muito curta (mínimo 32 caracteres). Configure a variável de ambiente.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 

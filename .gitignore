@@ -86,3 +86,4 @@ credentials.json
 .env.*
 *.env
 frontend/public/tmp-pdf/
+frontend/.metro-cache/

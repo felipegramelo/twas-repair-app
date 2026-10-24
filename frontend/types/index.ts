@@ -113,6 +113,7 @@ export interface Timesheet {
   service: string;
   entries: TimesheetEntry[];
   observations?: string;
+  page_observations?: Record<string, string>;
   supervisor_id: string;
   supervisor_name: string;
   shared_with?: string[];

@@ -24,6 +24,7 @@ export type QueueOperation =
         entries: any[];
         observations?: string;
         supervisor_function?: string;
+        page_observations?: Record<string, string>;
       };
       // Snapshot for display in the dashboard while offline
       snapshot: {
@@ -184,6 +185,7 @@ class OfflineQueue {
               op.payload.entries,
               op.payload.observations,
               op.payload.supervisor_function,
+              op.payload.page_observations,
             );
           } else if (op.type === 'create_report') {
             await reportAPI.create(op.payload);

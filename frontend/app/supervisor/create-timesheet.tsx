@@ -21,6 +21,7 @@ import { serviceOrderAPI, employeeAPI, timesheetAPI } from '../../services/api';
 import { offlineQueue } from '../../services/offlineQueue';
 import { useOffline } from '../../contexts/OfflineContext';
 import { ServiceOrder, Employee, TimesheetEntry } from '../../types';
+import { PageObservations } from '../../components/PageObservations';
 
 // Generate 30-minute time slots
 const TIME_SLOTS: string[] = [];
@@ -113,6 +114,7 @@ export default function CreateTimesheetScreen() {
   const [pagesState, setPagesState] = useState(1);
   const [targetPage, setTargetPage] = useState(1);
   const [observations, setObservations] = useState('');
+  const [pageObservations, setPageObservations] = useState<Record<string, string>>({});
   const [supervisorFunction, setSupervisorFunction] = useState('Supervisor');
   const [functionPickerVisible, setFunctionPickerVisible] = useState(false);
 
@@ -194,7 +196,7 @@ export default function CreateTimesheetScreen() {
   };
   const pageFullMsg = (p: number) => `Página ${p} cheia (${ENTRIES_PER_PAGE} linhas). Toque em "Adicionar página" para continuar no mesmo timesheet.`;
   const addPage = () => { if (pages < MAX_PAGES) { setPagesState(pages + 1); } };
-  const removeLastPage = () => { if (lastPageEmpty) setPagesState(pages - 1); };
+  const removeLastPage = () => { if (lastPageEmpty) { setPagesState(pages - 1); setPageObservations(prev => { const n = { ...prev }; delete n[String(pages)]; return n; }); } };
 
   const openAddEntryModal = (p: number) => {
     setTargetPage(p);
@@ -317,7 +319,7 @@ export default function CreateTimesheetScreen() {
         // Offline: store in local queue. It will be auto-synced when online.
         await offlineQueue.enqueue({
           type: 'create_timesheet',
-          payload: { os_id: selectedSO.id, entries, observations, supervisor_function: supervisorFunction },
+          payload: { os_id: selectedSO.id, entries, observations, supervisor_function: supervisorFunction, page_observations: pageObservations },
           snapshot: {
             id: `local_${Date.now()}`,
             os_id: selectedSO.id,
@@ -340,7 +342,7 @@ export default function CreateTimesheetScreen() {
         }
         return;
       }
-      await timesheetAPI.create(selectedSO.id, entries, observations, supervisorFunction);
+      await timesheetAPI.create(selectedSO.id, entries, observations, supervisorFunction, pageObservations);
       if (Platform.OS === 'web') {
         window.alert('Timesheet criado com sucesso!');
         router.replace(`/supervisor?refresh=${Date.now()}`);
@@ -470,6 +472,8 @@ export default function CreateTimesheetScreen() {
             </View>
             <TextInput style={[styles.input, styles.textArea]} placeholder="Adicione observações (opcional)" value={observations} onChangeText={(text) => { const charsPerLine = 105; const lines = text.split(/\r\n|\r|\n/); const visualLines = lines.reduce((t, l) => t + Math.max(1, Math.ceil(l.length / charsPerLine)), 0); if (visualLines > 11 || text.length > 1200) { if (Platform.OS === 'web') window.alert('Limite atingido: máximo de 1200 caracteres ou 11 linhas visuais.'); else Alert.alert('Limite atingido', 'Máximo de 1200 caracteres ou 11 linhas visuais.'); const trimmedLines: string[] = []; let count = 0; for (const line of lines) { const needed = Math.max(1, Math.ceil(line.length / charsPerLine)); if (count + needed <= 11) { trimmedLines.push(line); count += needed; } else { const remaining = 11 - count; if (remaining > 0) { trimmedLines.push(line.substring(0, remaining * charsPerLine)); } break; } } text = trimmedLines.join('\n'); if (text.length > 1200) text = text.substring(0, 1200); } setObservations(text); }} multiline numberOfLines={11} blurOnSubmit={false} />
           </View>
+
+          <PageObservations pages={pages} observations={observations} pageObservations={pageObservations} onChange={setPageObservations} />
 
           <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Salvar Timesheet</Text>}

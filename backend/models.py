@@ -198,6 +198,7 @@ class Timesheet(BaseModel):
     service: str
     entries: List[TimesheetEntry]
     observations: Optional[str] = ""
+    page_observations: Optional[Dict[str, str]] = {}
     supervisor_id: str
     supervisor_name: str
     supervisor_function: Optional[str] = "Supervisor"
@@ -213,6 +214,7 @@ class TimesheetCreate(BaseModel):
     os_id: str
     entries: List[TimesheetEntry]
     observations: Optional[str] = ""
+    page_observations: Optional[Dict[str, str]] = {}
     supervisor_function: Optional[str] = "Supervisor"
 
 

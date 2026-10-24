@@ -589,7 +589,9 @@ async def generate_timesheet_pdf(ts_id: str, token: Optional[str] = Query(None),
         elements.append(obs_title)
         elements.append(Spacer(1, 0.05*cm))
         
-        obs_content = (ts.get("observations", "") or "") if page_num == 0 else ""
+        # Pages 2+ repeat page-1 observations unless overridden per page (keys are 1-based page numbers)
+        page_obs = ts.get("page_observations") or {}
+        obs_content = page_obs.get(str(page_num + 1)) if page_num > 0 and str(page_num + 1) in page_obs else (ts.get("observations", "") or "")
         obs_content = obs_content.replace('\n', '<br/>')
         obs_data = [[Paragraph(obs_content, ParagraphStyle(f'obs_{page_num}', parent=styles['Normal'], fontSize=10, leading=13))]]
         

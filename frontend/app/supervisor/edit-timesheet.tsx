@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { serviceOrderAPI, employeeAPI, timesheetAPI } from '../../services/api';
 import { ServiceOrder, Employee, TimesheetEntry } from '../../types';
-import { PageObservations } from '../../components/PageObservations';
+import { PageObservationsField } from '../../components/PageObservations';
 
 const TIME_SLOTS: string[] = [];
 for (let h = 0; h < 24; h++) {
@@ -293,6 +293,7 @@ export default function EditTimesheetScreen() {
                     <Text style={s.emptyText}>Nenhuma entrada nesta página</Text>
                   </View>
                 )}
+                <PageObservationsField page={p} pages={pages} observations={observations} setObservations={setObservations} pageObservations={pageObservations} setPageObservations={setPageObservations} />
               </View>
             ))}
           </View>
@@ -305,15 +306,6 @@ export default function EditTimesheetScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={s.section}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={s.label}>Observações</Text>
-              <Text style={{ fontSize: 12, color: (() => { const chars = 105; const vl = observations.split(/\r\n|\r|\n/).reduce((t: number, l: string) => t + Math.max(1, Math.ceil(l.length / chars)), 0); return vl > 11 || observations.length >= 1200 ? '#d32f2f' : '#999'; })() }}>{observations.length}/1200 ({(() => { const chars = 105; return observations.split(/\r\n|\r|\n/).reduce((t: number, l: string) => t + Math.max(1, Math.ceil(l.length / chars)), 0); })()}/11 linhas)</Text>
-            </View>
-            <TextInput style={[s.input, s.textArea]} placeholder="Observações (opcional)" value={observations} onChangeText={(text) => { const charsPerLine = 105; const lines = text.split(/\r\n|\r|\n/); const visualLines = lines.reduce((t: number, l: string) => t + Math.max(1, Math.ceil(l.length / charsPerLine)), 0); if (visualLines > 11 || text.length > 1200) { if (Platform.OS === 'web') window.alert('Limite atingido: máximo de 1200 caracteres ou 11 linhas visuais.'); else Alert.alert('Limite atingido', 'Máximo de 1200 caracteres ou 11 linhas visuais.'); const trimmedLines: string[] = []; let count = 0; for (const line of lines) { const needed = Math.max(1, Math.ceil(line.length / charsPerLine)); if (count + needed <= 11) { trimmedLines.push(line); count += needed; } else { const remaining = 11 - count; if (remaining > 0) { trimmedLines.push(line.substring(0, remaining * charsPerLine)); } break; } } text = trimmedLines.join('\n'); if (text.length > 1200) text = text.substring(0, 1200); } setObservations(text); }} multiline numberOfLines={11} blurOnSubmit={false} />
-          </View>
-
-          <PageObservations pages={pages} observations={observations} pageObservations={pageObservations} onChange={setPageObservations} />
 
           <TouchableOpacity style={[s.saveButton, saving && s.saveButtonDisabled]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.saveButtonText}>Atualizar Timesheet</Text>}

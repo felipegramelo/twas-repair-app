@@ -23,60 +23,65 @@ export const clampObservations = (text: string): string => {
 };
 
 interface Props {
+  page: number;
   pages: number;
   observations: string;
+  setObservations: (text: string) => void;
   pageObservations: Record<string, string>;
-  onChange: (next: Record<string, string>) => void;
+  setPageObservations: (next: Record<string, string>) => void;
 }
 
-// Observations for pages 2+: copied from page 1 by default, editable per page.
-export const PageObservations = ({ pages, observations, pageObservations, onChange }: Props) => {
-  if (pages <= 1) return null;
+// Observations field shown inside each page block. Page 1 = main text; pages 2+ copy page 1 unless edited.
+export const PageObservationsField = ({ page, pages, observations, setObservations, pageObservations, setPageObservations }: Props) => {
+  const key = String(page);
+  const isFirst = page === 1;
+  const overridden = !isFirst && pageObservations[key] !== undefined;
+  const value = isFirst ? observations : (overridden ? pageObservations[key] : observations);
+  const onChange = (t: string) => {
+    const clamped = clampObservations(t);
+    if (isFirst) setObservations(clamped);
+    else setPageObservations({ ...pageObservations, [key]: clamped });
+  };
+  const warn = visualLines(value) > MAX_LINES || value.length >= MAX_CHARS;
   return (
-    <>
-      {Array.from({ length: pages - 1 }, (_, i) => String(i + 2)).map((p) => {
-        const overridden = pageObservations[p] !== undefined;
-        const value = overridden ? pageObservations[p] : observations;
-        return (
-          <View key={`obs-page-${p}`} style={styles.section} testID={`page-observations-${p}`}>
-            <View style={styles.row}>
-              <Text style={styles.label}>Observações — Página {p}</Text>
-              <Text style={[styles.counter, (visualLines(value) > MAX_LINES || value.length >= MAX_CHARS) && styles.counterWarn]}>
-                {value.length}/{MAX_CHARS} ({visualLines(value)}/{MAX_LINES} linhas)
-              </Text>
-            </View>
-            <Text style={styles.hint} testID={`page-observations-${p}-hint`}>
-              {overridden ? 'Texto próprio desta página.' : 'Copiado da página 1 — edite se necessário.'}
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={value}
-              placeholder="Observações desta página"
-              onChangeText={(t) => onChange({ ...pageObservations, [p]: clampObservations(t) })}
-              multiline
-              numberOfLines={6}
-              blurOnSubmit={false}
-              testID={`page-observations-${p}-input`}
-            />
-            {overridden && (
-              <TouchableOpacity
-                onPress={() => { const next = { ...pageObservations }; delete next[p]; onChange(next); }}
-                testID={`page-observations-${p}-reset`}
-              >
-                <Text style={styles.reset}>Voltar a copiar da página 1</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        );
-      })}
-    </>
+    <View style={styles.wrap} testID={`page-observations-${page}`}>
+      <View style={styles.row}>
+        <Text style={styles.label}>{pages > 1 ? `Observações — Página ${page}` : 'Observações'}</Text>
+        <Text style={[styles.counter, warn && styles.counterWarn]} testID={`page-observations-${page}-counter`}>
+          {value.length}/{MAX_CHARS} ({visualLines(value)}/{MAX_LINES} linhas)
+        </Text>
+      </View>
+      {!isFirst && (
+        <Text style={styles.hint} testID={`page-observations-${page}-hint`}>
+          {overridden ? 'Texto próprio desta página.' : 'Copiado da página 1 — edite se necessário.'}
+        </Text>
+      )}
+      <TextInput
+        style={styles.input}
+        value={value}
+        placeholder={isFirst ? 'Adicione observações (opcional)' : 'Observações desta página'}
+        onChangeText={onChange}
+        multiline
+        numberOfLines={isFirst ? 11 : 6}
+        blurOnSubmit={false}
+        testID={`page-observations-${page}-input`}
+      />
+      {overridden && (
+        <TouchableOpacity
+          onPress={() => { const next = { ...pageObservations }; delete next[key]; setPageObservations(next); }}
+          testID={`page-observations-${page}-reset`}
+        >
+          <Text style={styles.reset}>Voltar a copiar da página 1</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 24 },
+  wrap: { marginTop: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontSize: 16, fontWeight: '600', color: '#212121', marginBottom: 4 },
+  label: { fontSize: 15, fontWeight: '600', color: '#212121', marginBottom: 4 },
   counter: { fontSize: 12, color: '#999' },
   counterWarn: { color: '#d32f2f' },
   hint: { fontSize: 12, color: '#666', fontStyle: 'italic', marginBottom: 8 },

@@ -412,6 +412,26 @@ export default function EditReportScreen() {
     }));
   };
 
+  // Remove a subsection (custom ones are deleted; template ones are just disabled)
+  const removeSubsection = (sectionKey: string, title: string) => {
+    const isCustom = /^(sub_|custom_|subsub_)/.test(sectionKey);
+    const doRemove = () => setSections(prev => prev.map(s => ({
+      ...s,
+      subsections: s.subsections
+        .filter(sub => !(isCustom && sub.key === sectionKey))
+        .map(sub => ({
+          ...(sub.key === sectionKey ? { ...sub, enabled: false } : sub),
+          subsections: (sub.subsections || [])
+            .filter(ss => !(isCustom && ss.key === sectionKey))
+            .map(ss => ss.key === sectionKey ? { ...ss, enabled: false } : ss),
+        })),
+    })));
+    const msg = `Remover a subseção "${title || 'sem título'}" do relatório?`;
+    if (Platform.OS === 'web') { if (window.confirm(msg)) doRemove(); }
+    else Alert.alert('Remover subseção', msg, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Remover', style: 'destructive', onPress: doRemove }]);
+  };
+
+
   const addCustomSection = () => {
     if (!addingSectionTitle.trim()) return;
     const key = `custom_${Date.now()}`;
@@ -763,13 +783,18 @@ export default function EditReportScreen() {
                       const showPhotoUpload = PDF_UPLOAD_SECTIONS.has(sec.key) || isPhotos || isCustomSub;
                       return (
                         <View key={sub.key} style={styles.subsectionBlock}>
-                          <TextInput
-                            style={styles.subsectionTitleInput}
-                            value={sub.title}
-                            onChangeText={(t) => updateSectionTitle(sub.key, t)}
-                            placeholder="Nome da subseção..."
-                            data-testid={`subsection-title-${sub.key}`}
-                          />
+                          <View style={styles.subTitleRow}>
+                            <TextInput
+                              style={[styles.subsectionTitleInput, { flex: 1 }]}
+                              value={sub.title}
+                              onChangeText={(t) => updateSectionTitle(sub.key, t)}
+                              placeholder="Nome da subseção..."
+                              data-testid={`subsection-title-${sub.key}`}
+                            />
+                            <TouchableOpacity onPress={() => removeSubsection(sub.key, sub.title)} style={styles.subRemoveBtn} testID={`subsection-remove-${sub.key}`}>
+                              <Ionicons name="trash-outline" size={18} color="#d32f2f" />
+                            </TouchableOpacity>
+                          </View>
                           {!isPhotos && (!showPhotoUpload || isCustomSub) && (
                             <>
                               {renderTextAreaControls(sub.key, hiddenTextAreas.has(sub.key))}
@@ -783,12 +808,17 @@ export default function EditReportScreen() {
                             const isCustomSubSub = ss.key.startsWith('sub_') || ss.key.startsWith('custom_') || ss.key.startsWith('subsub_');
                             return (
                               <View key={ss.key} style={styles.subsubBlock}>
-                                <TextInput
-                                  style={styles.subsubTitleInput}
-                                  value={ss.title}
-                                  onChangeText={(t) => updateSectionTitle(ss.key, t)}
-                                  placeholder="Nome da subseção..."
-                                />
+                                <View style={styles.subTitleRow}>
+                                  <TextInput
+                                    style={[styles.subsubTitleInput, { flex: 1 }]}
+                                    value={ss.title}
+                                    onChangeText={(t) => updateSectionTitle(ss.key, t)}
+                                    placeholder="Nome da subseção..."
+                                  />
+                                  <TouchableOpacity onPress={() => removeSubsection(ss.key, ss.title)} style={styles.subRemoveBtn} testID={`subsection-remove-${ss.key}`}>
+                                    <Ionicons name="trash-outline" size={16} color="#d32f2f" />
+                                  </TouchableOpacity>
+                                </View>
                                 {!isSP && (
                                   <>
                                     {renderTextAreaControls(ss.key, hiddenTextAreas.has(ss.key))}
@@ -1122,6 +1152,8 @@ const styles = StyleSheet.create({
   sectionNum: { fontSize: 14, fontWeight: '700', color: '#000000' },
   sectionTitleText: { fontSize: 13, fontWeight: '700', color: '#000000', flex: 1 },
   subsectionBlock: { marginTop: 14, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: '#f0f0f0' },
+  subTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subRemoveBtn: { padding: 6, marginBottom: 6 },
   subsectionTitle: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 6 },
   subsectionTitleInput: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', paddingVertical: 4, paddingHorizontal: 0, backgroundColor: 'transparent' },
   subsubBlock: { marginTop: 10, paddingLeft: 14 },

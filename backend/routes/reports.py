@@ -244,47 +244,39 @@ async def duplicate_report(report_id: str, dup: DuplicateReportRequest, user: di
         if original.get("supervisor_id") != user["_id"] and user["_id"] not in original.get("shared_with", []):
             raise HTTPException(status_code=403, detail="Acesso negado")
 
-    # If a new OS is provided, fetch its data
+    # Copy everything from the original (embarcacao, language, daily_entries, representantes, etc.)
+    import copy
+    new_report = copy.deepcopy({k: v for k, v in original.items() if k != "_id"})
+
+    # If a new OS is provided, take its data
     if dup.os_id and dup.os_id != original.get("os_id"):
         os_data = await db.service_orders.find_one({"_id": ObjectId(dup.os_id)})
         if not os_data:
             raise HTTPException(status_code=404, detail="Ordem de Serviço não encontrada")
-        os_number = os_data["os_number"]
-        client = os_data["client"]
-        location = os_data["location"]
-        service = os_data["service"]
-        os_id = dup.os_id
-    else:
-        os_id = original["os_id"]
-        os_number = original["os_number"]
-        client = original["client"]
-        location = original["location"]
-        service = original["service"]
-
-    # Deep copy sections, clearing photos
-    import copy
-    sections = copy.deepcopy(original.get("sections", []))
+        new_report.update({
+            "os_id": dup.os_id,
+            "os_number": os_data["os_number"],
+            "client": os_data["client"],
+            "location": os_data["location"],
+            "service": os_data["service"],
+            "embarcacao": os_data.get("embarcacao", ""),
+        })
 
     now = datetime.utcnow()
-    new_report = {
-        "report_type": original["report_type"],
-        "os_id": os_id,
-        "os_number": os_number,
-        "client": client,
-        "location": location,
-        "service": service,
+    new_report.update({
         "supervisor_id": str(user["_id"]),
         "supervisor_name": user["name"],
         "periodo_inicio": dup.periodo_inicio or original.get("periodo_inicio", ""),
         "periodo_fim": dup.periodo_fim or original.get("periodo_fim", ""),
         "executado_por": dup.executado_por or original.get("executado_por", ""),
         "cover_photo": "",
-        "sections": sections,
         "shared_with": [],
         "status": "draft",
         "created_at": now,
         "updated_at": now,
-    }
+    })
+    for k in ("pdf_url", "pdf_path", "onedrive_url", "sent_at"):
+        new_report.pop(k, None)
     result = await db.reports.insert_one(new_report)
     return {
         "id": str(result.inserted_id),
@@ -526,6 +518,12 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     report = await db.reports.find_one({"_id": ObjectId(report_id)})
     if not report:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    if not report.get("embarcacao") and report.get("os_id"):
+        # Older duplicates were saved without the vessel; recover it from the service order
+        so = await db.service_orders.find_one({"_id": ObjectId(report["os_id"])})
+        if so and so.get("embarcacao"):
+            report["embarcacao"] = so["embarcacao"]
+            await db.reports.update_one({"_id": report["_id"]}, {"$set": {"embarcacao": so["embarcacao"]}})
     
     buffer = io.BytesIO()
     page_width, page_height = A4

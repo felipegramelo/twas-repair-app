@@ -1168,40 +1168,31 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 rows.append(row_imgs)
                 rows.append(row_caps)
             if rows:
-                photo_table = Table(rows, colWidths=[photo_col_w, photo_col_w])
-                photo_table.setStyle(TableStyle([
+                row_style = TableStyle([
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                     ('TOPPADDING', (0, 0), (-1, -1), 4),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ]))
+                ])
+                # One small table per photo row (images + captions) so a caption never lands on another page
+                row_tables = []
+                for i in range(0, len(rows), 2):
+                    t = Table(rows[i:i + 2], colWidths=[photo_col_w, photo_col_w])
+                    t.setStyle(row_style)
+                    row_tables.append(t)
                 spacer = Spacer(1, 0.3*cm)
-                if header_elements:
-                    # Build first photo row table separately
-                    first_row_data = rows[:2]  # first image row + caption row
-                    first_photo_table = Table(first_row_data, colWidths=[photo_col_w, photo_col_w])
-                    first_photo_table.setStyle(TableStyle([
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                        ('TOPPADDING', (0, 0), (-1, -1), 4),
-                        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                    ]))
-                    keep_group = list(header_elements) + [spacer, first_photo_table]
-                    elements_list.append(KeepTogether(keep_group))
-                    # Add remaining rows normally
-                    if len(rows) > 2:
-                        remaining_rows = rows[2:]
-                        remaining_table = Table(remaining_rows, colWidths=[photo_col_w, photo_col_w])
-                        remaining_table.setStyle(TableStyle([
-                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                            ('TOPPADDING', (0, 0), (-1, -1), 4),
-                            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                        ]))
-                        elements_list.append(remaining_table)
+                heads = list(header_elements or [])
+                heading_styles = (section_style, subsec_style)
+                # Only a trailing heading (e.g. "4.3.1. FOTOS") is glued to the first row; title+text stay together and fill the page
+                if heads and getattr(heads[-1], 'style', None) in heading_styles:
+                    lead, tail = heads[:-1], heads[-1:]
                 else:
-                    elements_list.append(spacer)
-                    elements_list.append(photo_table)
+                    lead, tail = heads, []
+                if lead:
+                    elements_list.append(KeepTogether(lead))
+                elements_list.append(KeepTogether(tail + [spacer, row_tables[0]]))
+                for t in row_tables[1:]:
+                    elements_list.append(KeepTogether([t]))
     
     for sec in sections:
         render_section(sec, elements)

@@ -178,11 +178,11 @@ export default function EditReportScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Save all edited captions first
-      const captionPromises = Object.entries(captions).map(([photoId, caption]) =>
-        reportAPI.updateCaption(id!, photoId, caption)
-      );
-      await Promise.all(captionPromises);
+      // Save captions only for photos that still exist; a failed caption must not block the report save
+      const photoIds = new Set(photos.map(p => p.id));
+      await Promise.allSettled(Object.entries(captions)
+        .filter(([photoId]) => photoIds.has(photoId))
+        .map(([photoId, caption]) => reportAPI.updateCaption(id!, photoId, caption)));
       await reportAPI.update(id!, { periodo_inicio: periodoInicio, periodo_fim: periodoFim, executado_por: executadoPor, oc_wo: ocWo, representante_twas: representanteTwas, representante_cliente: representanteCliente, sections, daily_entries: dailyEntries });
       showMsg('Relatório salvo com sucesso!'); router.push('/supervisor');
     } catch (e: any) { showMsg('Erro ao salvar: ' + (e.message || '')); } finally { setSaving(false); }
@@ -360,7 +360,7 @@ export default function EditReportScreen() {
 
   const handleDeletePhoto = async (photoId: string) => {
     const doDelete = async () => {
-      try { await reportAPI.deletePhoto(id!, photoId); setPhotos(prev => prev.filter(p => p.id !== photoId)); showMsg('Foto excluida'); } catch { showMsg('Erro ao excluir foto'); }
+      try { await reportAPI.deletePhoto(id!, photoId); setPhotos(prev => prev.filter(p => p.id !== photoId)); setCaptions(prev => { const n = { ...prev }; delete n[photoId]; return n; }); showMsg('Foto excluida'); } catch { showMsg('Erro ao excluir foto'); }
     };
     if (Platform.OS === 'web') {
       if (window.confirm('Excluir esta foto?')) await doDelete();

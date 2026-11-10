@@ -472,12 +472,11 @@ async def update_photo_caption(report_id: str, photo_id: str, request: Request, 
     body = await request.json()
     caption = body.get("caption", "")
     result = await db.report_photos.update_one(
-        {"_id": ObjectId(photo_id), "report_id": report_id, "is_deleted": False},
+        {"_id": ObjectId(photo_id), "report_id": report_id},
         {"$set": {"caption": caption}}
     )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Foto não encontrada")
-    return {"success": True, "caption": caption}
+    # Deleted/missing photo: ignore instead of failing the whole report save
+    return {"success": result.matched_count > 0, "caption": caption}
 
 
 @router.delete("/reports/{report_id}/photos/{photo_id}")

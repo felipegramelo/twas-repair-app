@@ -868,6 +868,13 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     toc_style_sub = ParagraphStyle('TOCSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=15)
     toc_style_subsub = ParagraphStyle('TOCSubSub', parent=styles['Normal'], fontSize=9, fontName='Helvetica', textColor=colors.black, spaceBefore=2, spaceAfter=2, leftIndent=30)
     
+    def auto_fotos_number(sub):
+        """Subsection with text + photos attached directly (and no own sub-items) gets an implicit 'x.y.1. FOTOS' heading."""
+        has_subsubs = any(ss.get("enabled", True) for ss in sub.get("subsections", []))
+        if has_subsubs or not (sub.get("content") or "").strip() or not report_photos.get(sub.get("key", "")):
+            return None
+        return f"{sub['number']}.1"
+
     def build_toc_entries(sec_list):
         entries = []
         for sec in sec_list:
@@ -876,6 +883,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 for sub in sec.get("subsections", []):
                     if sub.get("enabled", True):
                         entries.append({"number": sub["number"], "title": sub["title"], "level": 1, "key": sub.get("key","")})
+                        fotos_num = auto_fotos_number(sub)
+                        if fotos_num:
+                            entries.append({"number": fotos_num, "title": "FOTOS", "level": 2, "key": f"{sub.get('key','')}_fotos"})
                         for subsub in sub.get("subsections", []):
                             if subsub.get("enabled", True):
                                 entries.append({"number": subsub["number"], "title": subsub["title"], "level": 2, "key": subsub.get("key","")})
@@ -1043,6 +1053,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 sub_content = sub.get("content", "")
                 if sub_content:
                     first_group.append(Paragraph(format_content(sub_content), body_style))
+                fotos_num = auto_fotos_number(sub)
+                if fotos_num:
+                    first_group.append(Paragraph(f"{fotos_num}. FOTOS", subsec_style))
                 first_img = load_first_photo(sub_photos[0]["storage_path"], first_group)
                 if first_img:
                     first_group.append(first_img)
@@ -1058,6 +1071,9 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 sub_content = sub.get("content", "")
                 if sub_content:
                     sub_header.append(Paragraph(format_content(sub_content), body_style))
+                fotos_num = auto_fotos_number(sub)
+                if fotos_num:
+                    sub_header.append(Paragraph(f"{fotos_num}. FOTOS", subsec_style))
                 _render_photos(sub_key, elements_list, force_grid=(sub_layout == "grid"), header_elements=sub_header)
             
             for subsub in sub.get("subsections", []):

@@ -147,6 +147,7 @@ export default function EditReportScreen() {
   const [customSectionMode, setCustomSectionMode] = useState<Record<string, Set<string>>>({});
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [token, setToken] = useState('');
   const [captions, setCaptions] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -264,7 +265,7 @@ export default function EditReportScreen() {
         } catch (e: any) {
           showMsg('Erro ao enviar arquivo: ' + (e.message || ''));
         } finally {
-          setUploading(null);
+          setUploading(null); setUploadProgress('');
         }
       } else {
         // For image sections: show action sheet with Camera / Photo Library / File options
@@ -281,10 +282,11 @@ export default function EditReportScreen() {
                     Alert.alert('Permissão necessária', 'Permita o acesso à câmera nas configurações do app.');
                     return;
                   }
-                  const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
+                  const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 });
                   if (!result.canceled && result.assets) {
                     setUploading(sectionKey);
-                    for (const asset of result.assets) {
+                    for (const [i, asset] of result.assets.entries()) {
+                      setUploadProgress(`${i + 1}/${result.assets.length}`);
                       const name = asset.fileName || `photo_${Date.now()}.jpg`;
                       const file = { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' };
                       await reportAPI.uploadPhoto(id!, file as any, sectionKey, name);
@@ -294,7 +296,7 @@ export default function EditReportScreen() {
                 } catch (e: any) {
                   showMsg('Erro ao tirar foto: ' + (e.message || ''));
                 } finally {
-                  setUploading(null);
+                  setUploading(null); setUploadProgress('');
                 }
               },
             },
@@ -302,10 +304,11 @@ export default function EditReportScreen() {
               text: 'Fototeca',
               onPress: async () => {
                 try {
-                  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.8 });
+                  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.6 });
                   if (!result.canceled && result.assets) {
                     setUploading(sectionKey);
-                    for (const asset of result.assets) {
+                    for (const [i, asset] of result.assets.entries()) {
+                      setUploadProgress(`${i + 1}/${result.assets.length}`);
                       const name = asset.fileName || `photo_${Date.now()}.jpg`;
                       const file = { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' };
                       await reportAPI.uploadPhoto(id!, file as any, sectionKey, name);
@@ -315,7 +318,7 @@ export default function EditReportScreen() {
                 } catch (e: any) {
                   showMsg('Erro ao selecionar foto: ' + (e.message || ''));
                 } finally {
-                  setUploading(null);
+                  setUploading(null); setUploadProgress('');
                 }
               },
             },
@@ -326,7 +329,8 @@ export default function EditReportScreen() {
                   const result = await DocumentPicker.getDocumentAsync({ type: ['image/*'], multiple: true });
                   if (!result.canceled && result.assets) {
                     setUploading(sectionKey);
-                    for (const asset of result.assets) {
+                    for (const [i, asset] of result.assets.entries()) {
+                      setUploadProgress(`${i + 1}/${result.assets.length}`);
                       const file = { uri: asset.uri, name: asset.name, type: asset.mimeType || 'image/jpeg' };
                       await reportAPI.uploadPhoto(id!, file as any, sectionKey, asset.name);
                     }
@@ -335,7 +339,7 @@ export default function EditReportScreen() {
                 } catch (e: any) {
                   showMsg('Erro ao selecionar arquivo: ' + (e.message || ''));
                 } finally {
-                  setUploading(null);
+                  setUploading(null); setUploadProgress('');
                 }
               },
             },
@@ -351,11 +355,12 @@ export default function EditReportScreen() {
     setUploading(currentUploadSection);
     try {
       for (let i = 0; i < files.length; i++) {
+        setUploadProgress(`${i + 1}/${files.length}`);
         await reportAPI.uploadPhoto(id!, files[i], currentUploadSection, files[i].name);
       }
       setPhotos(await reportAPI.getPhotos(id!));
     } catch (e: any) { showMsg('Erro ao enviar arquivo: ' + (e.message || '')); }
-    finally { setUploading(null); if (fileInputRef.current) fileInputRef.current.value = ''; }
+    finally { setUploading(null); setUploadProgress(''); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
   const handleDeletePhoto = async (photoId: string) => {
@@ -611,7 +616,7 @@ export default function EditReportScreen() {
           </View>
         )}
         <TouchableOpacity style={styles.uploadBtn} onPress={() => triggerFileUpload(sectionKey)} disabled={uploading === sectionKey}>
-          {uploading === sectionKey ? <ActivityIndicator size="small" color="#000000" /> : <><Ionicons name="cloud-upload-outline" size={18} color="#000000" /><Text style={styles.uploadBtnText}>Adicionar Foto</Text></>}
+          {uploading === sectionKey ? <><ActivityIndicator size="small" color="#000000" />{!!uploadProgress && <Text style={styles.uploadBtnText}>Enviando {uploadProgress}</Text>}</> : <><Ionicons name="cloud-upload-outline" size={18} color="#000000" /><Text style={styles.uploadBtnText}>Adicionar Foto</Text></>}
         </TouchableOpacity>
       </View>
     );

@@ -430,6 +430,7 @@ export const reportAPI = {
     formData.append('file', file, filename || 'photo.jpg');
     const response = await api.post(`/reports/${reportId}/upload-photo?section_key=${sectionKey}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // large phone photos on mobile data can take well over 15s
     });
     return response.data;
   },

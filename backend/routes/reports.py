@@ -708,15 +708,25 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         report_photos[sk].append(photo_doc)
 
     # Helper to load a photo from storage into a reportlab Image
-    def load_photo_image(storage_path, max_width, max_height):
+    def load_photo_image(storage_path, max_width, max_height, crop=False):
         try:
             data, ct = get_object(storage_path)
             img_buf = io.BytesIO(data)
             pil = PILImage.open(img_buf)
             if pil.mode != 'RGB':
                 pil = pil.convert('RGB')
-            # Resize large images to reduce PDF file size (max 1400px on longest side)
             w, h = pil.size
+            if crop:
+                # Center-crop to the box aspect ratio so every grid photo has the same size (no distortion)
+                target = max_width / max_height
+                if w / h > target:
+                    nw = int(h * target); left = (w - nw) // 2
+                    pil = pil.crop((left, 0, left + nw, h))
+                else:
+                    nh = int(w / target); top = (h - nh) // 2
+                    pil = pil.crop((0, top, w, top + nh))
+                w, h = pil.size
+            # Resize large images to reduce PDF file size
             max_px = 1100
             if max(w, h) > max_px:
                 scale = max_px / max(w, h)
@@ -727,7 +737,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             new_w = w * ratio
             new_h = h * ratio
             out = io.BytesIO()
-            pil.save(out, format='JPEG', quality=28)
+            pil.save(out, format='JPEG', quality=60, optimize=True)
             out.seek(0)
             return RLImage(out, width=new_w, height=new_h)
         except Exception as e:
@@ -1120,8 +1130,8 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     # Photo rendering helper: 2 per row, uniform size, aligned with content width
     photo_col_w = content_width / 2
-    photo_img_w = photo_col_w - 0.3*cm
     photo_img_h = 6*cm
+    photo_img_w = min(photo_col_w - 0.3*cm, photo_img_h * 4 / 3)  # 4:3 box; grid photos are center-cropped to it
     
     def _render_photos(section_key, elements_list, force_full_page=False, force_grid=False, header_elements=None):
         """Render photos for a section. header_elements: list of flowables to keep together with first photo row."""
@@ -1159,7 +1169,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 for j in range(2):
                     if i + j < len(sec_photos):
                         p = sec_photos[i + j]
-                        img = load_photo_image(p["storage_path"], photo_img_w, photo_img_h)
+                        img = load_photo_image(p["storage_path"], photo_img_w, photo_img_h, crop=True)
                         row_imgs.append(img if img else Paragraph("", body_style))
                         row_caps.append(Paragraph(p.get("caption", "") or p.get("original_filename", ""), caption_style))
                     else:

@@ -562,7 +562,16 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         report_title = "RELAT\u00d3RIO T\u00c9CNICO" if is_service else "RELAT\u00d3RIO DI\u00c1RIO"
     periodo_inicio = report.get("periodo_inicio", "")
     periodo_fim = report.get("periodo_fim", "")
-    periodo_str = f"{periodo_inicio} a {periodo_fim}" if periodo_inicio and periodo_fim else periodo_inicio or periodo_fim or ""
+    # Daily reports: period always spans the first to the last day described (4.1 ... 4.N)
+    if report.get("report_type") == "daily":
+        _dates = sorted([e.get("date", "") for e in report.get("daily_entries", []) if e.get("date")], key=parse_date_sortable)
+        if _dates:
+            periodo_inicio, periodo_fim = _dates[0], _dates[-1]
+    periodo_sep = {"en": "to", "es": "a"}.get(report_lang, "a")
+    if periodo_inicio and periodo_fim and periodo_inicio != periodo_fim:
+        periodo_str = f"{periodo_inicio} {periodo_sep} {periodo_fim}"
+    else:
+        periodo_str = periodo_inicio or periodo_fim or ""
     
     from datetime import datetime as dt
     current_date = dt.now().strftime("%d/%m/%Y")
@@ -1242,7 +1251,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         elements.append(Paragraph(f"<b>CLIENTE:</b> {report.get('client', '')}", aval_field_style))
         elements.append(Paragraph(f"<b>NAVIO/VESSEL:</b> {report.get('embarcacao', '') or report.get('location', '')}", aval_field_style))
         elements.append(Paragraph(f"<b>SERVIÇO / SERVICE:</b> {report.get('service', '')}", aval_field_style))
-        elements.append(Paragraph(f"<b>PERÍODO / PERIOD:</b> {periodo_inicio} a {periodo_fim}", aval_field_style))
+        elements.append(Paragraph(f"<b>PERÍODO / PERIOD:</b> {periodo_str}", aval_field_style))
         if oc_wo_val:
             elements.append(Paragraph(f"<b>OC/WO:</b> {oc_wo_val}", aval_field_style))
         elements.append(Spacer(1, 0.5*cm))

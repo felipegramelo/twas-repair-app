@@ -21,10 +21,12 @@ async def generate_text(system_message: str, user_text: str, session_id: str = "
                     await asyncio.sleep(15 * (attempt + 1))
                     continue
                 break
-        if resp.status_code != 200:
+        if resp.status_code == 200:
+            data = resp.json()
+            return "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
+        if not os.environ.get("EMERGENT_LLM_KEY", "").strip():
             raise RuntimeError(f"Gemini (chave própria) HTTP {resp.status_code}: {resp.text[:200]}")
-        data = resp.json()
-        return "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
+        # Gemini key invalid/expired: fall back to the Emergent key when available (preview/Emergent hosting)
 
     emergent_key = os.environ.get("EMERGENT_LLM_KEY", "").strip()
     if not emergent_key:

@@ -89,16 +89,17 @@ async def translate_report(doc_id: str, target_lang: str, lang_code: str, curren
 
     batch = _Batch(target_lang)
     translated_sections = []
+    # Keep the SAME keys/ids so photos (indexed by section_key / daily id) still match
     for section in report.get("sections", []):
-        new_section = {**section, "key": section.get("key", "") + f"_{lang_code}"}
+        new_section = {**section}
         batch.add(new_section, "content"); batch.add(new_section, "title")
         new_subsections = []
         for sub in section.get("subsections", []):
-            new_sub = {**sub, "key": sub.get("key", "") + f"_{lang_code}"}
+            new_sub = {**sub}
             batch.add(new_sub, "content"); batch.add(new_sub, "title")
             nested = []
             for nsub in sub.get("subsections", []):
-                new_nsub = {**nsub, "key": nsub.get("key", "") + f"_{lang_code}"}
+                new_nsub = {**nsub}
                 batch.add(new_nsub, "content"); batch.add(new_nsub, "title")
                 nested.append(new_nsub)
             new_sub["subsections"] = nested
@@ -108,29 +109,46 @@ async def translate_report(doc_id: str, target_lang: str, lang_code: str, curren
 
     translated_daily = []
     for entry in report.get("daily_entries", []):
-        new_entry = {**entry, "id": str(uuid.uuid4().hex[:8])}
+        new_entry = {**entry}
         batch.add(new_entry, "description")
         translated_daily.append(new_entry)
 
+    # Photos: copy to the new report with translated captions
+    photos = await db.report_photos.find({"report_id": doc_id, "is_deleted": False}).to_list(1000)
+    new_photos = []
+    for p in photos:
+        np_ = {k: v for k, v in p.items() if k != "_id"}
+        batch.add(np_, "caption")
+        new_photos.append(np_)
+
+    header = {"service": report.get("service", "")}
+    batch.add(header, "service")
+
     await batch.run()
 
-    copy_doc = {
-        "os_id": report.get("os_id", ""),
-        "os_number": report.get("os_number", ""),
-        "report_type": report.get("report_type", ""),
+    now = datetime.utcnow()
+    copy_doc = {k: v for k, v in report.items() if k != "_id"}
+    copy_doc.update({
         "supervisor_id": current_user["_id"],
         "supervisor_name": current_user.get("name", ""),
+        "service": header["service"],
         "sections": translated_sections,
         "daily_entries": translated_daily,
         "status": "draft",
         "shared_with": [],
         "translated_from": str(report["_id"]),
         "language": lang_code,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
-    }
+        "created_at": now,
+        "updated_at": now,
+    })
     result = await db.reports.insert_one(copy_doc)
-    return {"id": str(result.inserted_id), "message": f"Relatório traduzido para {target_lang} com sucesso!"}
+    new_id = str(result.inserted_id)
+    if new_photos:
+        for np_ in new_photos:
+            np_["report_id"] = new_id
+            np_["uploaded_at"] = now
+        await db.report_photos.insert_many(new_photos)
+    return {"id": new_id, "message": f"Relatório traduzido para {target_lang} com sucesso!"}
 
 
 async def translate_proposal(doc_id: str, target_lang: str, lang_code: str, current_user: dict):

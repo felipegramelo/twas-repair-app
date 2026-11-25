@@ -910,6 +910,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     # For daily reports: add daily entries as subsections of service_description in TOC
     daily_entries = report.get("daily_entries", [])
     is_daily = report.get("report_type") == "daily"
+    day_label = {"en": "DAY", "es": "DÍA"}.get(report_lang, "DIA")
     
     # Filter daily entries by day_ids if provided
     if is_daily and day_ids:
@@ -935,7 +936,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
         for idx, entry in enumerate(daily_entries):
             entry_num = f"{svc_num}.{idx + 1}"
             entry_date = entry.get("date", "")
-            toc_entries.append({"number": entry_num, "title": f"DIA {entry_date}", "level": 1, "key": f"daily_{entry.get('id','')}"})
+            toc_entries.append({"number": entry_num, "title": f"{day_label} {entry_date}", "level": 1, "key": f"daily_{entry.get('id','')}"})
     
     # Add AVALIAÇÃO DO CLIENTE as the last TOC entry (only for service reports)
     enabled_main_count = sum(1 for s in sections if s.get("enabled", True))
@@ -1221,7 +1222,7 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
             entry_id = entry.get("id", "")
             photo_key = f"daily_{entry_id}"
             
-            elements.append(Paragraph(f"{entry_num}. DIA {entry_date}", subsec_style))
+            elements.append(Paragraph(f"{entry_num}. {day_label} {entry_date}", subsec_style))
             if entry_desc:
                 elements.append(Paragraph(format_content(entry_desc), body_style))
             # Render photos for this daily entry
@@ -1336,8 +1337,11 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
                 for fmt in ["%Y-%m-%d", "%d/%m/%Y"]:
                     try:
                         d = dt_parse.strptime(periodo_fim, fmt)
-                        months_pt = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
-                        date_str = f"{d.day:02d} de {months_pt[d.month-1]} de {d.year}."
+                        months = {
+                            "en": ['January','February','March','April','May','June','July','August','September','October','November','December'],
+                            "es": ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'],
+                        }.get(report_lang, ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'])
+                        date_str = f"{months[d.month-1]} {d.day:02d}, {d.year}." if report_lang == "en" else f"{d.day:02d} de {months[d.month-1]} de {d.year}."
                         break
                     except ValueError:
                         continue
@@ -1449,10 +1453,11 @@ async def generate_report_pdf(report_id: str, request: Request, token: str = Que
     
     # Add page numbers to footer (right-aligned), skip cover page
     # Reference: x=507, y=772, sz=8, format "X de Y"
+    page_of_word = {"en": "of", "es": "de"}.get(report_lang, "de")
     for i in range(1, total):
         page = pdf_doc[i]
         page_num = i  # Cover not counted
-        text = f"{page_num} de {total_numbered}"
+        text = f"{page_num} {page_of_word} {total_numbered}"
         page.insert_text(
             fitz.Point(507, 772),
             text,

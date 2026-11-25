@@ -17,19 +17,19 @@ email, password = os.environ["RAILWAY_ADMIN_EMAIL"], os.environ["RAILWAY_ADMIN_P
 
 
 async def main():
-    r = requests.post(f"{BASE}/api/auth/login", json={"email": email, "password": password}, timeout=30)
+    r = requests.post(f"{BASE}/api/auth/login", json={"email": email, "password": password}, timeout=90)
     r.raise_for_status()
     tok = r.json().get("access_token") or r.json().get("token")
     H = {"Authorization": f"Bearer {tok}"}
 
-    reports = requests.get(f"{BASE}/api/reports", headers=H, timeout=60).json()["reports"]
+    reports = requests.get(f"{BASE}/api/reports", headers=H, timeout=120).json()["reports"]
     match = [x for x in reports if x["os_number"] == os_number and service_part in x["service"].upper()]
     print(f"encontrados: {[(m['id'], m['service'][:50], m['periodo_inicio']) for m in match]}")
     if not match:
         return
     rep = match[0]
     rid = rep["id"]
-    photos = requests.get(f"{BASE}/api/reports/{rid}/photos", headers=H, timeout=60).json()["photos"]
+    photos = requests.get(f"{BASE}/api/reports/{rid}/photos", headers=H, timeout=120).json()["photos"]
     print(f"fotos: {len(photos)}")
 
     db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
